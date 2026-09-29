@@ -39,6 +39,25 @@ Calc.formatCurrency = function(amount, currency) {
   return symbol + rounded.toLocaleString('en-IN');
 };
 
+Calc.buildAmortizationSchedule = function({ principal, annualRatePct, emi, tenureMonths, extras = {} }) {
+  const monthlyRate = annualRatePct / 100 / 12;
+  const rows = [];
+  let opening = principal;
+  for (let m = 1; m <= tenureMonths && opening > 0; m++) {
+    const interest = opening * monthlyRate;
+    const extra = extras[m] || 0;
+    const closing = Math.max(0, opening + interest - emi - extra);
+    rows.push({ month: m, opening, interest, emi, extra, closing });
+    opening = closing;
+  }
+  return rows;
+};
+
+Calc.getPayoffMonth = function(schedule) {
+  const row = schedule.find(r => r.closing === 0);
+  return row ? row.month : null;
+};
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = Calc;
 }

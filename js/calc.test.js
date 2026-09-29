@@ -22,4 +22,23 @@ assert.strictEqual(Calc.inrToJpy(10000, 2.15), 21500);
 assert.strictEqual(Calc.formatCurrency(10000, 'INR'), '₹10,000');
 assert.strictEqual(Calc.formatCurrency(21500, 'JPY'), '¥21,500');
 
-console.log('calc.test.js: cycles & currency — ALL PASS');
+// Amortization tests
+const schedule = Calc.buildAmortizationSchedule({
+  principal: 100000, annualRatePct: 12, emi: 10000, tenureMonths: 12, extras: {}
+});
+assert.strictEqual(schedule[0].opening, 100000);
+assert.strictEqual(schedule[0].interest, 1000); // 100000 * (12/100/12)
+assert.strictEqual(schedule[0].closing, 91000); // 100000 + 1000 - 10000
+
+// Overpay clamp: huge extra prepayment must not go negative
+const clampSchedule = Calc.buildAmortizationSchedule({
+  principal: 5000, annualRatePct: 12, emi: 1000, tenureMonths: 12,
+  extras: { 1: 999999 }
+});
+assert.strictEqual(clampSchedule[0].closing, 0, 'closing balance clamps at 0, never negative');
+assert.strictEqual(clampSchedule.length, 1, 'schedule stops once principal hits 0');
+
+assert.strictEqual(Calc.getPayoffMonth(clampSchedule), 1);
+assert.strictEqual(Calc.getPayoffMonth([{month: 1, closing: 500}]), null);
+
+console.log('calc.test.js: cycles, currency & amortization — ALL PASS');
