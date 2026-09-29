@@ -80,6 +80,57 @@ Calc.buildSipProjection = function({
   return rows;
 };
 
+Calc.CATEGORY_NORMALIZATION_MAP = {
+  'Wants (Massage, shopping, hobbies, gifts, etc.)': 'Wants',
+  'Fixed obligations (Home loan, rent, utilities, insurance, etc.)': 'Fixed Obligations',
+  'Family / India (Transfers to India, parents, wife, etc.)': 'Family/India',
+  'Eating out': 'Eating Out',
+  'Groceries (Costco, Hanamasa, Welcia, etc.)': 'Groceries',
+  'Groceries (Costco)': 'Groceries'
+};
+
+Calc.normalizeCategory = function(rawCategory) {
+  return Calc.CATEGORY_NORMALIZATION_MAP[rawCategory] || 'Other';
+};
+
+Calc.filterTransactions = function(transactions, filters = {}) {
+  const { cycle, categoryId, paymentMethod, needWant, search } = filters;
+  return transactions.filter(t => {
+    if (cycle && Calc.getCycleForDate(t.date) !== cycle) return false;
+    if (categoryId && t.categoryId !== categoryId) return false;
+    if (paymentMethod && t.paymentMethod !== paymentMethod) return false;
+    if (needWant && t.needWant !== needWant) return false;
+    if (search) {
+      const hay = `${t.description} ${t.notes}`.toLowerCase();
+      if (!hay.includes(search.toLowerCase())) return false;
+    }
+    return true;
+  });
+};
+
+Calc.sortTransactions = function(transactions, sortBy, direction = 'asc') {
+  const sorted = [...transactions].sort((a, b) => {
+    let av = a[sortBy], bv = b[sortBy];
+    if (typeof av === 'string') av = av.toLowerCase();
+    if (typeof bv === 'string') bv = bv.toLowerCase();
+    if (av < bv) return -1;
+    if (av > bv) return 1;
+    return 0;
+  });
+  return direction === 'desc' ? sorted.reverse() : sorted;
+};
+
+Calc.aggregateByCycle = function(transactions) {
+  const map = {};
+  for (const t of transactions) {
+    const cycle = Calc.getCycleForDate(t.date);
+    if (!map[cycle]) map[cycle] = { totalINR: 0, byCategory: {} };
+    map[cycle].totalINR += t.amountINR;
+    map[cycle].byCategory[t.categoryId] = (map[cycle].byCategory[t.categoryId] || 0) + t.amountINR;
+  }
+  return map;
+};
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = Calc;
 }

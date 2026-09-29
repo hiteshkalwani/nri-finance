@@ -54,4 +54,32 @@ assert.strictEqual(sip[1].postLoanRedirect, 78500); // month 15 falls in year of
 assert.strictEqual(sip[0].opening, 0);
 assert.ok(sip[1].opening > 0, 'opening balance carries forward from prior year closing');
 
-console.log('calc.test.js: cycles, currency, amortization & SIP projection — ALL PASS');
+// Category normalization
+assert.strictEqual(Calc.normalizeCategory('Eating out'), 'Eating Out');
+assert.strictEqual(Calc.normalizeCategory('Groceries (Costco)'), 'Groceries');
+assert.strictEqual(Calc.normalizeCategory('some unknown label'), 'Other');
+
+// Filter/sort
+const txns = [
+  { id: 'a', date: '2026-08-26', categoryId: 'groceries', amountINR: 500, description: 'Milk', paymentMethod: 'Cash', needWant: 'Need', notes: '' },
+  { id: 'b', date: '2026-09-01', categoryId: 'wants', amountINR: 2000, description: 'Massage', paymentMethod: 'Credit Card', needWant: 'Want', notes: '' },
+  { id: 'c', date: '2026-09-20', categoryId: 'groceries', amountINR: 300, description: 'Veg', paymentMethod: 'Cash', needWant: 'Need', notes: '' }
+];
+const filtered = Calc.filterTransactions(txns, { categoryId: 'groceries' });
+assert.strictEqual(filtered.length, 2);
+
+const searched = Calc.filterTransactions(txns, { search: 'massage' });
+assert.strictEqual(searched.length, 1);
+assert.strictEqual(searched[0].id, 'b');
+
+const sortedAsc = Calc.sortTransactions(txns, 'amountINR', 'asc');
+assert.deepStrictEqual(sortedAsc.map(t => t.id), ['c', 'a', 'b']);
+const sortedDesc = Calc.sortTransactions(txns, 'amountINR', 'desc');
+assert.deepStrictEqual(sortedDesc.map(t => t.id), ['b', 'a', 'c']);
+
+// Aggregate
+const agg = Calc.aggregateByCycle(txns);
+assert.strictEqual(agg['2026-09'].totalINR, 2800); // Aug26->cycle 2026-09, Sep1&Sep20 same cycle: 500+2000+300
+assert.strictEqual(agg['2026-09'].byCategory['groceries'], 800);
+
+console.log('calc.test.js: cycles, currency, amortization, SIP projection & transaction helpers — ALL PASS');
