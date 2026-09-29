@@ -50,6 +50,10 @@
   <section id="tab-transactions" class="tab-pane d-none">
     <div class="d-flex flex-wrap gap-2 mb-3 align-items-end">
       <div>
+        <label class="form-label small mb-0">Cycle</label>
+        <select id="txn-filter-cycle" class="form-select form-select-sm"><option value="">All</option></select>
+      </div>
+      <div>
         <label class="form-label small mb-0">Category</label>
         <select id="txn-filter-category" class="form-select form-select-sm"><option value="">All</option></select>
       </div>
@@ -80,6 +84,7 @@
   </section>
   <section id="tab-emergency-fund" class="tab-pane d-none">
     <button id="btn-set-ef-target" class="btn btn-primary btn-sm mb-3">Set Target for Current Cycle</button>
+    <div id="ef-running-summary" class="mb-3 fw-bold"></div>
     <div class="card p-3 mb-3"><canvas id="chart-ef-progress"></canvas></div>
     <div id="ef-table-container"></div>
   </section>
@@ -123,6 +128,7 @@
       <div class="col-md-4"><label class="form-label small">Home Loan Annual Rate (%)</label><input type="number" id="s-hl-rate" class="form-control" step="0.01"></div>
       <div class="col-md-4"><label class="form-label small">Home Loan EMI (INR)</label><input type="number" id="s-hl-emi" class="form-control"></div>
       <div class="col-md-4"><label class="form-label small">Loan Tenure (months)</label><input type="number" id="s-hl-tenure" class="form-control"></div>
+      <div class="col-md-4"><label class="form-label small">Loan Start Cycle (YYYY-MM)</label><input type="text" id="s-hl-start-cycle" class="form-control" placeholder="2026-09"></div>
       <div class="col-md-4"><label class="form-label small">Starting SIP (INR/month)</label><input type="number" id="s-sip-start" class="form-control"></div>
       <div class="col-md-4"><label class="form-label small">SIP Annual Step-up (%)</label><input type="number" id="s-sip-stepup" class="form-control" step="0.1"></div>
       <div class="col-md-4"><label class="form-label small">SIP Estimated Return (%)</label><input type="number" id="s-sip-return" class="form-control" step="0.1"></div>
@@ -201,15 +207,14 @@ Calc.getPayoffMonth = function(schedule) {
 
 Calc.buildSipProjection = function({
   startingMonthlyINR, annualStepUpPct, estimatedReturnPct,
-  startYear, endYear, payoffMonth, postLoanMonthlyRedirectINR
+  startYear, endYear, payoffYear, postLoanMonthlyRedirectINR
 }) {
   const rows = [];
   let opening = 0;
-  const payoffYearOffset = payoffMonth != null ? Math.floor((payoffMonth - 1) / 12) : null;
   for (let year = startYear; year <= endYear; year++) {
     const yearsElapsed = year - startYear;
     const monthlySip = startingMonthlyINR * Math.pow(1 + annualStepUpPct / 100, yearsElapsed);
-    const postLoanRedirect = (payoffYearOffset !== null && yearsElapsed >= payoffYearOffset)
+    const postLoanRedirect = (payoffYear != null && year >= payoffYear)
       ? postLoanMonthlyRedirectINR : 0;
     const annualBase = monthlySip * 12;
     const totalAnnual = annualBase + postLoanRedirect * 12;
@@ -235,9 +240,9 @@ Calc.normalizeCategory = function(rawCategory) {
 };
 
 Calc.filterTransactions = function(transactions, filters = {}) {
-  const { cycle, categoryId, paymentMethod, needWant, search } = filters;
+  const { cycle, categoryId, paymentMethod, needWant, search, cycleStartDay = 25 } = filters;
   return transactions.filter(t => {
-    if (cycle && Calc.getCycleForDate(t.date) !== cycle) return false;
+    if (cycle && Calc.getCycleForDate(t.date, cycleStartDay) !== cycle) return false;
     if (categoryId && t.categoryId !== categoryId) return false;
     if (paymentMethod && t.paymentMethod !== paymentMethod) return false;
     if (needWant && t.needWant !== needWant) return false;
@@ -261,10 +266,10 @@ Calc.sortTransactions = function(transactions, sortBy, direction = 'asc') {
   return direction === 'desc' ? sorted.reverse() : sorted;
 };
 
-Calc.aggregateByCycle = function(transactions) {
+Calc.aggregateByCycle = function(transactions, cycleStartDay = 25) {
   const map = {};
   for (const t of transactions) {
-    const cycle = Calc.getCycleForDate(t.date);
+    const cycle = Calc.getCycleForDate(t.date, cycleStartDay);
     if (!map[cycle]) map[cycle] = { totalINR: 0, byCategory: {} };
     map[cycle].totalINR += t.amountINR;
     map[cycle].byCategory[t.categoryId] = (map[cycle].byCategory[t.categoryId] || 0) + t.amountINR;
@@ -278,6 +283,16 @@ Calc.cycleToLoanMonth = function(cycle, startCycle) {
   return (cy - sy) * 12 + (cm - sm) + 1;
 };
 
+Calc.loanMonthToYear = function(loanMonth, startCycle) {
+  const [sy, sm] = startCycle.split('-').map(Number);
+  const totalMonthIndex = (sm - 1) + (loanMonth - 1);
+  return sy + Math.floor(totalMonthIndex / 12);
+};
+
+Calc.todayLocal = function(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = Calc;
 }
@@ -285,14 +300,754 @@ if (typeof window !== 'undefined') {
   window.Calc = Calc;
 }
 </script>
+<script type="application/json" id="seed-data">
+{
+  "settings": {
+    "salaryJPY": 670000,
+    "jpyPerInr": 1.694915254237288,
+    "cycleStartDay": 25,
+    "emergencyFundTargetJPY": 1500000,
+    "homeLoan": {
+      "principalINR": 2050572,
+      "annualRatePct": 7.35,
+      "emiINR": 36557,
+      "tenureMonths": 69,
+      "startCycle": "2026-09"
+    },
+    "sip": {
+      "startingMonthlyINR": 100000,
+      "annualStepUpPct": 10,
+      "estimatedReturnPct": 11,
+      "allocation": {
+        "Nifty50": 40,
+        "FlexiCap": 20,
+        "MidCap": 15,
+        "SmallCap": 10,
+        "GlobalEquity": 10,
+        "Gold": 5
+      }
+    }
+  },
+  "categories": [
+    {
+      "id": "groceries",
+      "name": "Groceries",
+      "color": "#4caf50"
+    },
+    {
+      "id": "eating-out",
+      "name": "Eating Out",
+      "color": "#ff9800"
+    },
+    {
+      "id": "fixed-obligations",
+      "name": "Fixed Obligations",
+      "color": "#3f51b5"
+    },
+    {
+      "id": "family-india",
+      "name": "Family/India",
+      "color": "#9c27b0"
+    },
+    {
+      "id": "wants",
+      "name": "Wants",
+      "color": "#e91e63"
+    },
+    {
+      "id": "transport",
+      "name": "Transport",
+      "color": "#00bcd4"
+    },
+    {
+      "id": "utilities",
+      "name": "Utilities",
+      "color": "#607d8b"
+    },
+    {
+      "id": "rent",
+      "name": "Rent",
+      "color": "#795548"
+    },
+    {
+      "id": "emergency-fund",
+      "name": "Emergency Fund",
+      "color": "#009688"
+    },
+    {
+      "id": "other",
+      "name": "Other",
+      "color": "#9e9e9e"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "migrated-1",
+      "date": "2026-08-26",
+      "categoryId": "wants",
+      "description": "DonQ bill",
+      "amountJPY": 941,
+      "amountINR": 555.19,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-2",
+      "date": "2026-08-27",
+      "categoryId": "family-india",
+      "description": "Transfer to Papa",
+      "amountJPY": 0,
+      "amountINR": 8006,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": "Indian bank account existing amount transfer"
+    },
+    {
+      "id": "migrated-3",
+      "date": "2026-08-28",
+      "categoryId": "wants",
+      "description": "Pasmo Recharge",
+      "amountJPY": 10000,
+      "amountINR": 5900,
+      "paymentMethod": "Credit Card",
+      "needWant": "Need",
+      "notes": "- 660 yen - Parking\n- 190 yen - cookie \n- 260 yen - Sandwich\n- 1410 yen - Ramen\n- 753 yen - 7/11 \n- 533 yen - 7/11 "
+    },
+    {
+      "id": "migrated-4",
+      "date": "2026-08-28",
+      "categoryId": "wants",
+      "description": "Magnet",
+      "amountJPY": 170,
+      "amountINR": 100.3,
+      "paymentMethod": "Cash",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-5",
+      "date": "2026-08-28",
+      "categoryId": "eating-out",
+      "description": "Lunch ",
+      "amountJPY": 5530,
+      "amountINR": 3262.7,
+      "paymentMethod": "Bank",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-6",
+      "date": "2026-08-29",
+      "categoryId": "wants",
+      "description": "Massage",
+      "amountJPY": 12000,
+      "amountINR": 7080,
+      "paymentMethod": "Cash",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-7",
+      "date": "2026-08-29",
+      "categoryId": "wants",
+      "description": "Rakhi Celebration",
+      "amountJPY": 1443,
+      "amountINR": 851.37,
+      "paymentMethod": "Cash",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-8",
+      "date": "2026-08-27",
+      "categoryId": "fixed-obligations",
+      "description": "Credit Card Bill",
+      "amountJPY": 225662,
+      "amountINR": 133140.58,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-9",
+      "date": "2026-08-29",
+      "categoryId": "wants",
+      "description": "Amazon Mahendi purchase",
+      "amountJPY": 1111,
+      "amountINR": 655.49,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-10",
+      "date": "2026-08-29",
+      "categoryId": "family-india",
+      "description": "Bank transfer to India",
+      "amountJPY": 250000,
+      "amountINR": 147500,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": "Bank transfer to indian bank account\n- 40,000 Rs. Health insurance 5/6 & 6/6\n- 2739 Rs. Electricity Bill\n- 300 Rs. Donation to Cancer Patient\n- 23000 Rs. Home loan insurance closure amount\n- 21000 Rs. Papa bank transfer\n- 1788 Rs. Blinkit groceries\n- 10000 Rs. Shruti Extra Money\n- 672 Rs. Bookmyshow movie\n- 9448 Rs Ring & Rudraksh 3/3 EMI\n- 36557 Rs Home Loan EMI\n- 4900 Rs Jhoomer\n- 2476.82 Hostinger hosting"
+    },
+    {
+      "id": "migrated-11",
+      "date": "2026-08-30",
+      "categoryId": "wants",
+      "description": "Choco lava & chicken - Dominoz",
+      "amountJPY": 1010,
+      "amountINR": 595.9,
+      "paymentMethod": "Bank",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-12",
+      "date": "2026-08-30",
+      "categoryId": "wants",
+      "description": "gift for Nirav Family",
+      "amountJPY": 882,
+      "amountINR": 520.38,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-13",
+      "date": "2026-08-30",
+      "categoryId": "fixed-obligations",
+      "description": "Bank transfer charge",
+      "amountJPY": 165,
+      "amountINR": 97.35,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-14",
+      "date": "2026-08-31",
+      "categoryId": "eating-out",
+      "description": "Sushi dinner",
+      "amountJPY": 3432,
+      "amountINR": 2024.88,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-15",
+      "date": "2026-09-01",
+      "categoryId": "eating-out",
+      "description": "food at subway",
+      "amountJPY": 1165,
+      "amountINR": 687.35,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-16",
+      "date": "2026-09-01",
+      "categoryId": "eating-out",
+      "description": "Ramen",
+      "amountJPY": 1030,
+      "amountINR": 607.7,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-17",
+      "date": "2026-09-01",
+      "categoryId": "wants",
+      "description": "daiso",
+      "amountJPY": 550,
+      "amountINR": 324.5,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-18",
+      "date": "2026-09-01",
+      "categoryId": "wants",
+      "description": "cake",
+      "amountJPY": 425,
+      "amountINR": 250.75,
+      "paymentMethod": "Cash",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-19",
+      "date": "2026-09-01",
+      "categoryId": "wants",
+      "description": "costco pizza slice",
+      "amountJPY": 350,
+      "amountINR": 206.5,
+      "paymentMethod": "Cash",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-20",
+      "date": "2026-09-01",
+      "categoryId": "groceries",
+      "description": "costco groceries",
+      "amountJPY": 8430,
+      "amountINR": 4973.7,
+      "paymentMethod": "Cash",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-21",
+      "date": "2026-09-05",
+      "categoryId": "fixed-obligations",
+      "description": "Costco petrol",
+      "amountJPY": 4386,
+      "amountINR": 2587.74,
+      "paymentMethod": "Credit Card",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-22",
+      "date": "2026-09-05",
+      "categoryId": "eating-out",
+      "description": "Belc Dinner",
+      "amountJPY": 1364,
+      "amountINR": 804.76,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-23",
+      "date": "2026-09-03",
+      "categoryId": "groceries",
+      "description": "Hanamasa ",
+      "amountJPY": 2286,
+      "amountINR": 1348.74,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-24",
+      "date": "2026-09-04",
+      "categoryId": "eating-out",
+      "description": "Mos burger lunch",
+      "amountJPY": 2170,
+      "amountINR": 1280.3,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-25",
+      "date": "2026-09-05",
+      "categoryId": "wants",
+      "description": "Hardoff - Cars for Atharv",
+      "amountJPY": 550,
+      "amountINR": 324.5,
+      "paymentMethod": "Cash",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-26",
+      "date": "2026-09-05",
+      "categoryId": "eating-out",
+      "description": "Ramen - Dinner",
+      "amountJPY": 2640,
+      "amountINR": 1557.6,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-27",
+      "date": "2026-09-04",
+      "categoryId": "fixed-obligations",
+      "description": "Gas Bill",
+      "amountJPY": 7363,
+      "amountINR": 4344.17,
+      "paymentMethod": "Cash",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-28",
+      "date": "2026-09-06",
+      "categoryId": "eating-out",
+      "description": "Hanamasa Chelsea party",
+      "amountJPY": 1319,
+      "amountINR": 778.21,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-29",
+      "date": "2026-09-08",
+      "categoryId": "groceries",
+      "description": "Welcia - Paper & cheese",
+      "amountJPY": 1220,
+      "amountINR": 719.8,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-30",
+      "date": "2026-09-08",
+      "categoryId": "fixed-obligations",
+      "description": "House Rent",
+      "amountJPY": 62420,
+      "amountINR": 36827.8,
+      "paymentMethod": "Cash",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-31",
+      "date": "2026-09-03",
+      "categoryId": "wants",
+      "description": "Temu Shopping - Car Accessories",
+      "amountJPY": 1096,
+      "amountINR": 646.64,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-32",
+      "date": "2026-09-05",
+      "categoryId": "wants",
+      "description": "Temu Shopping - Ganpati Items",
+      "amountJPY": 4880,
+      "amountINR": 2879.2,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-33",
+      "date": "2026-09-04",
+      "categoryId": "wants",
+      "description": "Apple Bill",
+      "amountJPY": 290,
+      "amountINR": 171.1,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-34",
+      "date": "2026-09-08",
+      "categoryId": "eating-out",
+      "description": "Ramen - Dinner",
+      "amountJPY": 1740,
+      "amountINR": 1026.6,
+      "paymentMethod": "Credit Card",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-35",
+      "date": "2026-09-08",
+      "categoryId": "wants",
+      "description": "Belc + Cainz Shopping",
+      "amountJPY": 560,
+      "amountINR": 330.4,
+      "paymentMethod": "Cash",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-36",
+      "date": "2026-09-10",
+      "categoryId": "groceries",
+      "description": "Milk - Shivani house",
+      "amountJPY": 278,
+      "amountINR": 164.02,
+      "paymentMethod": "IC Card",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-37",
+      "date": "2026-09-11",
+      "categoryId": "groceries",
+      "description": "costco",
+      "amountJPY": 7090,
+      "amountINR": 4183.1,
+      "paymentMethod": "Cash",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-38",
+      "date": "2026-09-18",
+      "categoryId": "eating-out",
+      "description": "7-Eleven ",
+      "amountJPY": 1854,
+      "amountINR": 1093.86,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-39",
+      "date": "2026-09-25",
+      "categoryId": "eating-out",
+      "description": "Aleez Dinner",
+      "amountJPY": 4191,
+      "amountINR": 2472.69,
+      "paymentMethod": "Credit Card",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-40",
+      "date": "2026-09-25",
+      "categoryId": "groceries",
+      "description": "costco groceries",
+      "amountJPY": 6871,
+      "amountINR": 4053.89,
+      "paymentMethod": "Credit Card",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-41",
+      "date": "2026-09-24",
+      "categoryId": "other",
+      "description": "dinner",
+      "amountJPY": 1382,
+      "amountINR": 815.38,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-42",
+      "date": "2026-09-13",
+      "categoryId": "other",
+      "description": "Clothes dry",
+      "amountJPY": 500,
+      "amountINR": 295,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-43",
+      "date": "2026-09-24",
+      "categoryId": "eating-out",
+      "description": "hama sushi",
+      "amountJPY": 4257,
+      "amountINR": 2511.63,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-44",
+      "date": "2026-09-11",
+      "categoryId": "eating-out",
+      "description": "hama sushi",
+      "amountJPY": 3168,
+      "amountINR": 1869.12,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-45",
+      "date": "2026-09-14",
+      "categoryId": "eating-out",
+      "description": "food",
+      "amountJPY": 1032,
+      "amountINR": 608.88,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-46",
+      "date": "2026-09-11",
+      "categoryId": "wants",
+      "description": "random items ",
+      "amountJPY": 603,
+      "amountINR": 355.77,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-47",
+      "date": "2026-09-13",
+      "categoryId": "other",
+      "description": "blanket/matt  wash and dry",
+      "amountJPY": 1600,
+      "amountINR": 944,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-48",
+      "date": "2026-09-13",
+      "categoryId": "other",
+      "description": "Groceries ",
+      "amountJPY": 2949,
+      "amountINR": 1739.91,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-49",
+      "date": "2026-09-11",
+      "categoryId": "groceries",
+      "description": "gyomu",
+      "amountJPY": 1095,
+      "amountINR": 646.05,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-50",
+      "date": "2026-09-20",
+      "categoryId": "wants",
+      "description": "wonderGoo",
+      "amountJPY": 1880,
+      "amountINR": 1109.2,
+      "paymentMethod": "Bank",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-51",
+      "date": "2026-09-16",
+      "categoryId": "other",
+      "description": "whole trip Expen",
+      "amountJPY": 86000,
+      "amountINR": 50740,
+      "paymentMethod": "Bank",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-52",
+      "date": "2026-09-18",
+      "categoryId": "groceries",
+      "description": "groceries ",
+      "amountJPY": 4000,
+      "amountINR": 2360,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-53",
+      "date": "2026-09-16",
+      "categoryId": "groceries",
+      "description": "palates for ganpati",
+      "amountJPY": 1523,
+      "amountINR": 898.57,
+      "paymentMethod": "Bank",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-54",
+      "date": "2026-09-27",
+      "categoryId": "wants",
+      "description": "Movie-Avengers",
+      "amountJPY": 4200,
+      "amountINR": 2478,
+      "paymentMethod": "Bank",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-55",
+      "date": "2026-09-26",
+      "categoryId": "other",
+      "description": "gift for snehal Family",
+      "amountJPY": 1123,
+      "amountINR": 662.57,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-56",
+      "date": "2026-09-28",
+      "categoryId": "wants",
+      "description": "shruti-hair removal machine",
+      "amountJPY": 1999,
+      "amountINR": 1179.41,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-57",
+      "date": "2026-09-29",
+      "categoryId": "groceries",
+      "description": "welcia",
+      "amountJPY": 492,
+      "amountINR": 290.28,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    }
+  ],
+  "cycleTargets": [],
+  "homeLoanExtras": []
+}
+</script>
 <script>
+  // Reads the migrated dataset from the inline #seed-data script tag (see index.html's
+  // <head>/top) rather than fetch('./seed-data.json') — that fetch is blocked by Chrome's
+  // CORS policy for file:// pages, which broke first-run entirely for anyone who just
+  // double-clicks this file instead of running a local server (Review Finding C2).
+  function getSeedData() {
+    try {
+      return JSON.parse(document.getElementById('seed-data').textContent);
+    } catch (e) {
+      return {
+        settings: { salaryJPY: 0, jpyPerInr: 1, cycleStartDay: 25, emergencyFundTargetJPY: 0,
+          homeLoan: { principalINR: 0, annualRatePct: 0, emiINR: 0, tenureMonths: 0, startCycle: Calc.getCycleForDate(Calc.todayLocal()) },
+          sip: { startingMonthlyINR: 0, annualStepUpPct: 0, estimatedReturnPct: 11, allocation: {} } },
+        categories: [{ id: 'other', name: 'Other', color: '#9e9e9e' }],
+        transactions: [], cycleTargets: [], homeLoanExtras: []
+      };
+    }
+  }
+
   const LocalMirror = {
     KEY: 'finance-app-data-v1',
+    DIRTY_KEY: 'finance-app-data-dirty',
     save(data) { localStorage.setItem(this.KEY, JSON.stringify(data)); },
     load() {
       const raw = localStorage.getItem(this.KEY);
       return raw ? JSON.parse(raw) : null;
-    }
+    },
+    // "Dirty" means this in-memory/localStorage copy holds edits that have NOT been
+    // confirmed written to the connected file — set whenever a file write fails or there is
+    // no connected file at all, cleared only after a successful file write. This is what lets
+    // a later reconnect know whether it's safe to load the file's contents, or whether doing
+    // so would silently discard newer unsynced edits (the C1 finding from the final review).
+    markDirty() { localStorage.setItem(this.DIRTY_KEY, '1'); },
+    clearDirty() { localStorage.removeItem(this.DIRTY_KEY); },
+    isDirty() { return localStorage.getItem(this.DIRTY_KEY) === '1'; }
   };
 
   const FileStorage = {
@@ -343,26 +1098,32 @@ if (typeof window !== 'undefined') {
     },
 
     async connectOrCreate() {
-      let handle;
+      let handle = null;
       try {
         [handle] = await window.showOpenFilePicker({
           types: [{ description: 'Finance data', accept: { 'application/json': ['.json'] } }]
         });
       } catch (e) {
-        handle = await window.showSaveFilePicker({
-          suggestedName: 'finance-data.json',
-          types: [{ description: 'Finance data', accept: { 'application/json': ['.json'] } }]
-        });
+        // Cancelling the Open dialog (AbortError) or any other failure both fall through to
+        // offering Save (create new); if the user cancels THAT too, return null instead of
+        // letting the rejection go unhandled (previously an uncaught AbortError here).
+        try {
+          handle = await window.showSaveFilePicker({
+            suggestedName: 'finance-data.json',
+            types: [{ description: 'Finance data', accept: { 'application/json': ['.json'] } }]
+          });
+        } catch (e2) {
+          return null;
+        }
       }
       this.handle = handle;
       await this._persistHandle(handle);
       return handle;
     },
 
-    async readData() {
+    async readRawText() {
       const file = await this.handle.getFile();
-      const text = await file.text();
-      return text ? JSON.parse(text) : null;
+      return await file.text();
     },
 
     async writeData(data) {
@@ -385,12 +1146,18 @@ if (typeof window !== 'undefined') {
       if (FileStorage.isConnected()) {
         try {
           await FileStorage.writeData(this.data);
+          LocalMirror.clearDirty();
           document.getElementById('connect-banner').classList.add('d-none');
         } catch (e) {
+          LocalMirror.markDirty();
           document.getElementById('connect-banner').textContent =
             'Could not save to the data file — reconnect from Settings. Your edits are safe in this browser for now.';
           document.getElementById('connect-banner').classList.remove('d-none');
         }
+      } else {
+        // No file connected at all — this edit only exists in the localStorage mirror, so
+        // treat it as unsynced too (covers the "loaded from local mirror" fallback path).
+        LocalMirror.markDirty();
       }
     },
 
@@ -402,20 +1169,66 @@ if (typeof window !== 'undefined') {
 
     async initFromFile() {
       let fileData = null;
-      try { fileData = await FileStorage.readData(); } catch (e) { /* fall through */ }
-      if (!fileData) {
-        const seedResp = await fetch('./seed-data.json').catch(() => null);
-        fileData = seedResp && seedResp.ok ? await seedResp.json() : {
-          settings: { salaryJPY: 0, jpyPerInr: 1, cycleStartDay: 25, emergencyFundTargetJPY: 0,
-            homeLoan: { principalINR: 0, annualRatePct: 0, emiINR: 0, tenureMonths: 0 },
-            sip: { startingMonthlyINR: 0, annualStepUpPct: 0, estimatedReturnPct: 11, allocation: {} } },
-          categories: [], transactions: [], cycleTargets: [], homeLoanExtras: []
-        };
+      let readFailed = false;
+      let rawText = '';
+      try {
+        rawText = await FileStorage.readRawText();
+      } catch (e) {
+        readFailed = true;
+      }
+      if (!readFailed && rawText.trim() !== '') {
+        try {
+          fileData = JSON.parse(rawText);
+          if (!fileData || typeof fileData !== 'object' || !Array.isArray(fileData.transactions)) {
+            // Valid JSON, but not a document this app recognizes (e.g. an unrelated .json
+            // file) — do NOT treat this as "empty" and overwrite it (the Important #1
+            // finding: a wrong or corrupt file used to be silently replaced with the seed).
+            document.getElementById('connect-banner').textContent =
+              'This file does not look like a finance data file — connect a different one from Settings, or create a new one.';
+            document.getElementById('connect-banner').classList.remove('d-none');
+            this.ready = false;
+            return;
+          }
+        } catch (e) {
+          document.getElementById('connect-banner').textContent =
+            'Could not read this data file (it may be corrupted) — nothing was overwritten. Connect a different file from Settings.';
+          document.getElementById('connect-banner').classList.remove('d-none');
+          this.ready = false;
+          return;
+        }
+      }
+      if (readFailed) {
+        // The file handle itself couldn't be read (permission or I/O error) — fall back to
+        // whatever the localStorage mirror already has rather than guessing it's empty.
+        this.initFromLocalMirror();
+        return;
+      }
+      if (fileData === null) {
+        // Genuinely empty file (brand new, just created) — this is the ONLY case that seeds.
+        // Prefer any data already sitting in the localStorage mirror (e.g. the user worked
+        // for a while before ever connecting a file) over the bundled seed, so a fresh
+        // connect never discards real unsynced work either.
+        fileData = LocalMirror.load() || getSeedData();
         await FileStorage.writeData(fileData);
       }
       this.data = fileData;
       this.ready = true;
+      LocalMirror.clearDirty();
       this._notify();
+    },
+
+    // After a successful connect/reconnect: if there are unsynced edits (LocalMirror.isDirty()),
+    // push them into the file instead of pulling the file's (older) contents over them — the
+    // fix for the C1 finding, where reconnecting silently discarded newer local edits.
+    async syncAfterConnect() {
+      if (this.ready && LocalMirror.isDirty()) {
+        await FileStorage.writeData(this.data);
+        LocalMirror.clearDirty();
+        document.getElementById('connect-banner').classList.add('d-none');
+        this._notify();
+      } else {
+        await this.initFromFile();
+      }
     },
 
     initFromLocalMirror() {
@@ -448,15 +1261,16 @@ if (typeof window !== 'undefined') {
     }
   }
   document.getElementById('btn-connect').addEventListener('click', async () => {
-    await FileStorage.connectOrCreate();
-    await Store.initFromFile();
+    const handle = await FileStorage.connectOrCreate();
+    if (!handle) return; // user cancelled both dialogs
+    await Store.syncAfterConnect();
     document.getElementById('storage-gate').classList.add('d-none');
     document.getElementById('dashboard-content').classList.remove('d-none');
   });
   document.getElementById('btn-reconnect').addEventListener('click', async () => {
     const ok = await FileStorage.reconnect();
     if (ok) {
-      await Store.initFromFile();
+      await Store.syncAfterConnect();
       document.getElementById('storage-gate').classList.add('d-none');
       document.getElementById('dashboard-content').classList.remove('d-none');
     } else {
@@ -471,6 +1285,17 @@ if (typeof window !== 'undefined') {
 </script>
 <script>
   const UI = {};
+
+  // Escapes free-text user data before it's interpolated into an HTML template string —
+  // needed anywhere a transaction/category description, note, or name is placed inside
+  // innerHTML or a quoted HTML attribute. Without this, a quote in a description breaks the
+  // attribute it's placed in (corrupting the saved value on next edit), and a "<" opens the
+  // door to injected markup from imported backups or migrated free-text data.
+  UI.escapeHtml = function(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  };
 
   UI.statCard = function({ icon, label, value, sub }) {
     const el = document.createElement('div');
@@ -506,7 +1331,11 @@ if (typeof window !== 'undefined') {
       const tr = document.createElement('tr');
       columns.forEach(col => {
         const td = document.createElement('td');
-        td.innerHTML = col.render ? col.render(row) : (row[col.key] ?? '');
+        // A column with a render() is trusted to build its own markup (buttons, badges) —
+        // it must escape any raw user data it interpolates itself (see call sites below).
+        // A column with no render() is a raw field value and must never be treated as HTML.
+        if (col.render) { td.innerHTML = col.render(row); }
+        else { td.textContent = row[col.key] ?? ''; }
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -562,28 +1391,41 @@ if (typeof window !== 'undefined') {
 
   Tabs.transactions.render = function() {
     if (!Store.ready) return;
+    const d = Store.data;
+    const cycleStartDay = d.settings.cycleStartDay;
+
+    // Rebuild the category and cycle dropdowns every render (not just once) so a category
+    // added in the Categories tab, or a transaction dated into a new cycle, shows up here
+    // without a page reload — preserving whatever the user had selected.
     const catSelect = document.getElementById('txn-filter-category');
-    if (catSelect.options.length <= 1) {
-      Store.data.categories.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id; opt.textContent = c.name;
-        catSelect.appendChild(opt);
-      });
-    }
+    const catPrevValue = catSelect.value;
+    catSelect.innerHTML = '<option value="">All</option>' +
+      d.categories.map(c => `<option value="${UI.escapeHtml(c.id)}">${UI.escapeHtml(c.name)}</option>`).join('');
+    catSelect.value = catPrevValue;
+
+    const cycleSelect = document.getElementById('txn-filter-cycle');
+    const cyclePrevValue = cycleSelect.value;
+    const allCycles = Object.keys(Calc.aggregateByCycle(d.transactions, cycleStartDay)).sort().reverse();
+    cycleSelect.innerHTML = '<option value="">All</option>' +
+      allCycles.map(c => `<option value="${c}">${c}</option>`).join('');
+    cycleSelect.value = cyclePrevValue;
+
     const filters = {
-      categoryId: document.getElementById('txn-filter-category').value,
+      cycle: cycleSelect.value,
+      cycleStartDay,
+      categoryId: catSelect.value,
       paymentMethod: document.getElementById('txn-filter-payment').value,
       needWant: document.getElementById('txn-filter-needwant').value,
       search: document.getElementById('txn-filter-search').value
     };
-    const catById = Object.fromEntries(Store.data.categories.map(c => [c.id, c]));
-    let rows = Calc.filterTransactions(Store.data.transactions, filters);
+    const catById = Object.fromEntries(d.categories.map(c => [c.id, c]));
+    let rows = Calc.filterTransactions(d.transactions, filters);
     rows = Calc.sortTransactions(rows, this.sortBy, this.sortDir);
 
     const table = UI.dataTable({
       columns: [
         { key: 'date', label: 'Date', sortable: true },
-        { key: 'categoryId', label: 'Category', sortable: true, render: r => catById[r.categoryId]?.name || 'Other' },
+        { key: 'categoryId', label: 'Category', sortable: true, render: r => UI.escapeHtml(catById[r.categoryId]?.name || 'Other') },
         { key: 'description', label: 'Description', sortable: true },
         { key: 'amountINR', label: 'Amount (INR)', sortable: true, render: r => Calc.formatCurrency(r.amountINR, 'INR') },
         { key: 'amountJPY', label: 'Amount (JPY)', sortable: false, render: r => Calc.formatCurrency(r.amountJPY, 'JPY') },
@@ -617,15 +1459,15 @@ if (typeof window !== 'undefined') {
   Tabs.transactions.openForm = function(id) {
     const existing = id ? Store.data.transactions.find(t => t.id === id) : null;
     const catOptions = Store.data.categories.map(c =>
-      `<option value="${c.id}" ${existing?.categoryId === c.id ? 'selected' : ''}>${c.name}</option>`).join('');
+      `<option value="${UI.escapeHtml(c.id)}" ${existing?.categoryId === c.id ? 'selected' : ''}>${UI.escapeHtml(c.name)}</option>`).join('');
     const bodyHtml = `
       <div class="row g-2">
         <div class="col-6"><label class="form-label small">Date</label>
-          <input type="date" id="f-date" class="form-control" value="${existing?.date || new Date().toISOString().slice(0,10)}"></div>
+          <input type="date" id="f-date" class="form-control" value="${existing?.date || Calc.todayLocal()}"></div>
         <div class="col-6"><label class="form-label small">Category</label>
           <select id="f-category" class="form-select">${catOptions}</select></div>
         <div class="col-12"><label class="form-label small">Description</label>
-          <input id="f-description" class="form-control" value="${existing?.description || ''}"></div>
+          <input id="f-description" class="form-control" value="${UI.escapeHtml(existing?.description || '')}"></div>
         <div class="col-6"><label class="form-label small">Amount (INR)</label>
           <input type="number" id="f-amount-inr" class="form-control" value="${existing?.amountINR ?? ''}"></div>
         <div class="col-6"><label class="form-label small">Amount (JPY)</label>
@@ -639,7 +1481,7 @@ if (typeof window !== 'undefined') {
             ${['Need','Want'].map(p => `<option ${existing?.needWant===p?'selected':''}>${p}</option>`).join('')}
           </select></div>
         <div class="col-12"><label class="form-label small">Notes</label>
-          <input id="f-notes" class="form-control" value="${existing?.notes || ''}"></div>
+          <textarea id="f-notes" class="form-control" rows="2">${UI.escapeHtml(existing?.notes || '')}</textarea></div>
       </div>`;
     const modal = UI.modal({
       title: existing ? 'Edit Transaction' : 'Add Transaction',
@@ -666,11 +1508,24 @@ if (typeof window !== 'undefined') {
         });
       }
     });
+    // Live bidirectional conversion as the user types, per spec's "live auto-convert" —
+    // previously the two fields only synced once, on save, and editing one on an existing
+    // record left the other stale.
+    const inrInput = document.getElementById('f-amount-inr');
+    const jpyInput = document.getElementById('f-amount-jpy');
+    inrInput.addEventListener('input', () => {
+      const v = parseFloat(inrInput.value);
+      if (!isNaN(v)) jpyInput.value = Math.round(Calc.inrToJpy(v, Store.data.settings.jpyPerInr));
+    });
+    jpyInput.addEventListener('input', () => {
+      const v = parseFloat(jpyInput.value);
+      if (!isNaN(v)) inrInput.value = Math.round(Calc.jpyToInr(v, Store.data.settings.jpyPerInr));
+    });
     modal.show();
   };
 
   document.getElementById('btn-add-txn').addEventListener('click', () => Tabs.transactions.openForm(null));
-  ['txn-filter-category','txn-filter-payment','txn-filter-needwant','txn-filter-search'].forEach(id =>
+  ['txn-filter-cycle','txn-filter-category','txn-filter-payment','txn-filter-needwant','txn-filter-search'].forEach(id =>
     document.getElementById(id).addEventListener('input', () => Tabs.transactions.render()));
   Store.subscribe(() => { if (!document.getElementById('tab-transactions').classList.contains('d-none')) Tabs.transactions.render(); });
 </script>
@@ -711,7 +1566,7 @@ if (typeof window !== 'undefined') {
     const bodyHtml = `
       <div class="row g-2">
         <div class="col-8"><label class="form-label small">Name</label>
-          <input id="f-cat-name" class="form-control" value="${existing?.name || ''}"></div>
+          <input id="f-cat-name" class="form-control" value="${UI.escapeHtml(existing?.name || '')}"></div>
         <div class="col-4"><label class="form-label small">Color</label>
           <input type="color" id="f-cat-color" class="form-control" value="${existing?.color || '#9e9e9e'}"></div>
       </div>`;
@@ -743,11 +1598,16 @@ if (typeof window !== 'undefined') {
   Tabs.dashboard.render = function() {
     if (!Store.ready) return;
     const d = Store.data;
-    const currentCycle = Calc.getCycleForDate(new Date().toISOString().slice(0, 10), d.settings.cycleStartDay);
-    const agg = Calc.aggregateByCycle(d.transactions);
+    const currentCycle = Calc.getCycleForDate(Calc.todayLocal(), d.settings.cycleStartDay);
+    const agg = Calc.aggregateByCycle(d.transactions, d.settings.cycleStartDay);
     const currentAgg = agg[currentCycle] || { totalINR: 0, byCategory: {} };
+    // Emergency-fund contributions are savings, not spending — including them in "Spend"
+    // and the savings rate double-penalized them (a bigger EF contribution looked like worse
+    // savings). They still show up as their own slice in the category donut below.
+    const efActualThisCycle = (currentAgg.byCategory && currentAgg.byCategory['emergency-fund']) || 0;
+    const spendExcludingEF = currentAgg.totalINR - efActualThisCycle;
     const incomeINR = Calc.jpyToInr(d.settings.salaryJPY, d.settings.jpyPerInr);
-    const savingsRate = incomeINR > 0 ? Math.round((1 - currentAgg.totalINR / incomeINR) * 100) : 0;
+    const savingsRate = incomeINR > 0 ? Math.round((1 - spendExcludingEF / incomeINR) * 100) : 0;
 
     const extras = Object.fromEntries((d.homeLoanExtras || []).map(e => [e.monthIndex, e.extraPrepaymentINR]));
     const schedule = Calc.buildAmortizationSchedule({
@@ -755,26 +1615,30 @@ if (typeof window !== 'undefined') {
       emi: d.settings.homeLoan.emiINR, tenureMonths: d.settings.homeLoan.tenureMonths, extras
     });
     const payoffMonth = Calc.getPayoffMonth(schedule);
-    const currentBalance = schedule.length ? schedule[schedule.length - 1].closing : d.settings.homeLoan.principalINR;
+    const currentLoanMonth = Calc.cycleToLoanMonth(currentCycle, d.settings.homeLoan.startCycle);
+    const currentLoanRow = schedule.find(r => r.month === currentLoanMonth);
+    const currentBalance = currentLoanRow ? currentLoanRow.closing
+      : (schedule.length ? schedule[schedule.length - 1].closing : d.settings.homeLoan.principalINR);
 
+    const payoffYear = payoffMonth != null ? Calc.loanMonthToYear(payoffMonth, d.settings.homeLoan.startCycle) : null;
     const sip = Calc.buildSipProjection({
       startingMonthlyINR: d.settings.sip.startingMonthlyINR, annualStepUpPct: d.settings.sip.annualStepUpPct,
       estimatedReturnPct: d.settings.sip.estimatedReturnPct, startYear: 2027, endYear: 2036,
-      payoffMonth, postLoanMonthlyRedirectINR: d.settings.homeLoan.emiINR
+      payoffYear, postLoanMonthlyRedirectINR: d.settings.homeLoan.emiINR
     });
     const corpus2036 = sip.length ? sip[sip.length - 1].closing : 0;
 
     const cycleTarget = d.cycleTargets.find(t => t.cycle === currentCycle) || {};
     const savingsTarget = cycleTarget.savingsTargetINR || 0;
-    const savingsActual = incomeINR - currentAgg.totalINR;
+    const savingsActual = incomeINR - spendExcludingEF;
     const emergencyTarget = cycleTarget.emergencyFundTargetINR || 0;
 
     const cardsContainer = document.getElementById('dash-stat-cards');
     cardsContainer.innerHTML = '';
     [
-      { icon: 'payments', label: `Spend (${currentCycle})`, value: Calc.formatCurrency(currentAgg.totalINR, 'INR'), sub: `Savings rate: ${savingsRate}%` },
+      { icon: 'payments', label: `Spend (${currentCycle})`, value: Calc.formatCurrency(spendExcludingEF, 'INR'), sub: `Savings rate: ${savingsRate}%` },
       { icon: 'account_balance', label: 'Savings — Target vs Actual', value: Calc.formatCurrency(savingsActual, 'INR'), sub: `Target: ${Calc.formatCurrency(savingsTarget, 'INR')}` },
-      { icon: 'savings', label: 'Emergency Fund Target (cycle)', value: Calc.formatCurrency(emergencyTarget, 'INR') },
+      { icon: 'savings', label: 'Emergency Fund — Actual vs Target', value: Calc.formatCurrency(efActualThisCycle, 'INR'), sub: `Target: ${Calc.formatCurrency(emergencyTarget, 'INR')}` },
       { icon: 'home', label: 'Home Loan Balance', value: Calc.formatCurrency(currentBalance, 'INR'), sub: payoffMonth ? `Payoff in month ${payoffMonth}` : 'Payoff beyond schedule' },
       { icon: 'trending_up', label: '2036 SIP Corpus (est.)', value: Calc.formatCurrency(corpus2036, 'INR') }
     ].forEach(cfg => {
@@ -811,20 +1675,28 @@ if (typeof window !== 'undefined') {
   Tabs.emergencyFund.render = function() {
     if (!Store.ready) return;
     const d = Store.data;
-    const agg = Calc.aggregateByCycle(d.transactions);
+    const agg = Calc.aggregateByCycle(d.transactions, d.settings.cycleStartDay);
     const cycles = Array.from(new Set([...Object.keys(agg), ...d.cycleTargets.map(t => t.cycle)])).sort();
+    const overallTargetINR = Calc.jpyToInr(d.settings.emergencyFundTargetJPY, d.settings.jpyPerInr);
+    let runningTotal = 0;
     const rows = cycles.map(cycle => {
       const target = (d.cycleTargets.find(t => t.cycle === cycle) || {}).emergencyFundTargetINR || 0;
       const actual = (agg[cycle] && agg[cycle].byCategory['emergency-fund']) || 0;
-      return { cycle, target, actual, variance: actual - target };
+      runningTotal += actual;
+      const runningBalance = Math.min(runningTotal, overallTargetINR);
+      return { cycle, target, actual, variance: actual - target, runningBalance };
     });
+    const currentRunningBalance = rows.length ? rows[rows.length - 1].runningBalance : 0;
+    document.getElementById('ef-running-summary').textContent =
+      `Running balance: ${Calc.formatCurrency(currentRunningBalance, 'INR')} / overall target ${Calc.formatCurrency(overallTargetINR, 'INR')}`;
 
     const table = UI.dataTable({
       columns: [
         { key: 'cycle', label: 'Cycle' },
         { key: 'target', label: 'Target (INR)', render: r => Calc.formatCurrency(r.target, 'INR') },
         { key: 'actual', label: 'Actual (INR)', render: r => Calc.formatCurrency(r.actual, 'INR') },
-        { key: 'variance', label: 'Variance', render: r => Calc.formatCurrency(r.variance, 'INR') }
+        { key: 'variance', label: 'Variance', render: r => Calc.formatCurrency(r.variance, 'INR') },
+        { key: 'runningBalance', label: 'Running Balance (capped at target)', render: r => Calc.formatCurrency(r.runningBalance, 'INR') }
       ],
       rows
     });
@@ -846,7 +1718,7 @@ if (typeof window !== 'undefined') {
   };
 
   document.getElementById('btn-set-ef-target').addEventListener('click', () => {
-    const currentCycle = Calc.getCycleForDate(new Date().toISOString().slice(0, 10), Store.data.settings.cycleStartDay);
+    const currentCycle = Calc.getCycleForDate(Calc.todayLocal(), Store.data.settings.cycleStartDay);
     const existing = Store.data.cycleTargets.find(t => t.cycle === currentCycle);
     const bodyHtml = `
       <p class="small text-muted">Sets all three targets for this cycle at once — shown on Dashboard (Savings), here (Emergency Fund), and on the Home Loan tab (Prepayment).</p>
@@ -894,7 +1766,7 @@ if (typeof window !== 'undefined') {
       ? `Projected payoff: month ${payoffMonth} (~${Math.ceil(payoffMonth / 12)} years)`
       : 'Loan does not reach zero within the configured tenure — increase extra prepayments or tenure.';
 
-    const currentCycle = Calc.getCycleForDate(new Date().toISOString().slice(0, 10), d.settings.cycleStartDay);
+    const currentCycle = Calc.getCycleForDate(Calc.todayLocal(), d.settings.cycleStartDay);
     const currentLoanMonth = Calc.cycleToLoanMonth(currentCycle, d.settings.homeLoan.startCycle);
     const prepayTarget = (d.cycleTargets.find(t => t.cycle === currentCycle) || {}).loanPrepaymentTargetINR || 0;
     const prepayActual = extras[currentLoanMonth] || 0;
@@ -972,10 +1844,11 @@ if (typeof window !== 'undefined') {
       emi: d.settings.homeLoan.emiINR, tenureMonths: d.settings.homeLoan.tenureMonths, extras
     });
     const payoffMonth = Calc.getPayoffMonth(schedule);
+    const payoffYear = payoffMonth != null ? Calc.loanMonthToYear(payoffMonth, d.settings.homeLoan.startCycle) : null;
     const sip = Calc.buildSipProjection({
       startingMonthlyINR: d.settings.sip.startingMonthlyINR, annualStepUpPct: d.settings.sip.annualStepUpPct,
       estimatedReturnPct: d.settings.sip.estimatedReturnPct, startYear: 2027, endYear: 2036,
-      payoffMonth, postLoanMonthlyRedirectINR: d.settings.homeLoan.emiINR
+      payoffYear, postLoanMonthlyRedirectINR: d.settings.homeLoan.emiINR
     });
 
     UI.chart(document.getElementById('chart-sip-growth'), {
@@ -1016,7 +1889,7 @@ if (typeof window !== 'undefined') {
   Tabs.reports.render = function() {
     if (!Store.ready) return;
     const d = Store.data;
-    const agg = Calc.aggregateByCycle(d.transactions);
+    const agg = Calc.aggregateByCycle(d.transactions, d.settings.cycleStartDay);
     const cycles = Object.keys(agg).sort();
     UI.chart(document.getElementById('chart-report-monthwise'), {
       type: 'bar',
@@ -1083,6 +1956,7 @@ if (typeof window !== 'undefined') {
     document.getElementById('s-hl-rate').value = s.homeLoan.annualRatePct;
     document.getElementById('s-hl-emi').value = s.homeLoan.emiINR;
     document.getElementById('s-hl-tenure').value = s.homeLoan.tenureMonths;
+    document.getElementById('s-hl-start-cycle').value = s.homeLoan.startCycle;
     document.getElementById('s-sip-start').value = s.sip.startingMonthlyINR;
     document.getElementById('s-sip-stepup').value = s.sip.annualStepUpPct;
     document.getElementById('s-sip-return').value = s.sip.estimatedReturnPct;
@@ -1102,6 +1976,7 @@ if (typeof window !== 'undefined') {
       d.settings.homeLoan.annualRatePct = parseFloat(document.getElementById('s-hl-rate').value) || 0;
       d.settings.homeLoan.emiINR = parseFloat(document.getElementById('s-hl-emi').value) || 0;
       d.settings.homeLoan.tenureMonths = parseInt(document.getElementById('s-hl-tenure').value, 10) || 0;
+      d.settings.homeLoan.startCycle = document.getElementById('s-hl-start-cycle').value.trim() || d.settings.homeLoan.startCycle;
       d.settings.sip.startingMonthlyINR = parseFloat(document.getElementById('s-sip-start').value) || 0;
       d.settings.sip.annualStepUpPct = parseFloat(document.getElementById('s-sip-stepup').value) || 0;
       d.settings.sip.estimatedReturnPct = parseFloat(document.getElementById('s-sip-return').value) || 0;
@@ -1109,15 +1984,16 @@ if (typeof window !== 'undefined') {
   });
 
   document.getElementById('btn-settings-reconnect').addEventListener('click', async () => {
-    await FileStorage.connectOrCreate();
-    await Store.initFromFile();
+    const handle = await FileStorage.connectOrCreate();
+    if (!handle) return; // user cancelled both dialogs
+    await Store.syncAfterConnect();
   });
 
   document.getElementById('btn-backup-export').addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(Store.data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `finance-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `finance-backup-${Calc.todayLocal()}.json`;
     a.click();
     localStorage.setItem('finance-app-last-backup', new Date().toLocaleString());
     Tabs.settings.render();
@@ -1127,8 +2003,36 @@ if (typeof window !== 'undefined') {
     const file = e.target.files[0];
     if (!file) return;
     const text = await file.text();
-    const imported = JSON.parse(text);
-    await Store.mutate(d => Object.assign(d, imported));
+    let imported;
+    try {
+      imported = JSON.parse(text);
+    } catch (err) {
+      alert('That file is not valid JSON — import cancelled.');
+      e.target.value = '';
+      return;
+    }
+    if (!imported || typeof imported !== 'object' || !Array.isArray(imported.transactions) ||
+        !Array.isArray(imported.categories) || !imported.settings) {
+      alert('That file does not look like a finance data backup — import cancelled.');
+      e.target.value = '';
+      return;
+    }
+    if (!confirm('This replaces ALL current data (transactions, categories, settings) with this backup file\'s contents. This cannot be undone. Continue?')) {
+      e.target.value = '';
+      return;
+    }
+    if (Store.data) {
+      await Store.mutate(d => {
+        Object.keys(d).forEach(key => delete d[key]);
+        Object.assign(d, imported);
+      });
+    } else {
+      Store.data = imported;
+      Store.ready = true;
+      Store._notify();
+      await Store._persist();
+    }
+    e.target.value = '';
   });
 
   Store.subscribe(() => { if (!document.getElementById('tab-settings').classList.contains('d-none')) Tabs.settings.render(); });
