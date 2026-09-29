@@ -103,7 +103,16 @@
     <div class="card p-3 mb-3"><canvas id="chart-sip-growth"></canvas></div>
     <div id="sip-table-container"></div>
   </section>
-  <section id="tab-reports" class="tab-pane d-none"><p>Reports coming soon.</p></section>
+  <section id="tab-reports" class="tab-pane d-none">
+    <div class="d-flex gap-2 mb-3">
+      <button id="btn-export-csv" class="btn btn-outline-secondary btn-sm">Export CSV</button>
+      <button id="btn-export-xlsx" class="btn btn-outline-secondary btn-sm">Export XLSX</button>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6"><div class="card p-3"><canvas id="chart-report-monthwise"></canvas></div></div>
+      <div class="col-md-6"><div class="card p-3"><canvas id="chart-report-categorywise"></canvas></div></div>
+    </div>
+  </section>
   <section id="tab-settings" class="tab-pane d-none"><p>Settings coming soon.</p></section>
 </div>
 <script id="calc-engine">
@@ -834,6 +843,65 @@
   };
 
   Store.subscribe(() => { if (!document.getElementById('tab-sip').classList.contains('d-none')) Tabs.sip.render(); });
+</script>
+<script>
+  Tabs.reports = {};
+
+  Tabs.reports.render = function() {
+    if (!Store.ready) return;
+    const d = Store.data;
+    const agg = Calc.aggregateByCycle(d.transactions);
+    const cycles = Object.keys(agg).sort();
+    UI.chart(document.getElementById('chart-report-monthwise'), {
+      type: 'bar',
+      data: { labels: cycles, datasets: [{ label: 'Total spend (INR)', data: cycles.map(c => agg[c].totalINR), backgroundColor: '#3f51b5' }] },
+      options: { plugins: { title: { display: true, text: 'Month-wise (cycle) spend' } } }
+    });
+
+    const catById = Object.fromEntries(d.categories.map(c => [c.id, c]));
+    const totals = {};
+    d.transactions.forEach(t => { totals[t.categoryId] = (totals[t.categoryId] || 0) + t.amountINR; });
+    const catIds = Object.keys(totals);
+    UI.chart(document.getElementById('chart-report-categorywise'), {
+      type: 'doughnut',
+      data: { labels: catIds.map(id => catById[id]?.name || 'Other'), datasets: [{ data: catIds.map(id => totals[id]), backgroundColor: catIds.map(id => catById[id]?.color || '#9e9e9e') }] },
+      options: { plugins: { title: { display: true, text: 'All-time category-wise spend' } } }
+    });
+  };
+
+  Tabs.reports.exportCsv = function() {
+    const d = Store.data;
+    const catById = Object.fromEntries(d.categories.map(c => [c.id, c]));
+    const rows = d.transactions.map(t => ({
+      Date: t.date, Category: catById[t.categoryId]?.name || 'Other', Description: t.description,
+      'Amount INR': t.amountINR, 'Amount JPY': t.amountJPY, 'Payment Method': t.paymentMethod,
+      'Need/Want': t.needWant, Notes: t.notes
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'transactions-export.csv';
+    a.click();
+  };
+
+  Tabs.reports.exportXlsx = function() {
+    const d = Store.data;
+    const catById = Object.fromEntries(d.categories.map(c => [c.id, c]));
+    const rows = d.transactions.map(t => ({
+      Date: t.date, Category: catById[t.categoryId]?.name || 'Other', Description: t.description,
+      'Amount INR': t.amountINR, 'Amount JPY': t.amountJPY, 'Payment Method': t.paymentMethod,
+      'Need/Want': t.needWant, Notes: t.notes
+    }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Transactions');
+    XLSX.writeFile(wb, 'transactions-export.xlsx');
+  };
+
+  document.getElementById('btn-export-csv').addEventListener('click', Tabs.reports.exportCsv);
+  document.getElementById('btn-export-xlsx').addEventListener('click', Tabs.reports.exportXlsx);
+  Store.subscribe(() => { if (!document.getElementById('tab-reports').classList.contains('d-none')) Tabs.reports.render(); });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
