@@ -82,4 +82,9 @@ const agg = Calc.aggregateByCycle(txns);
 assert.strictEqual(agg['2026-09'].totalINR, 2800); // Aug26->cycle 2026-09, Sep1&Sep20 same cycle: 500+2000+300
 assert.strictEqual(agg['2026-09'].byCategory['groceries'], 800);
 
-console.log('calc.test.js: cycles, currency, amortization, SIP projection & transaction helpers — ALL PASS');
+// Cycle-to-loan-month mapping
+assert.strictEqual(Calc.cycleToLoanMonth('2026-09', '2026-09'), 1, 'start cycle is loan month 1');
+assert.strictEqual(Calc.cycleToLoanMonth('2026-10', '2026-09'), 2);
+assert.strictEqual(Calc.cycleToLoanMonth('2027-09', '2026-09'), 13, 'wraps across a calendar year');
+
+console.log('calc.test.js: cycles, currency, amortization, SIP projection, transaction helpers & loan-month mapping — ALL PASS');

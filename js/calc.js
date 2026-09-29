@@ -131,6 +131,12 @@ Calc.aggregateByCycle = function(transactions) {
   return map;
 };
 
+Calc.cycleToLoanMonth = function(cycle, startCycle) {
+  const [sy, sm] = startCycle.split('-').map(Number);
+  const [cy, cm] = cycle.split('-').map(Number);
+  return (cy - sy) * 12 + (cm - sm) + 1;
+};
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = Calc;
 }
