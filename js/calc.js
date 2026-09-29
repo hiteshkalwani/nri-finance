@@ -60,15 +60,14 @@ Calc.getPayoffMonth = function(schedule) {
 
 Calc.buildSipProjection = function({
   startingMonthlyINR, annualStepUpPct, estimatedReturnPct,
-  startYear, endYear, payoffMonth, postLoanMonthlyRedirectINR
+  startYear, endYear, payoffYear, postLoanMonthlyRedirectINR
 }) {
   const rows = [];
   let opening = 0;
-  const payoffYearOffset = payoffMonth != null ? Math.floor((payoffMonth - 1) / 12) : null;
   for (let year = startYear; year <= endYear; year++) {
     const yearsElapsed = year - startYear;
     const monthlySip = startingMonthlyINR * Math.pow(1 + annualStepUpPct / 100, yearsElapsed);
-    const postLoanRedirect = (payoffYearOffset !== null && yearsElapsed >= payoffYearOffset)
+    const postLoanRedirect = (payoffYear != null && year >= payoffYear)
       ? postLoanMonthlyRedirectINR : 0;
     const annualBase = monthlySip * 12;
     const totalAnnual = annualBase + postLoanRedirect * 12;
@@ -94,9 +93,9 @@ Calc.normalizeCategory = function(rawCategory) {
 };
 
 Calc.filterTransactions = function(transactions, filters = {}) {
-  const { cycle, categoryId, paymentMethod, needWant, search } = filters;
+  const { cycle, categoryId, paymentMethod, needWant, search, cycleStartDay = 25 } = filters;
   return transactions.filter(t => {
-    if (cycle && Calc.getCycleForDate(t.date) !== cycle) return false;
+    if (cycle && Calc.getCycleForDate(t.date, cycleStartDay) !== cycle) return false;
     if (categoryId && t.categoryId !== categoryId) return false;
     if (paymentMethod && t.paymentMethod !== paymentMethod) return false;
     if (needWant && t.needWant !== needWant) return false;
@@ -120,10 +119,10 @@ Calc.sortTransactions = function(transactions, sortBy, direction = 'asc') {
   return direction === 'desc' ? sorted.reverse() : sorted;
 };
 
-Calc.aggregateByCycle = function(transactions) {
+Calc.aggregateByCycle = function(transactions, cycleStartDay = 25) {
   const map = {};
   for (const t of transactions) {
-    const cycle = Calc.getCycleForDate(t.date);
+    const cycle = Calc.getCycleForDate(t.date, cycleStartDay);
     if (!map[cycle]) map[cycle] = { totalINR: 0, byCategory: {} };
     map[cycle].totalINR += t.amountINR;
     map[cycle].byCategory[t.categoryId] = (map[cycle].byCategory[t.categoryId] || 0) + t.amountINR;
@@ -135,6 +134,16 @@ Calc.cycleToLoanMonth = function(cycle, startCycle) {
   const [sy, sm] = startCycle.split('-').map(Number);
   const [cy, cm] = cycle.split('-').map(Number);
   return (cy - sy) * 12 + (cm - sm) + 1;
+};
+
+Calc.loanMonthToYear = function(loanMonth, startCycle) {
+  const [sy, sm] = startCycle.split('-').map(Number);
+  const totalMonthIndex = (sm - 1) + (loanMonth - 1);
+  return sy + Math.floor(totalMonthIndex / 12);
+};
+
+Calc.todayLocal = function(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
 if (typeof module !== 'undefined' && module.exports) {
