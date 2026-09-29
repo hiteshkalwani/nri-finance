@@ -68,7 +68,10 @@
     </div>
     <div id="txn-table-container"></div>
   </section>
-  <section id="tab-categories" class="tab-pane d-none"><p>Categories coming soon.</p></section>
+  <section id="tab-categories" class="tab-pane d-none">
+    <button id="btn-add-cat" class="btn btn-primary btn-sm mb-3">+ Add Category</button>
+    <div id="cat-table-container"></div>
+  </section>
   <section id="tab-emergency-fund" class="tab-pane d-none"><p>Emergency Fund coming soon.</p></section>
   <section id="tab-home-loan" class="tab-pane d-none"><p>Home Loan coming soon.</p></section>
   <section id="tab-sip" class="tab-pane d-none"><p>SIP coming soon.</p></section>
@@ -467,6 +470,69 @@
   ['txn-filter-category','txn-filter-payment','txn-filter-needwant','txn-filter-search'].forEach(id =>
     document.getElementById(id).addEventListener('input', () => Tabs.transactions.render()));
   Store.subscribe(() => { if (!document.getElementById('tab-transactions').classList.contains('d-none')) Tabs.transactions.render(); });
+</script>
+<script>
+  Tabs.categories = {};
+
+  Tabs.categories.render = function() {
+    if (!Store.ready) return;
+    const usageCount = {};
+    Store.data.transactions.forEach(t => { usageCount[t.categoryId] = (usageCount[t.categoryId] || 0) + 1; });
+    const table = UI.dataTable({
+      columns: [
+        { key: 'color', label: '', render: r => `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${r.color}"></span>` },
+        { key: 'name', label: 'Name' },
+        { key: 'usage', label: 'Transactions', render: r => usageCount[r.id] || 0 },
+        { key: 'actions', label: '', render: r => `<button class="btn btn-sm btn-outline-secondary edit-cat" data-id="${r.id}">Edit</button>
+                                                     <button class="btn btn-sm btn-outline-danger del-cat" data-id="${r.id}">Delete</button>` }
+      ],
+      rows: Store.data.categories
+    });
+    const container = document.getElementById('cat-table-container');
+    container.innerHTML = '';
+    container.appendChild(table);
+    container.querySelectorAll('.edit-cat').forEach(btn => btn.addEventListener('click', () => Tabs.categories.openForm(btn.dataset.id)));
+    container.querySelectorAll('.del-cat').forEach(btn => btn.addEventListener('click', () => Tabs.categories.remove(btn.dataset.id, usageCount)));
+  };
+
+  Tabs.categories.remove = function(id, usageCount) {
+    if ((usageCount[id] || 0) > 0) {
+      alert(`Cannot delete this category — ${usageCount[id]} transaction(s) still use it. Reassign them in the Transactions tab first.`);
+      return;
+    }
+    Store.mutate(d => { d.categories = d.categories.filter(c => c.id !== id); });
+  };
+
+  Tabs.categories.openForm = function(id) {
+    const existing = id ? Store.data.categories.find(c => c.id === id) : null;
+    const bodyHtml = `
+      <div class="row g-2">
+        <div class="col-8"><label class="form-label small">Name</label>
+          <input id="f-cat-name" class="form-control" value="${existing?.name || ''}"></div>
+        <div class="col-4"><label class="form-label small">Color</label>
+          <input type="color" id="f-cat-color" class="form-control" value="${existing?.color || '#9e9e9e'}"></div>
+      </div>`;
+    const modal = UI.modal({
+      title: existing ? 'Edit Category' : 'Add Category',
+      bodyHtml,
+      onSave: () => {
+        const name = document.getElementById('f-cat-name').value.trim();
+        if (!name) return;
+        const record = {
+          id: existing ? existing.id : name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          name, color: document.getElementById('f-cat-color').value
+        };
+        Store.mutate(d => {
+          const idx = d.categories.findIndex(c => c.id === record.id);
+          if (idx >= 0) d.categories[idx] = record; else d.categories.push(record);
+        });
+      }
+    });
+    modal.show();
+  };
+
+  document.getElementById('btn-add-cat').addEventListener('click', () => Tabs.categories.openForm(null));
+  Store.subscribe(() => { if (!document.getElementById('tab-categories').classList.contains('d-none')) Tabs.categories.render(); });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
