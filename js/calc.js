@@ -123,9 +123,11 @@ Calc.aggregateByCycle = function(transactions, cycleStartDay = 25) {
   const map = {};
   for (const t of transactions) {
     const cycle = Calc.getCycleForDate(t.date, cycleStartDay);
-    if (!map[cycle]) map[cycle] = { totalINR: 0, byCategory: {} };
+    if (!map[cycle]) map[cycle] = { totalINR: 0, byCategory: {}, totalJPY: 0, byCategoryJPY: {} };
     map[cycle].totalINR += t.amountINR;
     map[cycle].byCategory[t.categoryId] = (map[cycle].byCategory[t.categoryId] || 0) + t.amountINR;
+    map[cycle].totalJPY += t.amountJPY;
+    map[cycle].byCategoryJPY[t.categoryId] = (map[cycle].byCategoryJPY[t.categoryId] || 0) + t.amountJPY;
   }
   return map;
 };

@@ -82,9 +82,9 @@ assert.strictEqual(Calc.normalizeCategory('some unknown label'), 'Other');
 
 // Filter/sort
 const txns = [
-  { id: 'a', date: '2026-08-26', categoryId: 'groceries', amountINR: 500, description: 'Milk', paymentMethod: 'Cash', needWant: 'Need', notes: '' },
-  { id: 'b', date: '2026-09-01', categoryId: 'wants', amountINR: 2000, description: 'Massage', paymentMethod: 'Credit Card', needWant: 'Want', notes: '' },
-  { id: 'c', date: '2026-09-20', categoryId: 'groceries', amountINR: 300, description: 'Veg', paymentMethod: 'Cash', needWant: 'Need', notes: '' }
+  { id: 'a', date: '2026-08-26', categoryId: 'groceries', amountINR: 500, amountJPY: 850, description: 'Milk', paymentMethod: 'Cash', needWant: 'Need', notes: '' },
+  { id: 'b', date: '2026-09-01', categoryId: 'wants', amountINR: 2000, amountJPY: 3400, description: 'Massage', paymentMethod: 'Credit Card', needWant: 'Want', notes: '' },
+  { id: 'c', date: '2026-09-20', categoryId: 'groceries', amountINR: 300, amountJPY: 510, description: 'Veg', paymentMethod: 'Cash', needWant: 'Need', notes: '' }
 ];
 const filtered = Calc.filterTransactions(txns, { categoryId: 'groceries' });
 assert.strictEqual(filtered.length, 2);
@@ -102,6 +102,13 @@ assert.deepStrictEqual(sortedDesc.map(t => t.id), ['b', 'a', 'c']);
 const agg = Calc.aggregateByCycle(txns);
 assert.strictEqual(agg['2026-09'].totalINR, 2800); // Aug26->cycle 2026-09, Sep1&Sep20 same cycle: 500+2000+300
 assert.strictEqual(agg['2026-09'].byCategory['groceries'], 800);
+
+// JPY totals alongside the existing INR ones (additive — for an NRI whose day-to-day
+// spending is JPY-native, the Dashboard/Reports/Emergency-Fund views need JPY sums too,
+// without disturbing any existing INR-based consumer of this function).
+assert.strictEqual(agg['2026-09'].totalJPY, 4760, '850 (Aug26) + 3400 (Sep1) + 510 (Sep20) = 4760');
+assert.strictEqual(agg['2026-09'].byCategoryJPY['groceries'], 1360, '850 + 510 = 1360');
+assert.strictEqual(agg['2026-09'].byCategoryJPY['wants'], 3400);
 
 // Review Finding #6: a non-default cycleStartDay must actually change how these two group
 // transactions, not just the current-cycle label computed elsewhere in the app.

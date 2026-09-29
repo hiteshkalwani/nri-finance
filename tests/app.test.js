@@ -305,19 +305,20 @@ async function main() {
   {
     const dom = newDom();
     const seed = runJson(dom, `JSON.parse(document.getElementById('seed-data').textContent)`);
-    seed.settings.jpyPerInr = 2;
-    seed.settings.emergencyFundTargetJPY = 2000; // = 1000 INR overall target
+    // JPY-native: the target and every EF contribution are compared directly in JPY, no FX
+    // conversion at all (an NRI's emergency fund genuinely sits in a JPY bank account).
+    seed.settings.emergencyFundTargetJPY = 1000; // overall target
     seed.transactions = [
-      { id: 'e1', date: '2026-08-26', categoryId: 'emergency-fund', amountINR: 600, amountJPY: 0, paymentMethod: 'Bank', needWant: 'Need', notes: '' },
-      { id: 'e2', date: '2026-09-01', categoryId: 'emergency-fund', amountINR: 600, amountJPY: 0, paymentMethod: 'Bank', needWant: 'Need', notes: '' }
+      { id: 'e1', date: '2026-08-26', categoryId: 'emergency-fund', amountJPY: 600, amountINR: 0, paymentMethod: 'Bank', needWant: 'Need', notes: '' },
+      { id: 'e2', date: '2026-09-01', categoryId: 'emergency-fund', amountJPY: 600, amountINR: 0, paymentMethod: 'Bank', needWant: 'Need', notes: '' }
     ];
     setSeed(dom, seed);
     run(dom, `Tabs.emergencyFund.render()`);
     const summaryText = dom.window.document.getElementById('ef-running-summary').textContent;
     // 600 (cycle 2026-09, Aug26) + 600 (cycle 2026-09, Sep1) = 1200 cumulative, capped at 1000.
-    assert.ok(summaryText.includes(run(dom, `Calc.formatCurrency(1000, 'INR')`)),
+    assert.ok(summaryText.includes(run(dom, `Calc.formatCurrency(1000, 'JPY')`)),
       'running balance is capped at the overall emergency fund target, not left uncapped at 1200');
-    pass('Emergency Fund running balance is cumulative and capped at the overall target');
+    pass('Emergency Fund running balance is cumulative and capped at the overall target (JPY-native)');
   }
 
   // ── Dashboard excludes emergency-fund contributions from "Spend" and savings rate ──────
@@ -327,20 +328,42 @@ async function main() {
     const todayCycle = run(dom, `Calc.getCycleForDate(Calc.todayLocal(), ${seed.settings.cycleStartDay})`);
     const [cy, cm] = todayCycle.split('-').map(Number);
     const dateInCurrentCycle = `${cy}-${String(cm).padStart(2, '0')}-01`;
-    seed.settings.salaryJPY = 0; seed.settings.jpyPerInr = 1;
+    seed.settings.salaryJPY = 0;
     seed.transactions = [
-      { id: 'g1', date: dateInCurrentCycle, categoryId: 'groceries', amountINR: 100, amountJPY: 0, paymentMethod: 'Cash', needWant: 'Need', notes: '' },
-      { id: 'e1', date: dateInCurrentCycle, categoryId: 'emergency-fund', amountINR: 300, amountJPY: 0, paymentMethod: 'Bank', needWant: 'Need', notes: '' }
+      { id: 'g1', date: dateInCurrentCycle, categoryId: 'groceries', amountJPY: 100, amountINR: 0, paymentMethod: 'Cash', needWant: 'Need', notes: '' },
+      { id: 'e1', date: dateInCurrentCycle, categoryId: 'emergency-fund', amountJPY: 300, amountINR: 0, paymentMethod: 'Bank', needWant: 'Need', notes: '' }
     ];
     setSeed(dom, seed);
     run(dom, `Tabs.dashboard.render()`);
     const cards = dom.window.document.querySelectorAll('#dash-stat-cards .stat-card');
     const spendCard = Array.from(cards).find(c => c.textContent.includes('Spend ('));
-    assert.strictEqual(spendCard.querySelector('.fs-4').textContent, run(dom, `Calc.formatCurrency(100, 'INR')`),
-      '"Spend" card excludes the emergency-fund contribution (only the 100 groceries counts, not 400 total)');
+    assert.strictEqual(spendCard.querySelector('.fs-4').textContent, run(dom, `Calc.formatCurrency(100, 'JPY')`),
+      '"Spend" card (JPY) excludes the emergency-fund contribution (only the 100 groceries counts, not 400 total)');
     const efCard = Array.from(cards).find(c => c.textContent.includes('Emergency Fund'));
-    assert.strictEqual(efCard.querySelector('.fs-4').textContent, run(dom, `Calc.formatCurrency(300, 'INR')`), 'Emergency Fund card shows its own actual contribution');
+    assert.strictEqual(efCard.querySelector('.fs-4').textContent, run(dom, `Calc.formatCurrency(300, 'JPY')`), 'Emergency Fund card shows its own actual contribution in JPY');
     pass('Dashboard excludes emergency-fund contributions from Spend/savings-rate (double-counting fix)');
+  }
+
+  // ── Dashboard "Sent to Family/India" card shows JPY sent, with INR received as sub-line ──
+  {
+    const dom = newDom();
+    const seed = runJson(dom, `JSON.parse(document.getElementById('seed-data').textContent)`);
+    const todayCycle = run(dom, `Calc.getCycleForDate(Calc.todayLocal(), ${seed.settings.cycleStartDay})`);
+    const [cy, cm] = todayCycle.split('-').map(Number);
+    const dateInCurrentCycle = `${cy}-${String(cm).padStart(2, '0')}-01`;
+    seed.transactions = [
+      { id: 'f1', date: dateInCurrentCycle, categoryId: 'family-india', amountJPY: 50000, amountINR: 25000, paymentMethod: 'Bank', needWant: 'Need', notes: '' }
+    ];
+    setSeed(dom, seed);
+    run(dom, `Tabs.dashboard.render()`);
+    const cards = dom.window.document.querySelectorAll('#dash-stat-cards .stat-card');
+    const familyCard = Array.from(cards).find(c => c.textContent.includes('Family/India'));
+    assert.ok(familyCard, 'a "Sent to Family/India" card exists on the Dashboard');
+    assert.strictEqual(familyCard.querySelector('.fs-4').textContent, run(dom, `Calc.formatCurrency(50000, 'JPY')`),
+      'headline value is the JPY amount sent (per user preference: "what it costs you")');
+    assert.ok(familyCard.textContent.includes(run(dom, `Calc.formatCurrency(25000, 'INR')`)),
+      'sub-line shows the INR amount received by family');
+    pass('Dashboard "Sent to Family/India" card shows JPY sent with INR received as sub-line');
   }
 
   // ── Backup import validates, confirms, and fully replaces data (Important #3) ──────────

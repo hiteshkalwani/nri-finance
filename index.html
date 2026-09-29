@@ -270,9 +270,11 @@ Calc.aggregateByCycle = function(transactions, cycleStartDay = 25) {
   const map = {};
   for (const t of transactions) {
     const cycle = Calc.getCycleForDate(t.date, cycleStartDay);
-    if (!map[cycle]) map[cycle] = { totalINR: 0, byCategory: {} };
+    if (!map[cycle]) map[cycle] = { totalINR: 0, byCategory: {}, totalJPY: 0, byCategoryJPY: {} };
     map[cycle].totalINR += t.amountINR;
     map[cycle].byCategory[t.categoryId] = (map[cycle].byCategory[t.categoryId] || 0) + t.amountINR;
+    map[cycle].totalJPY += t.amountJPY;
+    map[cycle].byCategoryJPY[t.categoryId] = (map[cycle].byCategoryJPY[t.categoryId] || 0) + t.amountJPY;
   }
   return map;
 };
@@ -1600,14 +1602,19 @@ if (typeof window !== 'undefined') {
     const d = Store.data;
     const currentCycle = Calc.getCycleForDate(Calc.todayLocal(), d.settings.cycleStartDay);
     const agg = Calc.aggregateByCycle(d.transactions, d.settings.cycleStartDay);
-    const currentAgg = agg[currentCycle] || { totalINR: 0, byCategory: {} };
+    const currentAgg = agg[currentCycle] || { totalINR: 0, byCategory: {}, totalJPY: 0, byCategoryJPY: {} };
+    // Day-to-day life (salary, spend, emergency fund) is JPY-native for an NRI living and
+    // earning in Japan — this dashboard reports those in JPY rather than converting through
+    // INR. Home Loan and SIP stay INR further down; that money genuinely lives in India.
     // Emergency-fund contributions are savings, not spending — including them in "Spend"
     // and the savings rate double-penalized them (a bigger EF contribution looked like worse
     // savings). They still show up as their own slice in the category donut below.
-    const efActualThisCycle = (currentAgg.byCategory && currentAgg.byCategory['emergency-fund']) || 0;
-    const spendExcludingEF = currentAgg.totalINR - efActualThisCycle;
-    const incomeINR = Calc.jpyToInr(d.settings.salaryJPY, d.settings.jpyPerInr);
-    const savingsRate = incomeINR > 0 ? Math.round((1 - spendExcludingEF / incomeINR) * 100) : 0;
+    const efActualThisCycle = (currentAgg.byCategoryJPY && currentAgg.byCategoryJPY['emergency-fund']) || 0;
+    const spendExcludingEF = currentAgg.totalJPY - efActualThisCycle;
+    const incomeJPY = d.settings.salaryJPY;
+    const savingsRate = incomeJPY > 0 ? Math.round((1 - spendExcludingEF / incomeJPY) * 100) : 0;
+    const familyJpySent = (currentAgg.byCategoryJPY && currentAgg.byCategoryJPY['family-india']) || 0;
+    const familyInrReceived = (currentAgg.byCategory && currentAgg.byCategory['family-india']) || 0;
 
     const extras = Object.fromEntries((d.homeLoanExtras || []).map(e => [e.monthIndex, e.extraPrepaymentINR]));
     const schedule = Calc.buildAmortizationSchedule({
@@ -1629,41 +1636,42 @@ if (typeof window !== 'undefined') {
     const corpus2036 = sip.length ? sip[sip.length - 1].closing : 0;
 
     const cycleTarget = d.cycleTargets.find(t => t.cycle === currentCycle) || {};
-    const savingsTarget = cycleTarget.savingsTargetINR || 0;
-    const savingsActual = incomeINR - spendExcludingEF;
-    const emergencyTarget = cycleTarget.emergencyFundTargetINR || 0;
+    const savingsTarget = cycleTarget.savingsTargetJPY || 0;
+    const savingsActual = incomeJPY - spendExcludingEF;
+    const emergencyTarget = cycleTarget.emergencyFundTargetJPY || 0;
 
     const cardsContainer = document.getElementById('dash-stat-cards');
     cardsContainer.innerHTML = '';
     [
-      { icon: 'payments', label: `Spend (${currentCycle})`, value: Calc.formatCurrency(spendExcludingEF, 'INR'), sub: `Savings rate: ${savingsRate}%` },
-      { icon: 'account_balance', label: 'Savings — Target vs Actual', value: Calc.formatCurrency(savingsActual, 'INR'), sub: `Target: ${Calc.formatCurrency(savingsTarget, 'INR')}` },
-      { icon: 'savings', label: 'Emergency Fund — Actual vs Target', value: Calc.formatCurrency(efActualThisCycle, 'INR'), sub: `Target: ${Calc.formatCurrency(emergencyTarget, 'INR')}` },
+      { icon: 'payments', label: `Spend (${currentCycle})`, value: Calc.formatCurrency(spendExcludingEF, 'JPY'), sub: `Savings rate: ${savingsRate}%` },
+      { icon: 'account_balance', label: 'Savings — Target vs Actual', value: Calc.formatCurrency(savingsActual, 'JPY'), sub: `Target: ${Calc.formatCurrency(savingsTarget, 'JPY')}` },
+      { icon: 'savings', label: 'Emergency Fund — Actual vs Target', value: Calc.formatCurrency(efActualThisCycle, 'JPY'), sub: `Target: ${Calc.formatCurrency(emergencyTarget, 'JPY')}` },
+      { icon: 'send', label: `Sent to Family/India (${currentCycle})`, value: Calc.formatCurrency(familyJpySent, 'JPY'), sub: `Received: ${Calc.formatCurrency(familyInrReceived, 'INR')}` },
       { icon: 'home', label: 'Home Loan Balance', value: Calc.formatCurrency(currentBalance, 'INR'), sub: payoffMonth ? `Payoff in month ${payoffMonth}` : 'Payoff beyond schedule' },
       { icon: 'trending_up', label: '2036 SIP Corpus (est.)', value: Calc.formatCurrency(corpus2036, 'INR') }
     ].forEach(cfg => {
       const col = document.createElement('div');
-      col.className = 'col-6 col-lg'; // col-lg with no number = equal-width flex column, so 5 cards share the row evenly
+      col.className = 'col-6 col-lg'; // col-lg with no number = equal-width flex column, so all cards share the row evenly
       col.appendChild(UI.statCard(cfg));
       cardsContainer.appendChild(col);
     });
 
     const catById = Object.fromEntries(d.categories.map(c => [c.id, c]));
-    const labels = Object.keys(currentAgg.byCategory);
+    const labels = Object.keys(currentAgg.byCategoryJPY);
     UI.chart(document.getElementById('chart-category-donut'), {
       type: 'doughnut',
       data: {
         labels: labels.map(id => catById[id]?.name || 'Other'),
-        datasets: [{ data: labels.map(id => currentAgg.byCategory[id]), backgroundColor: labels.map(id => catById[id]?.color || '#9e9e9e') }]
+        datasets: [{ data: labels.map(id => currentAgg.byCategoryJPY[id]), backgroundColor: labels.map(id => catById[id]?.color || '#9e9e9e') }]
       },
-      options: { plugins: { title: { display: true, text: `Spend by category — ${currentCycle}` } } }
+      options: { plugins: { title: { display: true, text: `Spend by category (JPY) — ${currentCycle}` } } }
     });
 
     const cycles = Object.keys(agg).sort();
     UI.chart(document.getElementById('chart-cycle-trend'), {
       type: 'bar',
-      data: { labels: cycles, datasets: [{ label: 'Total spend (INR)', data: cycles.map(c => agg[c].totalINR), backgroundColor: '#3f51b5' }] },
-      options: { plugins: { title: { display: true, text: 'Spend by cycle' } } }
+      data: { labels: cycles, datasets: [{ label: 'Total spend (JPY)', data: cycles.map(c => agg[c].totalJPY), backgroundColor: '#3f51b5' }] },
+      options: { plugins: { title: { display: true, text: 'Spend by cycle (JPY)' } } }
     });
   };
 
@@ -1677,26 +1685,29 @@ if (typeof window !== 'undefined') {
     const d = Store.data;
     const agg = Calc.aggregateByCycle(d.transactions, d.settings.cycleStartDay);
     const cycles = Array.from(new Set([...Object.keys(agg), ...d.cycleTargets.map(t => t.cycle)])).sort();
-    const overallTargetINR = Calc.jpyToInr(d.settings.emergencyFundTargetJPY, d.settings.jpyPerInr);
+    // JPY-native throughout: the target (settings.emergencyFundTargetJPY) and every
+    // contribution (JPY-native transactions) are already the same currency, so comparing
+    // them directly avoids a lossy JPY->INR->JPY round-trip through the day's FX rate.
+    const overallTargetJPY = d.settings.emergencyFundTargetJPY;
     let runningTotal = 0;
     const rows = cycles.map(cycle => {
-      const target = (d.cycleTargets.find(t => t.cycle === cycle) || {}).emergencyFundTargetINR || 0;
-      const actual = (agg[cycle] && agg[cycle].byCategory['emergency-fund']) || 0;
+      const target = (d.cycleTargets.find(t => t.cycle === cycle) || {}).emergencyFundTargetJPY || 0;
+      const actual = (agg[cycle] && agg[cycle].byCategoryJPY['emergency-fund']) || 0;
       runningTotal += actual;
-      const runningBalance = Math.min(runningTotal, overallTargetINR);
+      const runningBalance = Math.min(runningTotal, overallTargetJPY);
       return { cycle, target, actual, variance: actual - target, runningBalance };
     });
     const currentRunningBalance = rows.length ? rows[rows.length - 1].runningBalance : 0;
     document.getElementById('ef-running-summary').textContent =
-      `Running balance: ${Calc.formatCurrency(currentRunningBalance, 'INR')} / overall target ${Calc.formatCurrency(overallTargetINR, 'INR')}`;
+      `Running balance: ${Calc.formatCurrency(currentRunningBalance, 'JPY')} / overall target ${Calc.formatCurrency(overallTargetJPY, 'JPY')}`;
 
     const table = UI.dataTable({
       columns: [
         { key: 'cycle', label: 'Cycle' },
-        { key: 'target', label: 'Target (INR)', render: r => Calc.formatCurrency(r.target, 'INR') },
-        { key: 'actual', label: 'Actual (INR)', render: r => Calc.formatCurrency(r.actual, 'INR') },
-        { key: 'variance', label: 'Variance', render: r => Calc.formatCurrency(r.variance, 'INR') },
-        { key: 'runningBalance', label: 'Running Balance (capped at target)', render: r => Calc.formatCurrency(r.runningBalance, 'INR') }
+        { key: 'target', label: 'Target (JPY)', render: r => Calc.formatCurrency(r.target, 'JPY') },
+        { key: 'actual', label: 'Actual (JPY)', render: r => Calc.formatCurrency(r.actual, 'JPY') },
+        { key: 'variance', label: 'Variance', render: r => Calc.formatCurrency(r.variance, 'JPY') },
+        { key: 'runningBalance', label: 'Running Balance (capped at target)', render: r => Calc.formatCurrency(r.runningBalance, 'JPY') }
       ],
       rows
     });
@@ -1721,12 +1732,12 @@ if (typeof window !== 'undefined') {
     const currentCycle = Calc.getCycleForDate(Calc.todayLocal(), Store.data.settings.cycleStartDay);
     const existing = Store.data.cycleTargets.find(t => t.cycle === currentCycle);
     const bodyHtml = `
-      <p class="small text-muted">Sets all three targets for this cycle at once — shown on Dashboard (Savings), here (Emergency Fund), and on the Home Loan tab (Prepayment).</p>
+      <p class="small text-muted">Sets all three targets for this cycle at once — shown on Dashboard (Savings), here (Emergency Fund), and on the Home Loan tab (Prepayment). Savings and Emergency Fund are JPY (day-to-day life in Japan); Loan Prepayment is INR (the loan is in India).</p>
       <div class="row g-2">
-        <div class="col-12"><label class="form-label small">Savings Target (INR)</label>
-          <input type="number" id="f-savings-target" class="form-control" value="${existing?.savingsTargetINR || ''}"></div>
-        <div class="col-12"><label class="form-label small">Emergency Fund Target (INR)</label>
-          <input type="number" id="f-ef-target" class="form-control" value="${existing?.emergencyFundTargetINR || ''}"></div>
+        <div class="col-12"><label class="form-label small">Savings Target (JPY)</label>
+          <input type="number" id="f-savings-target" class="form-control" value="${existing?.savingsTargetJPY || ''}"></div>
+        <div class="col-12"><label class="form-label small">Emergency Fund Target (JPY)</label>
+          <input type="number" id="f-ef-target" class="form-control" value="${existing?.emergencyFundTargetJPY || ''}"></div>
         <div class="col-12"><label class="form-label small">Loan Prepayment Target (INR)</label>
           <input type="number" id="f-loan-target" class="form-control" value="${existing?.loanPrepaymentTargetINR || ''}"></div>
       </div>`;
@@ -1739,9 +1750,9 @@ if (typeof window !== 'undefined') {
         const loanValue = parseFloat(document.getElementById('f-loan-target').value) || 0;
         Store.mutate(d => {
           let target = d.cycleTargets.find(t => t.cycle === currentCycle);
-          if (!target) { target = { cycle: currentCycle, savingsTargetINR: 0, emergencyFundTargetINR: 0, loanPrepaymentTargetINR: 0 }; d.cycleTargets.push(target); }
-          target.savingsTargetINR = savingsValue;
-          target.emergencyFundTargetINR = efValue;
+          if (!target) { target = { cycle: currentCycle, savingsTargetJPY: 0, emergencyFundTargetJPY: 0, loanPrepaymentTargetINR: 0 }; d.cycleTargets.push(target); }
+          target.savingsTargetJPY = savingsValue;
+          target.emergencyFundTargetJPY = efValue;
           target.loanPrepaymentTargetINR = loanValue;
         });
       }
@@ -1891,20 +1902,22 @@ if (typeof window !== 'undefined') {
     const d = Store.data;
     const agg = Calc.aggregateByCycle(d.transactions, d.settings.cycleStartDay);
     const cycles = Object.keys(agg).sort();
+    // JPY throughout — almost everything logged here happened in JPY (day-to-day life in
+    // Japan); Home Loan and SIP have their own INR-denominated views on their own tabs.
     UI.chart(document.getElementById('chart-report-monthwise'), {
       type: 'bar',
-      data: { labels: cycles, datasets: [{ label: 'Total spend (INR)', data: cycles.map(c => agg[c].totalINR), backgroundColor: '#3f51b5' }] },
-      options: { plugins: { title: { display: true, text: 'Month-wise (cycle) spend' } } }
+      data: { labels: cycles, datasets: [{ label: 'Total spend (JPY)', data: cycles.map(c => agg[c].totalJPY), backgroundColor: '#3f51b5' }] },
+      options: { plugins: { title: { display: true, text: 'Month-wise (cycle) spend (JPY)' } } }
     });
 
     const catById = Object.fromEntries(d.categories.map(c => [c.id, c]));
     const totals = {};
-    d.transactions.forEach(t => { totals[t.categoryId] = (totals[t.categoryId] || 0) + t.amountINR; });
+    d.transactions.forEach(t => { totals[t.categoryId] = (totals[t.categoryId] || 0) + t.amountJPY; });
     const catIds = Object.keys(totals);
     UI.chart(document.getElementById('chart-report-categorywise'), {
       type: 'doughnut',
       data: { labels: catIds.map(id => catById[id]?.name || 'Other'), datasets: [{ data: catIds.map(id => totals[id]), backgroundColor: catIds.map(id => catById[id]?.color || '#9e9e9e') }] },
-      options: { plugins: { title: { display: true, text: 'All-time category-wise spend' } } }
+      options: { plugins: { title: { display: true, text: 'All-time category-wise spend (JPY)' } } }
     });
   };
 
