@@ -89,7 +89,20 @@
     <div class="card p-3 mb-3"><canvas id="chart-hl-breakdown"></canvas></div>
     <div id="hl-table-container"></div>
   </section>
-  <section id="tab-sip" class="tab-pane d-none"><p>SIP coming soon.</p></section>
+  <section id="tab-sip" class="tab-pane d-none">
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="card p-3">
+          <h6>Allocation (%)</h6>
+          <div id="sip-allocation-inputs"></div>
+          <div id="sip-allocation-total" class="small mt-2"></div>
+        </div>
+      </div>
+      <div class="col-md-6"><div class="card p-3"><canvas id="chart-sip-allocation"></canvas></div></div>
+    </div>
+    <div class="card p-3 mb-3"><canvas id="chart-sip-growth"></canvas></div>
+    <div id="sip-table-container"></div>
+  </section>
   <section id="tab-reports" class="tab-pane d-none"><p>Reports coming soon.</p></section>
   <section id="tab-settings" class="tab-pane d-none"><p>Settings coming soon.</p></section>
 </div>
@@ -754,6 +767,73 @@
   };
 
   Store.subscribe(() => { if (!document.getElementById('tab-home-loan').classList.contains('d-none')) Tabs.homeLoan.render(); });
+</script>
+<script>
+  Tabs.sip = {};
+
+  Tabs.sip.render = function() {
+    if (!Store.ready) return;
+    const d = Store.data;
+    const allocation = d.settings.sip.allocation;
+    const allocContainer = document.getElementById('sip-allocation-inputs');
+    allocContainer.innerHTML = Object.entries(allocation).map(([key, val]) => `
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <label class="small flex-grow-1">${key}</label>
+        <input type="number" class="form-control form-control-sm sip-alloc-input" data-key="${key}" value="${val}" style="width:80px">
+      </div>`).join('');
+    const total = Object.values(allocation).reduce((a, b) => a + b, 0);
+    const totalEl = document.getElementById('sip-allocation-total');
+    totalEl.textContent = `Total: ${total}%`;
+    totalEl.className = 'small mt-2 ' + (total === 100 ? 'text-success' : 'text-danger fw-bold');
+
+    UI.chart(document.getElementById('chart-sip-allocation'), {
+      type: 'pie',
+      data: { labels: Object.keys(allocation), datasets: [{ data: Object.values(allocation) }] }
+    });
+
+    const extras = Object.fromEntries((d.homeLoanExtras || []).map(e => [e.monthIndex, e.extraPrepaymentINR]));
+    const schedule = Calc.buildAmortizationSchedule({
+      principal: d.settings.homeLoan.principalINR, annualRatePct: d.settings.homeLoan.annualRatePct,
+      emi: d.settings.homeLoan.emiINR, tenureMonths: d.settings.homeLoan.tenureMonths, extras
+    });
+    const payoffMonth = Calc.getPayoffMonth(schedule);
+    const sip = Calc.buildSipProjection({
+      startingMonthlyINR: d.settings.sip.startingMonthlyINR, annualStepUpPct: d.settings.sip.annualStepUpPct,
+      estimatedReturnPct: d.settings.sip.estimatedReturnPct, startYear: 2027, endYear: 2036,
+      payoffMonth, postLoanMonthlyRedirectINR: d.settings.homeLoan.emiINR
+    });
+
+    UI.chart(document.getElementById('chart-sip-growth'), {
+      type: 'line',
+      data: { labels: sip.map(r => r.year), datasets: [{ label: 'Closing corpus (INR)', data: sip.map(r => r.closing), borderColor: '#3f51b5', fill: true, backgroundColor: 'rgba(63,81,181,0.15)' }] },
+      options: { plugins: { title: { display: true, text: `SIP corpus projection (payoff-linked redirect: month ${payoffMonth || 'n/a'})` } } }
+    });
+
+    const table = UI.dataTable({
+      columns: [
+        { key: 'year', label: 'Year' },
+        { key: 'monthlySip', label: 'Monthly SIP', render: r => Calc.formatCurrency(r.monthlySip, 'INR') },
+        { key: 'postLoanRedirect', label: 'Post-Loan Redirect (monthly)', render: r => Calc.formatCurrency(r.postLoanRedirect, 'INR') },
+        { key: 'totalAnnual', label: 'Total Annual', render: r => Calc.formatCurrency(r.totalAnnual, 'INR') },
+        { key: 'growth', label: 'Growth', render: r => Calc.formatCurrency(r.growth, 'INR') },
+        { key: 'closing', label: 'Closing Corpus', render: r => Calc.formatCurrency(r.closing, 'INR') }
+      ],
+      rows: sip
+    });
+    const container = document.getElementById('sip-table-container');
+    container.innerHTML = '';
+    container.appendChild(table);
+
+    allocContainer.querySelectorAll('.sip-alloc-input').forEach(input => {
+      input.addEventListener('change', () => {
+        const key = input.dataset.key;
+        const value = parseFloat(input.value) || 0;
+        Store.mutate(d => { d.settings.sip.allocation[key] = value; });
+      });
+    });
+  };
+
+  Store.subscribe(() => { if (!document.getElementById('tab-sip').classList.contains('d-none')) Tabs.sip.render(); });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
