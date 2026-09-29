@@ -39,7 +39,13 @@
       <button id="btn-connect" class="btn btn-primary">Create / Open Data File</button>
       <button id="btn-reconnect" class="btn btn-outline-primary d-none">Reconnect to finance-data.json</button>
     </div>
-    <div id="dashboard-content" class="d-none"><p>Dashboard content coming in Task 11.</p></div>
+    <div id="dashboard-content" class="d-none">
+      <div class="row g-3 mb-3" id="dash-stat-cards"></div>
+      <div class="row g-3">
+        <div class="col-md-6"><div class="card p-3"><canvas id="chart-category-donut"></canvas></div></div>
+        <div class="col-md-6"><div class="card p-3"><canvas id="chart-cycle-trend"></canvas></div></div>
+      </div>
+    </div>
   </section>
   <section id="tab-transactions" class="tab-pane d-none">
     <div class="d-flex flex-wrap gap-2 mb-3 align-items-end">
@@ -533,6 +539,74 @@
 
   document.getElementById('btn-add-cat').addEventListener('click', () => Tabs.categories.openForm(null));
   Store.subscribe(() => { if (!document.getElementById('tab-categories').classList.contains('d-none')) Tabs.categories.render(); });
+</script>
+<script>
+  Tabs.dashboard = {};
+
+  Tabs.dashboard.render = function() {
+    if (!Store.ready) return;
+    const d = Store.data;
+    const currentCycle = Calc.getCycleForDate(new Date().toISOString().slice(0, 10), d.settings.cycleStartDay);
+    const agg = Calc.aggregateByCycle(d.transactions);
+    const currentAgg = agg[currentCycle] || { totalINR: 0, byCategory: {} };
+    const incomeINR = Calc.jpyToInr(d.settings.salaryJPY, d.settings.jpyPerInr);
+    const savingsRate = incomeINR > 0 ? Math.round((1 - currentAgg.totalINR / incomeINR) * 100) : 0;
+
+    const extras = Object.fromEntries((d.homeLoanExtras || []).map(e => [e.monthIndex, e.extraPrepaymentINR]));
+    const schedule = Calc.buildAmortizationSchedule({
+      principal: d.settings.homeLoan.principalINR, annualRatePct: d.settings.homeLoan.annualRatePct,
+      emi: d.settings.homeLoan.emiINR, tenureMonths: d.settings.homeLoan.tenureMonths, extras
+    });
+    const payoffMonth = Calc.getPayoffMonth(schedule);
+    const currentBalance = schedule.length ? schedule[schedule.length - 1].closing : d.settings.homeLoan.principalINR;
+
+    const sip = Calc.buildSipProjection({
+      startingMonthlyINR: d.settings.sip.startingMonthlyINR, annualStepUpPct: d.settings.sip.annualStepUpPct,
+      estimatedReturnPct: d.settings.sip.estimatedReturnPct, startYear: 2027, endYear: 2036,
+      payoffMonth, postLoanMonthlyRedirectINR: d.settings.homeLoan.emiINR
+    });
+    const corpus2036 = sip.length ? sip[sip.length - 1].closing : 0;
+
+    const cycleTarget = d.cycleTargets.find(t => t.cycle === currentCycle) || {};
+    const savingsTarget = cycleTarget.savingsTargetINR || 0;
+    const savingsActual = incomeINR - currentAgg.totalINR;
+    const emergencyTarget = cycleTarget.emergencyFundTargetINR || 0;
+
+    const cardsContainer = document.getElementById('dash-stat-cards');
+    cardsContainer.innerHTML = '';
+    [
+      { icon: 'payments', label: `Spend (${currentCycle})`, value: Calc.formatCurrency(currentAgg.totalINR, 'INR'), sub: `Savings rate: ${savingsRate}%` },
+      { icon: 'account_balance', label: 'Savings — Target vs Actual', value: Calc.formatCurrency(savingsActual, 'INR'), sub: `Target: ${Calc.formatCurrency(savingsTarget, 'INR')}` },
+      { icon: 'savings', label: 'Emergency Fund Target (cycle)', value: Calc.formatCurrency(emergencyTarget, 'INR') },
+      { icon: 'home', label: 'Home Loan Balance', value: Calc.formatCurrency(currentBalance, 'INR'), sub: payoffMonth ? `Payoff in month ${payoffMonth}` : 'Payoff beyond schedule' },
+      { icon: 'trending_up', label: '2036 SIP Corpus (est.)', value: Calc.formatCurrency(corpus2036, 'INR') }
+    ].forEach(cfg => {
+      const col = document.createElement('div');
+      col.className = 'col-6 col-lg'; // col-lg with no number = equal-width flex column, so 5 cards share the row evenly
+      col.appendChild(UI.statCard(cfg));
+      cardsContainer.appendChild(col);
+    });
+
+    const catById = Object.fromEntries(d.categories.map(c => [c.id, c]));
+    const labels = Object.keys(currentAgg.byCategory);
+    UI.chart(document.getElementById('chart-category-donut'), {
+      type: 'doughnut',
+      data: {
+        labels: labels.map(id => catById[id]?.name || 'Other'),
+        datasets: [{ data: labels.map(id => currentAgg.byCategory[id]), backgroundColor: labels.map(id => catById[id]?.color || '#9e9e9e') }]
+      },
+      options: { plugins: { title: { display: true, text: `Spend by category — ${currentCycle}` } } }
+    });
+
+    const cycles = Object.keys(agg).sort();
+    UI.chart(document.getElementById('chart-cycle-trend'), {
+      type: 'bar',
+      data: { labels: cycles, datasets: [{ label: 'Total spend (INR)', data: cycles.map(c => agg[c].totalINR), backgroundColor: '#3f51b5' }] },
+      options: { plugins: { title: { display: true, text: 'Spend by cycle' } } }
+    });
+  };
+
+  Store.subscribe(() => { if (!document.getElementById('tab-dashboard').classList.contains('d-none')) Tabs.dashboard.render(); });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
