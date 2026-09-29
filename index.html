@@ -113,7 +113,30 @@
       <div class="col-md-6"><div class="card p-3"><canvas id="chart-report-categorywise"></canvas></div></div>
     </div>
   </section>
-  <section id="tab-settings" class="tab-pane d-none"><p>Settings coming soon.</p></section>
+  <section id="tab-settings" class="tab-pane d-none">
+    <form id="settings-form" class="row g-3">
+      <div class="col-md-4"><label class="form-label small">Salary (JPY)</label><input type="number" id="s-salary" class="form-control"></div>
+      <div class="col-md-4"><label class="form-label small">JPY per INR (FX rate)</label><input type="number" id="s-fx" class="form-control" step="0.01"></div>
+      <div class="col-md-4"><label class="form-label small">Cycle Start Day</label><input type="number" id="s-cycle-day" class="form-control" min="1" max="28"></div>
+      <div class="col-md-4"><label class="form-label small">Emergency Fund Target (JPY)</label><input type="number" id="s-ef-target" class="form-control"></div>
+      <div class="col-md-4"><label class="form-label small">Home Loan Principal (INR)</label><input type="number" id="s-hl-principal" class="form-control"></div>
+      <div class="col-md-4"><label class="form-label small">Home Loan Annual Rate (%)</label><input type="number" id="s-hl-rate" class="form-control" step="0.01"></div>
+      <div class="col-md-4"><label class="form-label small">Home Loan EMI (INR)</label><input type="number" id="s-hl-emi" class="form-control"></div>
+      <div class="col-md-4"><label class="form-label small">Loan Tenure (months)</label><input type="number" id="s-hl-tenure" class="form-control"></div>
+      <div class="col-md-4"><label class="form-label small">Starting SIP (INR/month)</label><input type="number" id="s-sip-start" class="form-control"></div>
+      <div class="col-md-4"><label class="form-label small">SIP Annual Step-up (%)</label><input type="number" id="s-sip-stepup" class="form-control" step="0.1"></div>
+      <div class="col-md-4"><label class="form-label small">SIP Estimated Return (%)</label><input type="number" id="s-sip-return" class="form-control" step="0.1"></div>
+      <div class="col-12"><button type="submit" class="btn btn-primary btn-sm">Save Settings</button></div>
+    </form>
+    <hr>
+    <h6>Data File</h6>
+    <button id="btn-settings-reconnect" class="btn btn-outline-secondary btn-sm">Reconnect / Switch Data File</button>
+    <hr>
+    <h6>Backup</h6>
+    <button id="btn-backup-export" class="btn btn-outline-secondary btn-sm">Export JSON Backup</button>
+    <label class="btn btn-outline-secondary btn-sm">Import JSON Backup<input type="file" id="btn-backup-import" accept="application/json" class="d-none"></label>
+    <div id="last-backup-indicator" class="small text-muted mt-2"></div>
+  </section>
 </div>
 <script id="calc-engine">
   // Placeholder — Task 17 replaces this block with the verbatim contents of js/calc.js
@@ -902,6 +925,70 @@
   document.getElementById('btn-export-csv').addEventListener('click', Tabs.reports.exportCsv);
   document.getElementById('btn-export-xlsx').addEventListener('click', Tabs.reports.exportXlsx);
   Store.subscribe(() => { if (!document.getElementById('tab-reports').classList.contains('d-none')) Tabs.reports.render(); });
+</script>
+<script>
+  Tabs.settings = {};
+
+  Tabs.settings.render = function() {
+    if (!Store.ready) return;
+    const s = Store.data.settings;
+    document.getElementById('s-salary').value = s.salaryJPY;
+    document.getElementById('s-fx').value = s.jpyPerInr;
+    document.getElementById('s-cycle-day').value = s.cycleStartDay;
+    document.getElementById('s-ef-target').value = s.emergencyFundTargetJPY;
+    document.getElementById('s-hl-principal').value = s.homeLoan.principalINR;
+    document.getElementById('s-hl-rate').value = s.homeLoan.annualRatePct;
+    document.getElementById('s-hl-emi').value = s.homeLoan.emiINR;
+    document.getElementById('s-hl-tenure').value = s.homeLoan.tenureMonths;
+    document.getElementById('s-sip-start').value = s.sip.startingMonthlyINR;
+    document.getElementById('s-sip-stepup').value = s.sip.annualStepUpPct;
+    document.getElementById('s-sip-return').value = s.sip.estimatedReturnPct;
+    const lastBackup = localStorage.getItem('finance-app-last-backup');
+    document.getElementById('last-backup-indicator').textContent = lastBackup
+      ? `Last manual backup: ${lastBackup}` : 'No manual backup taken yet — consider exporting one.';
+  };
+
+  document.getElementById('settings-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    Store.mutate(d => {
+      d.settings.salaryJPY = parseFloat(document.getElementById('s-salary').value) || 0;
+      d.settings.jpyPerInr = parseFloat(document.getElementById('s-fx').value) || 1;
+      d.settings.cycleStartDay = parseInt(document.getElementById('s-cycle-day').value, 10) || 25;
+      d.settings.emergencyFundTargetJPY = parseFloat(document.getElementById('s-ef-target').value) || 0;
+      d.settings.homeLoan.principalINR = parseFloat(document.getElementById('s-hl-principal').value) || 0;
+      d.settings.homeLoan.annualRatePct = parseFloat(document.getElementById('s-hl-rate').value) || 0;
+      d.settings.homeLoan.emiINR = parseFloat(document.getElementById('s-hl-emi').value) || 0;
+      d.settings.homeLoan.tenureMonths = parseInt(document.getElementById('s-hl-tenure').value, 10) || 0;
+      d.settings.sip.startingMonthlyINR = parseFloat(document.getElementById('s-sip-start').value) || 0;
+      d.settings.sip.annualStepUpPct = parseFloat(document.getElementById('s-sip-stepup').value) || 0;
+      d.settings.sip.estimatedReturnPct = parseFloat(document.getElementById('s-sip-return').value) || 0;
+    });
+  });
+
+  document.getElementById('btn-settings-reconnect').addEventListener('click', async () => {
+    await FileStorage.connectOrCreate();
+    await Store.initFromFile();
+  });
+
+  document.getElementById('btn-backup-export').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(Store.data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `finance-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    localStorage.setItem('finance-app-last-backup', new Date().toLocaleString());
+    Tabs.settings.render();
+  });
+
+  document.getElementById('btn-backup-import').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    const imported = JSON.parse(text);
+    await Store.mutate(d => Object.assign(d, imported));
+  });
+
+  Store.subscribe(() => { if (!document.getElementById('tab-settings').classList.contains('d-none')) Tabs.settings.render(); });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
