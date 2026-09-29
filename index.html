@@ -41,7 +41,33 @@
     </div>
     <div id="dashboard-content" class="d-none"><p>Dashboard content coming in Task 11.</p></div>
   </section>
-  <section id="tab-transactions" class="tab-pane d-none"><p>Transactions coming soon.</p></section>
+  <section id="tab-transactions" class="tab-pane d-none">
+    <div class="d-flex flex-wrap gap-2 mb-3 align-items-end">
+      <div>
+        <label class="form-label small mb-0">Category</label>
+        <select id="txn-filter-category" class="form-select form-select-sm"><option value="">All</option></select>
+      </div>
+      <div>
+        <label class="form-label small mb-0">Payment</label>
+        <select id="txn-filter-payment" class="form-select form-select-sm">
+          <option value="">All</option><option>Bank</option><option>Cash</option>
+          <option>Credit Card</option><option>IC Card</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label small mb-0">Need/Want</label>
+        <select id="txn-filter-needwant" class="form-select form-select-sm">
+          <option value="">All</option><option>Need</option><option>Want</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label small mb-0">Search</label>
+        <input id="txn-filter-search" class="form-control form-control-sm" placeholder="description/notes">
+      </div>
+      <button id="btn-add-txn" class="btn btn-primary btn-sm ms-auto">+ Add Transaction</button>
+    </div>
+    <div id="txn-table-container"></div>
+  </section>
   <section id="tab-categories" class="tab-pane d-none"><p>Categories coming soon.</p></section>
   <section id="tab-emergency-fund" class="tab-pane d-none"><p>Emergency Fund coming soon.</p></section>
   <section id="tab-home-loan" class="tab-pane d-none"><p>Home Loan coming soon.</p></section>
@@ -200,6 +226,8 @@
     document.querySelectorAll('#main-nav .nav-link').forEach(el => el.classList.remove('active'));
     document.getElementById('tab-' + name).classList.remove('d-none');
     document.querySelector(`#main-nav [data-tab="${name}"]`).classList.add('active');
+    const camel = name.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    if (Tabs[camel] && Tabs[camel].render) Tabs[camel].render();
   };
   document.querySelectorAll('#main-nav [data-tab]').forEach(btn => {
     btn.addEventListener('click', () => App.showTab(btn.dataset.tab));
@@ -321,6 +349,124 @@
     document.getElementById('shared-modal-save').addEventListener('click', saveHandler);
     return { show: () => bsModal.show(), hide: () => bsModal.hide() };
   };
+</script>
+<script>
+  window.Tabs = window.Tabs || {};
+  Tabs.transactions = { sortBy: 'date', sortDir: 'desc' };
+
+  Tabs.transactions.render = function() {
+    if (!Store.ready) return;
+    const catSelect = document.getElementById('txn-filter-category');
+    if (catSelect.options.length <= 1) {
+      Store.data.categories.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id; opt.textContent = c.name;
+        catSelect.appendChild(opt);
+      });
+    }
+    const filters = {
+      categoryId: document.getElementById('txn-filter-category').value,
+      paymentMethod: document.getElementById('txn-filter-payment').value,
+      needWant: document.getElementById('txn-filter-needwant').value,
+      search: document.getElementById('txn-filter-search').value
+    };
+    const catById = Object.fromEntries(Store.data.categories.map(c => [c.id, c]));
+    let rows = Calc.filterTransactions(Store.data.transactions, filters);
+    rows = Calc.sortTransactions(rows, this.sortBy, this.sortDir);
+
+    const table = UI.dataTable({
+      columns: [
+        { key: 'date', label: 'Date', sortable: true },
+        { key: 'categoryId', label: 'Category', sortable: true, render: r => catById[r.categoryId]?.name || 'Other' },
+        { key: 'description', label: 'Description', sortable: true },
+        { key: 'amountINR', label: 'Amount (INR)', sortable: true, render: r => Calc.formatCurrency(r.amountINR, 'INR') },
+        { key: 'amountJPY', label: 'Amount (JPY)', sortable: false, render: r => Calc.formatCurrency(r.amountJPY, 'JPY') },
+        { key: 'paymentMethod', label: 'Payment', sortable: true },
+        { key: 'needWant', label: 'Need/Want', sortable: true },
+        { key: 'actions', label: '', render: r => `<button class="btn btn-sm btn-outline-secondary edit-txn" data-id="${r.id}">Edit</button>
+                                                     <button class="btn btn-sm btn-outline-danger del-txn" data-id="${r.id}">Delete</button>` }
+      ],
+      rows,
+      sortBy: this.sortBy, sortDir: this.sortDir,
+      onSort: (key) => {
+        Tabs.transactions.sortDir = (Tabs.transactions.sortBy === key && Tabs.transactions.sortDir === 'asc') ? 'desc' : 'asc';
+        Tabs.transactions.sortBy = key;
+        Tabs.transactions.render();
+      }
+    });
+    const container = document.getElementById('txn-table-container');
+    container.innerHTML = '';
+    container.appendChild(table);
+
+    container.querySelectorAll('.edit-txn').forEach(btn =>
+      btn.addEventListener('click', () => Tabs.transactions.openForm(btn.dataset.id)));
+    container.querySelectorAll('.del-txn').forEach(btn =>
+      btn.addEventListener('click', () => Tabs.transactions.remove(btn.dataset.id)));
+  };
+
+  Tabs.transactions.remove = function(id) {
+    Store.mutate(d => { d.transactions = d.transactions.filter(t => t.id !== id); });
+  };
+
+  Tabs.transactions.openForm = function(id) {
+    const existing = id ? Store.data.transactions.find(t => t.id === id) : null;
+    const catOptions = Store.data.categories.map(c =>
+      `<option value="${c.id}" ${existing?.categoryId === c.id ? 'selected' : ''}>${c.name}</option>`).join('');
+    const bodyHtml = `
+      <div class="row g-2">
+        <div class="col-6"><label class="form-label small">Date</label>
+          <input type="date" id="f-date" class="form-control" value="${existing?.date || new Date().toISOString().slice(0,10)}"></div>
+        <div class="col-6"><label class="form-label small">Category</label>
+          <select id="f-category" class="form-select">${catOptions}</select></div>
+        <div class="col-12"><label class="form-label small">Description</label>
+          <input id="f-description" class="form-control" value="${existing?.description || ''}"></div>
+        <div class="col-6"><label class="form-label small">Amount (INR)</label>
+          <input type="number" id="f-amount-inr" class="form-control" value="${existing?.amountINR ?? ''}"></div>
+        <div class="col-6"><label class="form-label small">Amount (JPY)</label>
+          <input type="number" id="f-amount-jpy" class="form-control" value="${existing?.amountJPY ?? ''}"></div>
+        <div class="col-6"><label class="form-label small">Payment Method</label>
+          <select id="f-payment" class="form-select">
+            ${['Bank','Cash','Credit Card','IC Card'].map(p => `<option ${existing?.paymentMethod===p?'selected':''}>${p}</option>`).join('')}
+          </select></div>
+        <div class="col-6"><label class="form-label small">Need/Want</label>
+          <select id="f-needwant" class="form-select">
+            ${['Need','Want'].map(p => `<option ${existing?.needWant===p?'selected':''}>${p}</option>`).join('')}
+          </select></div>
+        <div class="col-12"><label class="form-label small">Notes</label>
+          <input id="f-notes" class="form-control" value="${existing?.notes || ''}"></div>
+      </div>`;
+    const modal = UI.modal({
+      title: existing ? 'Edit Transaction' : 'Add Transaction',
+      bodyHtml,
+      onSave: () => {
+        const jpyPerInr = Store.data.settings.jpyPerInr;
+        let amountINR = parseFloat(document.getElementById('f-amount-inr').value) || 0;
+        let amountJPY = parseFloat(document.getElementById('f-amount-jpy').value) || 0;
+        if (amountINR && !amountJPY) amountJPY = Calc.inrToJpy(amountINR, jpyPerInr);
+        if (amountJPY && !amountINR) amountINR = Calc.jpyToInr(amountJPY, jpyPerInr);
+        const record = {
+          id: existing ? existing.id : 'txn-' + Date.now(),
+          date: document.getElementById('f-date').value,
+          categoryId: document.getElementById('f-category').value,
+          description: document.getElementById('f-description').value,
+          amountINR, amountJPY,
+          paymentMethod: document.getElementById('f-payment').value,
+          needWant: document.getElementById('f-needwant').value,
+          notes: document.getElementById('f-notes').value
+        };
+        Store.mutate(d => {
+          const idx = d.transactions.findIndex(t => t.id === record.id);
+          if (idx >= 0) d.transactions[idx] = record; else d.transactions.push(record);
+        });
+      }
+    });
+    modal.show();
+  };
+
+  document.getElementById('btn-add-txn').addEventListener('click', () => Tabs.transactions.openForm(null));
+  ['txn-filter-category','txn-filter-payment','txn-filter-needwant','txn-filter-search'].forEach(id =>
+    document.getElementById(id).addEventListener('input', () => Tabs.transactions.render()));
+  Store.subscribe(() => { if (!document.getElementById('tab-transactions').classList.contains('d-none')) Tabs.transactions.render(); });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
