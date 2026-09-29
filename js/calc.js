@@ -58,6 +58,28 @@ Calc.getPayoffMonth = function(schedule) {
   return row ? row.month : null;
 };
 
+Calc.buildSipProjection = function({
+  startingMonthlyINR, annualStepUpPct, estimatedReturnPct,
+  startYear, endYear, payoffMonth, postLoanMonthlyRedirectINR
+}) {
+  const rows = [];
+  let opening = 0;
+  const payoffYearOffset = payoffMonth != null ? Math.floor((payoffMonth - 1) / 12) : null;
+  for (let year = startYear; year <= endYear; year++) {
+    const yearsElapsed = year - startYear;
+    const monthlySip = startingMonthlyINR * Math.pow(1 + annualStepUpPct / 100, yearsElapsed);
+    const postLoanRedirect = (payoffYearOffset !== null && yearsElapsed >= payoffYearOffset)
+      ? postLoanMonthlyRedirectINR : 0;
+    const annualBase = monthlySip * 12;
+    const totalAnnual = annualBase + postLoanRedirect * 12;
+    const growth = (opening + totalAnnual / 2) * (estimatedReturnPct / 100);
+    const closing = opening + totalAnnual + growth;
+    rows.push({ year, monthlySip, annualBase, postLoanRedirect, totalAnnual, opening, growth, closing });
+    opening = closing;
+  }
+  return rows;
+};
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = Calc;
 }

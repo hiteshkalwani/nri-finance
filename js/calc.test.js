@@ -41,4 +41,17 @@ assert.strictEqual(clampSchedule.length, 1, 'schedule stops once principal hits 
 assert.strictEqual(Calc.getPayoffMonth(clampSchedule), 1);
 assert.strictEqual(Calc.getPayoffMonth([{month: 1, closing: 500}]), null);
 
-console.log('calc.test.js: cycles, currency & amortization — ALL PASS');
+// SIP projection tests
+const sip = Calc.buildSipProjection({
+  startingMonthlyINR: 100000, annualStepUpPct: 10, estimatedReturnPct: 11,
+  startYear: 2027, endYear: 2029, payoffMonth: 15, postLoanMonthlyRedirectINR: 78500
+});
+assert.strictEqual(sip.length, 3);
+assert.strictEqual(sip[0].monthlySip, 100000); // year 0, no step-up yet
+assert.strictEqual(sip[0].postLoanRedirect, 0); // payoff at month 15 = year 2028, not yet in 2027
+assert.strictEqual(Math.round(sip[1].monthlySip), 110000); // year 1: +10%
+assert.strictEqual(sip[1].postLoanRedirect, 78500); // month 15 falls in year offset 1 -> 2028
+assert.strictEqual(sip[0].opening, 0);
+assert.ok(sip[1].opening > 0, 'opening balance carries forward from prior year closing');
+
+console.log('calc.test.js: cycles, currency, amortization & SIP projection — ALL PASS');
