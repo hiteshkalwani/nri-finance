@@ -17,6 +17,7 @@ const CATEGORY_LIST = [
   { id: 'transport', name: 'Transport', color: '#00bcd4' },
   { id: 'utilities', name: 'Utilities', color: '#607d8b' },
   { id: 'rent', name: 'Rent', color: '#795548' },
+  { id: 'emergency-fund', name: 'Emergency Fund', color: '#009688' },
   { id: 'other', name: 'Other', color: '#9e9e9e' }
 ];
 const nameToId = Object.fromEntries(CATEGORY_LIST.map(c => [c.name, c.id]));

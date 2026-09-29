@@ -78,7 +78,11 @@
     <button id="btn-add-cat" class="btn btn-primary btn-sm mb-3">+ Add Category</button>
     <div id="cat-table-container"></div>
   </section>
-  <section id="tab-emergency-fund" class="tab-pane d-none"><p>Emergency Fund coming soon.</p></section>
+  <section id="tab-emergency-fund" class="tab-pane d-none">
+    <button id="btn-set-ef-target" class="btn btn-primary btn-sm mb-3">Set Target for Current Cycle</button>
+    <div class="card p-3 mb-3"><canvas id="chart-ef-progress"></canvas></div>
+    <div id="ef-table-container"></div>
+  </section>
   <section id="tab-home-loan" class="tab-pane d-none"><p>Home Loan coming soon.</p></section>
   <section id="tab-sip" class="tab-pane d-none"><p>SIP coming soon.</p></section>
   <section id="tab-reports" class="tab-pane d-none"><p>Reports coming soon.</p></section>
@@ -607,6 +611,79 @@
   };
 
   Store.subscribe(() => { if (!document.getElementById('tab-dashboard').classList.contains('d-none')) Tabs.dashboard.render(); });
+</script>
+<script>
+  Tabs.emergencyFund = {};
+
+  Tabs.emergencyFund.render = function() {
+    if (!Store.ready) return;
+    const d = Store.data;
+    const agg = Calc.aggregateByCycle(d.transactions);
+    const cycles = Array.from(new Set([...Object.keys(agg), ...d.cycleTargets.map(t => t.cycle)])).sort();
+    const rows = cycles.map(cycle => {
+      const target = (d.cycleTargets.find(t => t.cycle === cycle) || {}).emergencyFundTargetINR || 0;
+      const actual = (agg[cycle] && agg[cycle].byCategory['emergency-fund']) || 0;
+      return { cycle, target, actual, variance: actual - target };
+    });
+
+    const table = UI.dataTable({
+      columns: [
+        { key: 'cycle', label: 'Cycle' },
+        { key: 'target', label: 'Target (INR)', render: r => Calc.formatCurrency(r.target, 'INR') },
+        { key: 'actual', label: 'Actual (INR)', render: r => Calc.formatCurrency(r.actual, 'INR') },
+        { key: 'variance', label: 'Variance', render: r => Calc.formatCurrency(r.variance, 'INR') }
+      ],
+      rows
+    });
+    const container = document.getElementById('ef-table-container');
+    container.innerHTML = '';
+    container.appendChild(table);
+
+    UI.chart(document.getElementById('chart-ef-progress'), {
+      type: 'line',
+      data: {
+        labels: rows.map(r => r.cycle),
+        datasets: [
+          { label: 'Target', data: rows.map(r => r.target), borderColor: '#9e9e9e', fill: false },
+          { label: 'Actual', data: rows.map(r => r.actual), borderColor: '#4caf50', fill: false }
+        ]
+      },
+      options: { plugins: { title: { display: true, text: 'Emergency fund: target vs actual by cycle' } } }
+    });
+  };
+
+  document.getElementById('btn-set-ef-target').addEventListener('click', () => {
+    const currentCycle = Calc.getCycleForDate(new Date().toISOString().slice(0, 10), Store.data.settings.cycleStartDay);
+    const existing = Store.data.cycleTargets.find(t => t.cycle === currentCycle);
+    const bodyHtml = `
+      <p class="small text-muted">Sets all three targets for this cycle at once — shown on Dashboard (Savings), here (Emergency Fund), and on the Home Loan tab (Prepayment).</p>
+      <div class="row g-2">
+        <div class="col-12"><label class="form-label small">Savings Target (INR)</label>
+          <input type="number" id="f-savings-target" class="form-control" value="${existing?.savingsTargetINR || ''}"></div>
+        <div class="col-12"><label class="form-label small">Emergency Fund Target (INR)</label>
+          <input type="number" id="f-ef-target" class="form-control" value="${existing?.emergencyFundTargetINR || ''}"></div>
+        <div class="col-12"><label class="form-label small">Loan Prepayment Target (INR)</label>
+          <input type="number" id="f-loan-target" class="form-control" value="${existing?.loanPrepaymentTargetINR || ''}"></div>
+      </div>`;
+    const modal = UI.modal({
+      title: `Set Cycle Targets — ${currentCycle}`,
+      bodyHtml,
+      onSave: () => {
+        const savingsValue = parseFloat(document.getElementById('f-savings-target').value) || 0;
+        const efValue = parseFloat(document.getElementById('f-ef-target').value) || 0;
+        const loanValue = parseFloat(document.getElementById('f-loan-target').value) || 0;
+        Store.mutate(d => {
+          let target = d.cycleTargets.find(t => t.cycle === currentCycle);
+          if (!target) { target = { cycle: currentCycle, savingsTargetINR: 0, emergencyFundTargetINR: 0, loanPrepaymentTargetINR: 0 }; d.cycleTargets.push(target); }
+          target.savingsTargetINR = savingsValue;
+          target.emergencyFundTargetINR = efValue;
+          target.loanPrepaymentTargetINR = loanValue;
+        });
+      }
+    });
+    modal.show();
+  });
+  Store.subscribe(() => { if (!document.getElementById('tab-emergency-fund').classList.contains('d-none')) Tabs.emergencyFund.render(); });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
