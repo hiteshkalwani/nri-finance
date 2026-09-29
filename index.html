@@ -83,7 +83,12 @@
     <div class="card p-3 mb-3"><canvas id="chart-ef-progress"></canvas></div>
     <div id="ef-table-container"></div>
   </section>
-  <section id="tab-home-loan" class="tab-pane d-none"><p>Home Loan coming soon.</p></section>
+  <section id="tab-home-loan" class="tab-pane d-none">
+    <div id="hl-summary" class="mb-3 fw-bold"></div>
+    <div id="hl-prepay-target" class="mb-3"></div>
+    <div class="card p-3 mb-3"><canvas id="chart-hl-breakdown"></canvas></div>
+    <div id="hl-table-container"></div>
+  </section>
   <section id="tab-sip" class="tab-pane d-none"><p>SIP coming soon.</p></section>
   <section id="tab-reports" class="tab-pane d-none"><p>Reports coming soon.</p></section>
   <section id="tab-settings" class="tab-pane d-none"><p>Settings coming soon.</p></section>
@@ -684,6 +689,71 @@
     modal.show();
   });
   Store.subscribe(() => { if (!document.getElementById('tab-emergency-fund').classList.contains('d-none')) Tabs.emergencyFund.render(); });
+</script>
+<script>
+  Tabs.homeLoan = {};
+
+  Tabs.homeLoan.render = function() {
+    if (!Store.ready) return;
+    const d = Store.data;
+    const extras = Object.fromEntries((d.homeLoanExtras || []).map(e => [e.monthIndex, e.extraPrepaymentINR]));
+    const schedule = Calc.buildAmortizationSchedule({
+      principal: d.settings.homeLoan.principalINR, annualRatePct: d.settings.homeLoan.annualRatePct,
+      emi: d.settings.homeLoan.emiINR, tenureMonths: d.settings.homeLoan.tenureMonths, extras
+    });
+    const payoffMonth = Calc.getPayoffMonth(schedule);
+    document.getElementById('hl-summary').textContent = payoffMonth
+      ? `Projected payoff: month ${payoffMonth} (~${Math.ceil(payoffMonth / 12)} years)`
+      : 'Loan does not reach zero within the configured tenure — increase extra prepayments or tenure.';
+
+    const currentCycle = Calc.getCycleForDate(new Date().toISOString().slice(0, 10), d.settings.cycleStartDay);
+    const currentLoanMonth = Calc.cycleToLoanMonth(currentCycle, d.settings.homeLoan.startCycle);
+    const prepayTarget = (d.cycleTargets.find(t => t.cycle === currentCycle) || {}).loanPrepaymentTargetINR || 0;
+    const prepayActual = extras[currentLoanMonth] || 0;
+    document.getElementById('hl-prepay-target').innerHTML =
+      `<span class="badge bg-light text-dark border">Extra Prepayment this cycle (loan month ${currentLoanMonth}): ` +
+      `${Calc.formatCurrency(prepayActual, 'INR')} / target ${Calc.formatCurrency(prepayTarget, 'INR')}</span>`;
+
+    UI.chart(document.getElementById('chart-hl-breakdown'), {
+      type: 'bar',
+      data: {
+        labels: schedule.map(r => r.month),
+        datasets: [
+          { label: 'Interest', data: schedule.map(r => r.interest), backgroundColor: '#e91e63' },
+          { label: 'EMI + Extra', data: schedule.map(r => r.emi + r.extra), backgroundColor: '#3f51b5' }
+        ]
+      },
+      options: { scales: { x: { stacked: true }, y: { stacked: true } }, plugins: { title: { display: true, text: 'Monthly principal reduction vs interest' } } }
+    });
+
+    const table = UI.dataTable({
+      columns: [
+        { key: 'month', label: 'Month' },
+        { key: 'opening', label: 'Opening', render: r => Calc.formatCurrency(r.opening, 'INR') },
+        { key: 'interest', label: 'Interest', render: r => Calc.formatCurrency(r.interest, 'INR') },
+        { key: 'emi', label: 'EMI', render: r => Calc.formatCurrency(r.emi, 'INR') },
+        { key: 'extra', label: 'Extra Prepayment', render: r => `<input type="number" class="form-control form-control-sm hl-extra-input" data-month="${r.month}" value="${r.extra || ''}">` },
+        { key: 'closing', label: 'Closing', render: r => Calc.formatCurrency(r.closing, 'INR') }
+      ],
+      rows: schedule
+    });
+    const container = document.getElementById('hl-table-container');
+    container.innerHTML = '';
+    container.appendChild(table);
+    container.querySelectorAll('.hl-extra-input').forEach(input => {
+      input.addEventListener('change', () => {
+        const month = parseInt(input.dataset.month, 10);
+        const value = parseFloat(input.value) || 0;
+        Store.mutate(d => {
+          const existing = d.homeLoanExtras.find(e => e.monthIndex === month);
+          if (existing) existing.extraPrepaymentINR = value;
+          else d.homeLoanExtras.push({ monthIndex: month, extraPrepaymentINR: value });
+        });
+      });
+    });
+  };
+
+  Store.subscribe(() => { if (!document.getElementById('tab-home-loan').classList.contains('d-none')) Tabs.homeLoan.render(); });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
