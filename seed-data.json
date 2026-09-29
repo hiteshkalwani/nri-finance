@@ -1,0 +1,706 @@
+{
+  "settings": {
+    "salaryJPY": 670000,
+    "jpyPerInr": 1.694915254237288,
+    "cycleStartDay": 25,
+    "emergencyFundTargetJPY": 1500000,
+    "homeLoan": {
+      "principalINR": 2050572,
+      "annualRatePct": 7.35,
+      "emiINR": 36557,
+      "tenureMonths": 69,
+      "startCycle": "2026-09"
+    },
+    "sip": {
+      "startingMonthlyINR": 100000,
+      "annualStepUpPct": 10,
+      "estimatedReturnPct": 11,
+      "allocation": {
+        "Nifty50": 40,
+        "FlexiCap": 20,
+        "MidCap": 15,
+        "SmallCap": 10,
+        "GlobalEquity": 10,
+        "Gold": 5
+      }
+    }
+  },
+  "categories": [
+    {
+      "id": "groceries",
+      "name": "Groceries",
+      "color": "#4caf50"
+    },
+    {
+      "id": "eating-out",
+      "name": "Eating Out",
+      "color": "#ff9800"
+    },
+    {
+      "id": "fixed-obligations",
+      "name": "Fixed Obligations",
+      "color": "#3f51b5"
+    },
+    {
+      "id": "family-india",
+      "name": "Family/India",
+      "color": "#9c27b0"
+    },
+    {
+      "id": "wants",
+      "name": "Wants",
+      "color": "#e91e63"
+    },
+    {
+      "id": "transport",
+      "name": "Transport",
+      "color": "#00bcd4"
+    },
+    {
+      "id": "utilities",
+      "name": "Utilities",
+      "color": "#607d8b"
+    },
+    {
+      "id": "rent",
+      "name": "Rent",
+      "color": "#795548"
+    },
+    {
+      "id": "other",
+      "name": "Other",
+      "color": "#9e9e9e"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "migrated-1",
+      "date": "2026-08-26",
+      "categoryId": "wants",
+      "description": "DonQ bill",
+      "amountJPY": 941,
+      "amountINR": 555.19,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-2",
+      "date": "2026-08-27",
+      "categoryId": "family-india",
+      "description": "Transfer to Papa",
+      "amountJPY": 0,
+      "amountINR": 8006,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": "Indian bank account existing amount transfer"
+    },
+    {
+      "id": "migrated-3",
+      "date": "2026-08-28",
+      "categoryId": "wants",
+      "description": "Pasmo Recharge",
+      "amountJPY": 10000,
+      "amountINR": 5900,
+      "paymentMethod": "Credit Card",
+      "needWant": "Need",
+      "notes": "- 660 yen - Parking\n- 190 yen - cookie \n- 260 yen - Sandwich\n- 1410 yen - Ramen\n- 753 yen - 7/11 \n- 533 yen - 7/11 "
+    },
+    {
+      "id": "migrated-4",
+      "date": "2026-08-28",
+      "categoryId": "wants",
+      "description": "Magnet",
+      "amountJPY": 170,
+      "amountINR": 100.3,
+      "paymentMethod": "Cash",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-5",
+      "date": "2026-08-28",
+      "categoryId": "eating-out",
+      "description": "Lunch ",
+      "amountJPY": 5530,
+      "amountINR": 3262.7,
+      "paymentMethod": "Bank",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-6",
+      "date": "2026-08-29",
+      "categoryId": "wants",
+      "description": "Massage",
+      "amountJPY": 12000,
+      "amountINR": 7080,
+      "paymentMethod": "Cash",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-7",
+      "date": "2026-08-29",
+      "categoryId": "wants",
+      "description": "Rakhi Celebration",
+      "amountJPY": 1443,
+      "amountINR": 851.37,
+      "paymentMethod": "Cash",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-8",
+      "date": "2026-08-27",
+      "categoryId": "fixed-obligations",
+      "description": "Credit Card Bill",
+      "amountJPY": 225662,
+      "amountINR": 133140.58,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-9",
+      "date": "2026-08-29",
+      "categoryId": "wants",
+      "description": "Amazon Mahendi purchase",
+      "amountJPY": 1111,
+      "amountINR": 655.49,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-10",
+      "date": "2026-08-29",
+      "categoryId": "family-india",
+      "description": "Bank transfer to India",
+      "amountJPY": 250000,
+      "amountINR": 147500,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": "Bank transfer to indian bank account\n- 40,000 Rs. Health insurance 5/6 & 6/6\n- 2739 Rs. Electricity Bill\n- 300 Rs. Donation to Cancer Patient\n- 23000 Rs. Home loan insurance closure amount\n- 21000 Rs. Papa bank transfer\n- 1788 Rs. Blinkit groceries\n- 10000 Rs. Shruti Extra Money\n- 672 Rs. Bookmyshow movie\n- 9448 Rs Ring & Rudraksh 3/3 EMI\n- 36557 Rs Home Loan EMI\n- 4900 Rs Jhoomer\n- 2476.82 Hostinger hosting"
+    },
+    {
+      "id": "migrated-11",
+      "date": "2026-08-30",
+      "categoryId": "wants",
+      "description": "Choco lava & chicken - Dominoz",
+      "amountJPY": 1010,
+      "amountINR": 595.9,
+      "paymentMethod": "Bank",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-12",
+      "date": "2026-08-30",
+      "categoryId": "wants",
+      "description": "gift for Nirav Family",
+      "amountJPY": 882,
+      "amountINR": 520.38,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-13",
+      "date": "2026-08-30",
+      "categoryId": "fixed-obligations",
+      "description": "Bank transfer charge",
+      "amountJPY": 165,
+      "amountINR": 97.35,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-14",
+      "date": "2026-08-31",
+      "categoryId": "eating-out",
+      "description": "Sushi dinner",
+      "amountJPY": 3432,
+      "amountINR": 2024.88,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-15",
+      "date": "2026-09-01",
+      "categoryId": "eating-out",
+      "description": "food at subway",
+      "amountJPY": 1165,
+      "amountINR": 687.35,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-16",
+      "date": "2026-09-01",
+      "categoryId": "eating-out",
+      "description": "Ramen",
+      "amountJPY": 1030,
+      "amountINR": 607.7,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-17",
+      "date": "2026-09-01",
+      "categoryId": "wants",
+      "description": "daiso",
+      "amountJPY": 550,
+      "amountINR": 324.5,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-18",
+      "date": "2026-09-01",
+      "categoryId": "wants",
+      "description": "cake",
+      "amountJPY": 425,
+      "amountINR": 250.75,
+      "paymentMethod": "Cash",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-19",
+      "date": "2026-09-01",
+      "categoryId": "wants",
+      "description": "costco pizza slice",
+      "amountJPY": 350,
+      "amountINR": 206.5,
+      "paymentMethod": "Cash",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-20",
+      "date": "2026-09-01",
+      "categoryId": "groceries",
+      "description": "costco groceries",
+      "amountJPY": 8430,
+      "amountINR": 4973.7,
+      "paymentMethod": "Cash",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-21",
+      "date": "2026-09-05",
+      "categoryId": "fixed-obligations",
+      "description": "Costco petrol",
+      "amountJPY": 4386,
+      "amountINR": 2587.74,
+      "paymentMethod": "Credit Card",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-22",
+      "date": "2026-09-05",
+      "categoryId": "eating-out",
+      "description": "Belc Dinner",
+      "amountJPY": 1364,
+      "amountINR": 804.76,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-23",
+      "date": "2026-09-03",
+      "categoryId": "groceries",
+      "description": "Hanamasa ",
+      "amountJPY": 2286,
+      "amountINR": 1348.74,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-24",
+      "date": "2026-09-04",
+      "categoryId": "eating-out",
+      "description": "Mos burger lunch",
+      "amountJPY": 2170,
+      "amountINR": 1280.3,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-25",
+      "date": "2026-09-05",
+      "categoryId": "wants",
+      "description": "Hardoff - Cars for Atharv",
+      "amountJPY": 550,
+      "amountINR": 324.5,
+      "paymentMethod": "Cash",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-26",
+      "date": "2026-09-05",
+      "categoryId": "eating-out",
+      "description": "Ramen - Dinner",
+      "amountJPY": 2640,
+      "amountINR": 1557.6,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-27",
+      "date": "2026-09-04",
+      "categoryId": "fixed-obligations",
+      "description": "Gas Bill",
+      "amountJPY": 7363,
+      "amountINR": 4344.17,
+      "paymentMethod": "Cash",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-28",
+      "date": "2026-09-06",
+      "categoryId": "eating-out",
+      "description": "Hanamasa Chelsea party",
+      "amountJPY": 1319,
+      "amountINR": 778.21,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-29",
+      "date": "2026-09-08",
+      "categoryId": "groceries",
+      "description": "Welcia - Paper & cheese",
+      "amountJPY": 1220,
+      "amountINR": 719.8,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-30",
+      "date": "2026-09-08",
+      "categoryId": "fixed-obligations",
+      "description": "House Rent",
+      "amountJPY": 62420,
+      "amountINR": 36827.8,
+      "paymentMethod": "Cash",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-31",
+      "date": "2026-09-03",
+      "categoryId": "wants",
+      "description": "Temu Shopping - Car Accessories",
+      "amountJPY": 1096,
+      "amountINR": 646.64,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-32",
+      "date": "2026-09-05",
+      "categoryId": "wants",
+      "description": "Temu Shopping - Ganpati Items",
+      "amountJPY": 4880,
+      "amountINR": 2879.2,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-33",
+      "date": "2026-09-04",
+      "categoryId": "wants",
+      "description": "Apple Bill",
+      "amountJPY": 290,
+      "amountINR": 171.1,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-34",
+      "date": "2026-09-08",
+      "categoryId": "eating-out",
+      "description": "Ramen - Dinner",
+      "amountJPY": 1740,
+      "amountINR": 1026.6,
+      "paymentMethod": "Credit Card",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-35",
+      "date": "2026-09-08",
+      "categoryId": "wants",
+      "description": "Belc + Cainz Shopping",
+      "amountJPY": 560,
+      "amountINR": 330.4,
+      "paymentMethod": "Cash",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-36",
+      "date": "2026-09-10",
+      "categoryId": "groceries",
+      "description": "Milk - Shivani house",
+      "amountJPY": 278,
+      "amountINR": 164.02,
+      "paymentMethod": "IC Card",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-37",
+      "date": "2026-09-11",
+      "categoryId": "groceries",
+      "description": "costco",
+      "amountJPY": 7090,
+      "amountINR": 4183.1,
+      "paymentMethod": "Cash",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-38",
+      "date": "2026-09-18",
+      "categoryId": "eating-out",
+      "description": "7-Eleven ",
+      "amountJPY": 1854,
+      "amountINR": 1093.86,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-39",
+      "date": "2026-09-25",
+      "categoryId": "eating-out",
+      "description": "Aleez Dinner",
+      "amountJPY": 4191,
+      "amountINR": 2472.69,
+      "paymentMethod": "Credit Card",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-40",
+      "date": "2026-09-25",
+      "categoryId": "groceries",
+      "description": "costco groceries",
+      "amountJPY": 6871,
+      "amountINR": 4053.89,
+      "paymentMethod": "Credit Card",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-41",
+      "date": "2026-09-24",
+      "categoryId": "other",
+      "description": "dinner",
+      "amountJPY": 1382,
+      "amountINR": 815.38,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-42",
+      "date": "2026-09-13",
+      "categoryId": "other",
+      "description": "Clothes dry",
+      "amountJPY": 500,
+      "amountINR": 295,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-43",
+      "date": "2026-09-24",
+      "categoryId": "eating-out",
+      "description": "hama sushi",
+      "amountJPY": 4257,
+      "amountINR": 2511.63,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-44",
+      "date": "2026-09-11",
+      "categoryId": "eating-out",
+      "description": "hama sushi",
+      "amountJPY": 3168,
+      "amountINR": 1869.12,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-45",
+      "date": "2026-09-14",
+      "categoryId": "eating-out",
+      "description": "food",
+      "amountJPY": 1032,
+      "amountINR": 608.88,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-46",
+      "date": "2026-09-11",
+      "categoryId": "wants",
+      "description": "random items ",
+      "amountJPY": 603,
+      "amountINR": 355.77,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-47",
+      "date": "2026-09-13",
+      "categoryId": "other",
+      "description": "blanket/matt  wash and dry",
+      "amountJPY": 1600,
+      "amountINR": 944,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-48",
+      "date": "2026-09-13",
+      "categoryId": "other",
+      "description": "Groceries ",
+      "amountJPY": 2949,
+      "amountINR": 1739.91,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-49",
+      "date": "2026-09-11",
+      "categoryId": "groceries",
+      "description": "gyomu",
+      "amountJPY": 1095,
+      "amountINR": 646.05,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-50",
+      "date": "2026-09-20",
+      "categoryId": "wants",
+      "description": "wonderGoo",
+      "amountJPY": 1880,
+      "amountINR": 1109.2,
+      "paymentMethod": "Bank",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-51",
+      "date": "2026-09-16",
+      "categoryId": "other",
+      "description": "whole trip Expen",
+      "amountJPY": 86000,
+      "amountINR": 50740,
+      "paymentMethod": "Bank",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-52",
+      "date": "2026-09-18",
+      "categoryId": "groceries",
+      "description": "groceries ",
+      "amountJPY": 4000,
+      "amountINR": 2360,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-53",
+      "date": "2026-09-16",
+      "categoryId": "groceries",
+      "description": "palates for ganpati",
+      "amountJPY": 1523,
+      "amountINR": 898.57,
+      "paymentMethod": "Bank",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-54",
+      "date": "2026-09-27",
+      "categoryId": "wants",
+      "description": "Movie-Avengers",
+      "amountJPY": 4200,
+      "amountINR": 2478,
+      "paymentMethod": "Bank",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-55",
+      "date": "2026-09-26",
+      "categoryId": "other",
+      "description": "gift for snehal Family",
+      "amountJPY": 1123,
+      "amountINR": 662.57,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    },
+    {
+      "id": "migrated-56",
+      "date": "2026-09-28",
+      "categoryId": "wants",
+      "description": "shruti-hair removal machine",
+      "amountJPY": 1999,
+      "amountINR": 1179.41,
+      "paymentMethod": "Credit Card",
+      "needWant": "Want",
+      "notes": ""
+    },
+    {
+      "id": "migrated-57",
+      "date": "2026-09-29",
+      "categoryId": "groceries",
+      "description": "welcia",
+      "amountJPY": 492,
+      "amountINR": 290.28,
+      "paymentMethod": "Bank",
+      "needWant": "Need",
+      "notes": ""
+    }
+  ],
+  "cycleTargets": [],
+  "homeLoanExtras": []
+}
