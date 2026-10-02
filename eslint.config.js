@@ -7,7 +7,8 @@ export default tseslint.config(
   { ignores: ['legacy/**', '**/dist/**', '.vercel/**', 'docs/**', 'supabase/**', 'packages/db/migrations/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  ...vue.configs['flat/recommended'],
+  // Correctness rules only; template layout is Prettier's job.
+  ...vue.configs['flat/essential'],
   {
     files: ['**/*.vue'],
     languageOptions: { parserOptions: { parser: tseslint.parser } },
