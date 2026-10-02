@@ -1,0 +1,1 @@
+{ "buildCommand": "pnpm build:vercel", "installCommand": "pnpm install --frozen-lockfile", "framework": null }
