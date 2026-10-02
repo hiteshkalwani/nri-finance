@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { eq, sql } from 'drizzle-orm'
 import { createTestUser, deleteTestUser, type TestUser } from '@nri/test-utils'
-import { categories, createDb, withUser } from '../src/index'
+import { categories, createDb, profiles, withUser } from '../src/index'
 
 const { db, close } = createDb(process.env.DATABASE_URL!)
 
@@ -59,6 +59,16 @@ describe('withUser + RLS', () => {
       tx.update(categories).set({ name: 'Hijacked' }).where(eq(categories.userId, a.id)).returning(),
     )
     expect(updated).toHaveLength(0)
+  })
+
+  it('rejects a zero planning rate at the database level', async () => {
+    expect(
+      await pgError(
+        withUser(db, { sub: a.id }, (tx) =>
+          tx.insert(profiles).values({ userId: a.id, salaryJpy: 1, planningRateJpyPerInr: '0', cycleStartDay: 25 }),
+        ),
+      ),
+    ).toMatch(/profiles_rate_positive/)
   })
 
   it('rejects a duplicate category name ignoring case', async () => {

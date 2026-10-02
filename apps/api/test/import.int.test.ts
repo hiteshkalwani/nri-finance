@@ -1,15 +1,18 @@
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { eq } from 'drizzle-orm'
 import { createTestUser, deleteTestUser, type TestUser } from '@nri/test-utils'
+import { accounts, createDb, cycleTargets, loanPlannedPrepayments, remittances, transactions, withUser } from '@nri/db'
 import { json, testApp } from './helpers'
 
 const seed = JSON.parse(readFileSync(new URL('../../../legacy/seed-data.json', import.meta.url), 'utf8'))
 const familyRows = seed.transactions.filter((t: { categoryId: string }) => t.categoryId === 'family-india')
 const { app, close } = testApp()
+const { db, close: closeDb } = createDb(process.env.DATABASE_URL!)
 let u: TestUser
 
 beforeAll(async () => { u = await createTestUser('import') })
-afterAll(async () => { await deleteTestUser(u.id); await close() })
+afterAll(async () => { await deleteTestUser(u.id); await close(); await closeDb() })
 
 describe('POST /api/import/v1', () => {
   it('imports the v1 seed: family rows become remittances, the rest transactions', async () => {
@@ -17,7 +20,8 @@ describe('POST /api/import/v1', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.inserted.remittances).toBe(familyRows.length)
-    expect(body.inserted.transactions + body.inserted.remittances + body.skippedRows.length).toBe(57)
+    expect(body.skippedRows).toEqual([])
+    expect(body.inserted.transactions).toBe(57 - familyRows.length)
     expect(body.inserted.accounts).toBe(3)
     expect(body.inserted.loans).toBe(1)
     expect(body.inserted.sipPlans).toBe(1)
@@ -43,6 +47,62 @@ describe('POST /api/import/v1', () => {
     const body = await (await app.request('/api/import/v1', json(other.accessToken, 'POST', doc))).json()
     expect(body.inserted.transactions).toBe(0)
     expect(body.skippedRows).toEqual(['zero-1: no amount'])
+    await deleteTestUser(other.id)
+  })
+
+  it('maps every field, not just counts (IMP-2, INR-only rows, payment, accounts)', async () => {
+    const rows = await withUser(db, { sub: u.id }, async (tx) => ({
+      rem: await tx.select().from(remittances).where(eq(remittances.userId, u.id)),
+      txn: await tx.select().from(transactions).where(eq(transactions.userId, u.id)),
+      acc: await tx.select().from(accounts).where(eq(accounts.userId, u.id)),
+    }))
+    const byLegacy = <T extends { legacyId: string | null }>(xs: T[], id: string) => xs.find((x) => x.legacyId === id)!
+    // migrated-2 was entered in ₹ only: ₹ received is the stored INR amount, ¥ sent is converted at the planning rate.
+    expect(byLegacy(rows.rem, 'migrated-2')).toMatchObject({ jpySent: 13569, inrReceived: '8006.00', purpose: 'family' })
+    // migrated-10 had both amounts: both are kept as stored, nothing recomputed.
+    expect(byLegacy(rows.rem, 'migrated-10')).toMatchObject({ jpySent: 250000, inrReceived: '147500.00' })
+    const jpBank = byLegacy(rows.acc, 'starter-jp-bank')
+    const inBank = byLegacy(rows.acc, 'starter-in-bank')
+    expect(byLegacy(rows.rem, 'migrated-2')).toMatchObject({ fromAccountId: jpBank.id, toAccountId: inBank.id })
+    expect(byLegacy(rows.acc, 'starter-jp-emergency')).toMatchObject({ isEmergencyFund: true, currency: 'JPY' })
+    expect(inBank).toMatchObject({ country: 'IN', currency: 'INR', isEmergencyFund: false })
+    expect(byLegacy(rows.txn, 'migrated-9')).toMatchObject({ paymentMethod: 'credit_card', needWant: 'want', enteredCurrency: 'JPY' })
+    expect(byLegacy(rows.txn, 'migrated-36')).toMatchObject({ paymentMethod: 'ic_card', amountJpy: 278 })
+  })
+
+  it('imports non-empty cycle targets and loan extras, rounding fractional yen', async () => {
+    const other = await createTestUser('import-targets')
+    const doc = {
+      ...seed,
+      cycleTargets: [{ cycle: '2026-10', savingsTargetJPY: 50000.5, emergencyFundTargetJPY: 20000, loanPrepaymentTargetINR: 40000.25 }],
+      homeLoanExtras: [{ monthIndex: 3, extraPrepaymentINR: 120000 }, { monthIndex: 4, extraPrepaymentINR: 0 }],
+    }
+    const res = await app.request('/api/import/v1', json(other.accessToken, 'POST', doc))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.inserted).toMatchObject({ cycleTargets: 1, plannedPrepayments: 1 })
+    const [target] = await withUser(db, { sub: other.id }, (tx) => tx.select().from(cycleTargets))
+    expect(target).toMatchObject({ savingsTargetJpy: 50001, emergencyFundTargetJpy: 20000, prepaymentTargetInr: '40000.25' })
+    const extras = await withUser(db, { sub: other.id }, (tx) => tx.select().from(loanPlannedPrepayments))
+    expect(extras.map((e) => [e.monthIndex, e.amountInr])).toEqual([[3, '120000.00']])
+    await deleteTestUser(other.id)
+  })
+
+  it('skips an INR-only row too small to be worth ¥1, instead of failing the import', async () => {
+    const other = await createTestUser('import-tiny')
+    const doc = {
+      ...seed,
+      transactions: [
+        { id: 'tiny-1', date: '2026-09-01', categoryId: 'groceries', description: 'tiny', amountJPY: 0, amountINR: 0.1 },
+        { id: 'tiny-fam', date: '2026-09-01', categoryId: 'family-india', description: 'tiny', amountJPY: 0, amountINR: 0.1 },
+        { id: 'ok-1', date: '2026-09-01', categoryId: 'groceries', description: 'fine', amountJPY: 500, amountINR: 0 },
+      ],
+    }
+    const res = await app.request('/api/import/v1', json(other.accessToken, 'POST', doc))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.inserted).toMatchObject({ transactions: 1, remittances: 0 })
+    expect(body.skippedRows).toEqual(['tiny-1: converts to ¥0', 'tiny-fam: converts to ¥0'])
     await deleteTestUser(other.id)
   })
 

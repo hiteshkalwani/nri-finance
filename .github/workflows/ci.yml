@@ -15,7 +15,10 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test:unit
+      - run: pnpm test:scripts
       - run: pnpm exec supabase start
       - run: pnpm test:env
       - run: pnpm db:migrate
       - run: pnpm test:integration
+      # Production build (web + bundled API + CSP from the embedded Supabase URL) must succeed too.
+      - run: pnpm build:vercel
