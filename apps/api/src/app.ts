@@ -4,6 +4,7 @@ import type { Config } from './config'
 import { toErrorResponse } from './errors'
 import { authMiddleware } from './middleware/auth'
 import { dbMiddleware, type AppVars } from './middleware/db'
+import { importRoutes } from './routes/import'
 import { meRoutes } from './routes/me'
 
 export type AppDeps = { config: Config; getDb: () => Db }
@@ -30,6 +31,7 @@ export function createApp(deps: AppDeps) {
   app.use('/api/*', exceptHealth(dbMiddleware(deps.getDb)))
 
   app.route('/api/me', meRoutes)
+  app.route('/api/import', importRoutes)
 
   return app
 }
