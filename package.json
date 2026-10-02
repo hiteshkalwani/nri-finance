@@ -20,6 +20,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@nri/test-utils": "workspace:*",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^26.6.3",
     "concurrently": "^10.0.5",
     "esbuild": "^0.28.2",
