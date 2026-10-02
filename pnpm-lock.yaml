@@ -70,12 +70,17 @@ importers:
         specifier: ^3.4.9
         version: 3.4.9
     devDependencies:
+      '@nri/test-utils':
+        specifier: workspace:*
+        version: link:../test-utils
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
       vitest:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@26.6.3)(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(tsx@4.23.15))
+
+  packages/test-utils: {}
 
 packages:
 
