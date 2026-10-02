@@ -16,7 +16,8 @@
     "db:generate": "pnpm --filter @nri/db generate",
     "db:migrate": "pnpm --filter @nri/db migrate",
     "build:vercel": "node scripts/vercel-build.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:scripts": "node --test 'scripts/*.test.mjs'"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

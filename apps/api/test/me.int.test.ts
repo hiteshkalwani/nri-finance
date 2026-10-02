@@ -30,6 +30,17 @@ describe('/api/me', () => {
     expect((await res.json()).profile).toBeNull()
   })
 
+  it.each([
+    ['a rate too large for numeric(12,6)', { planningRateJpyPerInr: '10000000' }],
+    ['a zero rate', { planningRateJpyPerInr: '0' }],
+    ['a salary beyond integer range', { salaryJpy: 3_000_000_000 }],
+    ['an unknown timezone', { timezone: 'Mars/Base' }],
+  ])('returns 400, not 500, for %s', async (_label, bad) => {
+    const res = await app.request('/api/me', json(b.accessToken, 'PUT', { ...profile, ...bad }))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error.code).toBe('VALIDATION_FAILED')
+  })
+
   it('rejects an invalid profile with 400 and does not write', async () => {
     const res = await app.request('/api/me', json(b.accessToken, 'PUT', { ...profile, cycleStartDay: 31 }))
     expect(res.status).toBe(400)

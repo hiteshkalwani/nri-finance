@@ -81,8 +81,9 @@ export async function importV1(tx: Tx, userId: string, doc: V1Document): Promise
   if (doc.cycleTargets.length) {
     inserted.cycleTargets = (await tx.insert(cycleTargets).values(doc.cycleTargets.map((t) => ({
       userId, cycle: t.cycle,
-      savingsTargetJpy: t.savingsTargetJPY ?? null,
-      emergencyFundTargetJpy: t.emergencyFundTargetJPY ?? null,
+      // v1 stored these from parseFloat, so they may be fractional; yen columns are integers.
+      savingsTargetJpy: t.savingsTargetJPY != null ? Math.round(t.savingsTargetJPY) : null,
+      emergencyFundTargetJpy: t.emergencyFundTargetJPY != null ? Math.round(t.emergencyFundTargetJPY) : null,
       prepaymentTargetInr: t.loanPrepaymentTargetINR != null ? inr(t.loanPrepaymentTargetINR) : null,
     }))).onConflictDoNothing().returning({ id: cycleTargets.id })).length
   }
@@ -96,6 +97,7 @@ export async function importV1(tx: Tx, userId: string, doc: V1Document): Promise
     if (t.categoryId === 'family-india') {
       const jpySent = jpy > 0 ? jpy : jpyFromInrPaise(inrPaise, rate)
       const received = inrPaise > 0 ? inrPaise : inrPaiseFromJpy(jpy, rate)
+      if (jpySent <= 0 || received <= 0) { skippedRows.push(`${t.id}: converts to ¥0`); continue }
       remRows.push({
         userId, legacyId: t.id, sentOn: t.date, jpySent, inrReceived: decimalFromPaise(received), purpose: 'family',
         fromAccountId: acc['starter-jp-bank'], toAccountId: acc['starter-in-bank'],
@@ -106,9 +108,11 @@ export async function importV1(tx: Tx, userId: string, doc: V1Document): Promise
     const categoryId = catIds[t.categoryId]
     if (!categoryId) { skippedRows.push(`${t.id}: unknown category ${t.categoryId}`); continue }
     const enteredInINR = jpy <= 0
+    const amountJpy = enteredInINR ? jpyFromInrPaise(inrPaise, rate) : jpy
+    if (amountJpy <= 0) { skippedRows.push(`${t.id}: converts to ¥0`); continue }
     txnRows.push({
       userId, legacyId: t.id, occurredOn: t.date, categoryId, description: t.description,
-      amountJpy: enteredInINR ? jpyFromInrPaise(inrPaise, rate) : jpy,
+      amountJpy,
       enteredCurrency: enteredInINR ? 'INR' : 'JPY',
       amountInr: enteredInINR ? decimalFromPaise(inrPaise) : null,
       rateUsed: enteredInINR ? rate : null,

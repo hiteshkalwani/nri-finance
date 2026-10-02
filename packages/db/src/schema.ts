@@ -33,7 +33,10 @@ export const profiles = pgTable('profiles', {
   cycleStartDay: smallint('cycle_start_day').notNull().default(25),
   timezone: text('timezone').notNull().default('Asia/Tokyo'),
   ...stamps,
-}, (t) => [check('profiles_start_day', sql`${t.cycleStartDay} between 1 and 28`)])
+}, (t) => [
+  check('profiles_start_day', sql`${t.cycleStartDay} between 1 and 28`),
+  check('profiles_rate_positive', sql`${t.planningRateJpyPerInr} > 0`),
+])
 
 export const accounts = pgTable('accounts', {
   ...owned,

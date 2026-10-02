@@ -26,7 +26,23 @@ export async function parseJson<T>(c: Context, schema: ZodType<T>): Promise<T> {
   return r.data
 }
 
-const DB_DOWN_CODES = new Set(['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'CONNECT_TIMEOUT', '57P01', '57P03'])
+// Network-level failures (Node + postgres.js) that mean "can't reach the database at all".
+const NETWORK_CODES = new Set([
+  'ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'EHOSTUNREACH', 'EPIPE',
+  'CONNECT_TIMEOUT', 'CONNECTION_CLOSED', 'CONNECTION_ENDED', 'CONNECTION_DESTROYED',
+])
+
+function isDatabaseUnavailable(err: unknown): boolean {
+  for (const e of [err, (err as { cause?: unknown } | null)?.cause]) {
+    const code = (e as { code?: unknown } | null)?.code
+    if (typeof code !== 'string') continue
+    if (NETWORK_CODES.has(code)) return true
+    if (code.startsWith('08') || code === '53300' || code.startsWith('57P')) return true // SQLSTATE connection/capacity/shutdown
+    // Supavisor (the pooler) answers this for a paused or deleted project.
+    if (code === 'XX000' && /tenant or user not found/i.test((e as Error).message)) return true
+  }
+  return false
+}
 
 export function toErrorResponse(err: unknown): { status: ContentfulStatusCode; body: object } {
   if (err instanceof ApiError) {
@@ -34,11 +50,16 @@ export function toErrorResponse(err: unknown): { status: ContentfulStatusCode; b
     if (err.details !== undefined) error.details = err.details
     return { status: err.status, body: { error } }
   }
-  const code = (err as { code?: string } | null)?.code ?? (err as { cause?: { code?: string } })?.cause?.code
-  if (code && DB_DOWN_CODES.has(code)) {
+  if (isDatabaseUnavailable(err)) {
     return {
       status: 503,
-      body: { error: { code: 'DATABASE_UNAVAILABLE', message: 'The database is not reachable right now (it may be waking up). Try again in a minute.' } },
+      body: {
+        error: {
+          code: 'DATABASE_UNAVAILABLE',
+          message:
+            'The database is not reachable right now. If this lasts, open the Supabase dashboard — free projects pause after a week without use and need to be restored there.',
+        },
+      },
     }
   }
   console.error(err)

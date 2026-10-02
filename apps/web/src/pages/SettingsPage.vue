@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { ImportResult, MeResponse, ProfileInput, V1Document } from '@nri/contracts'
+import { ImportResult, MeResponse, ProfileInput, type V1Document } from '@nri/contracts'
 import { apiFetch } from '../lib/api'
+import { parseV1File } from '../lib/importFile'
 
 const qc = useQueryClient()
 const me = useQuery({ queryKey: ['me'], queryFn: () => apiFetch('/api/me', {}, MeResponse) })
@@ -23,6 +24,7 @@ function submitProfile() {
 }
 
 const importMessage = ref('')
+const importError = ref('')
 const runImport = useMutation({
   mutationFn: (doc: V1Document) => apiFetch('/api/import/v1', { method: 'POST', body: JSON.stringify(doc) }, ImportResult),
   onSuccess: (r) => {
@@ -35,10 +37,13 @@ const runImport = useMutation({
 })
 async function onFile(files: File | File[] | null) {
   const file = Array.isArray(files) ? files[0] : files
+  importMessage.value = ''
+  importError.value = ''
+  runImport.reset()
   if (!file) return
-  const parsed = V1Document.safeParse(JSON.parse(await file.text()))
-  if (!parsed.success) { importMessage.value = 'That file is not a v1 finance-data.json export.'; return }
-  runImport.mutate(parsed.data)
+  const parsed = parseV1File(await file.text())
+  if (!parsed.ok) { importError.value = parsed.message; return }
+  runImport.mutate(parsed.doc)
 }
 </script>
 
@@ -66,7 +71,9 @@ async function onFile(files: File | File[] | null) {
       <p class="mb-3">Choose your <code>finance-data.json</code>. Importing twice does not create duplicates.</p>
       <v-file-input id="import-file" label="finance-data.json" accept="application/json" @update:model-value="onFile" />
       <v-alert v-if="importMessage" type="success" variant="tonal">{{ importMessage }}</v-alert>
-      <v-alert v-if="runImport.error.value" type="error" variant="tonal">{{ runImport.error.value.message }}</v-alert>
+      <v-alert v-if="importError || runImport.error.value" type="error" variant="tonal">
+        {{ importError || runImport.error.value?.message }}
+      </v-alert>
     </v-card-text>
   </v-card>
 </template>

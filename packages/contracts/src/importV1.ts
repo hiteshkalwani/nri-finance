@@ -1,8 +1,9 @@
 import { z } from 'zod'
+import { CycleString, IsoDateString } from './common'
 
 const V1Transaction = z.object({
   id: z.string(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  date: IsoDateString,
   categoryId: z.string(),
   description: z.string().default(''),
   amountJPY: z.number().nonnegative().default(0),
@@ -23,7 +24,7 @@ export const V1Document = z.object({
       annualRatePct: z.number().nonnegative(),
       emiINR: z.number().nonnegative(),
       tenureMonths: z.number().int().nonnegative(),
-      startCycle: z.string().regex(/^\d{4}-\d{2}$/),
+      startCycle: CycleString,
     }),
     sip: z.object({
       startingMonthlyINR: z.number().nonnegative(),
@@ -37,14 +38,14 @@ export const V1Document = z.object({
   cycleTargets: z
     .array(
       z.object({
-        cycle: z.string(),
-        savingsTargetJPY: z.number().optional(),
-        emergencyFundTargetJPY: z.number().optional(),
-        loanPrepaymentTargetINR: z.number().optional(),
+        cycle: CycleString,
+        savingsTargetJPY: z.number().nonnegative().optional(),
+        emergencyFundTargetJPY: z.number().nonnegative().optional(),
+        loanPrepaymentTargetINR: z.number().nonnegative().optional(),
       }),
     )
     .default([]),
-  homeLoanExtras: z.array(z.object({ monthIndex: z.number().int(), extraPrepaymentINR: z.number() })).default([]),
+  homeLoanExtras: z.array(z.object({ monthIndex: z.number().int(), extraPrepaymentINR: z.number().nonnegative() })).default([]),
 })
 export type V1Document = z.infer<typeof V1Document>
 
