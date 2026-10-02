@@ -1,13 +1,20 @@
-import { Hono } from 'hono'
+import { Hono, type MiddlewareHandler } from 'hono'
 import type { Db } from '@nri/db'
 import type { Config } from './config'
 import { toErrorResponse } from './errors'
-import { authMiddleware, type AuthVars } from './middleware/auth'
+import { authMiddleware } from './middleware/auth'
+import { dbMiddleware, type AppVars } from './middleware/db'
+import { meRoutes } from './routes/me'
 
 export type AppDeps = { config: Config; getDb: () => Db }
 
+// Each middleware declares only the variables it sets; this wrapper accepts any of them.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const exceptHealth = (mw: MiddlewareHandler<any>): MiddlewareHandler<any> => (c, next) =>
+  c.req.path === '/api/health' ? next() : mw(c, next)
+
 export function createApp(deps: AppDeps) {
-  const app = new Hono<{ Variables: AuthVars }>()
+  const app = new Hono<{ Variables: AppVars }>()
 
   app.onError((err, c) => {
     const { status, body } = toErrorResponse(err)
@@ -19,8 +26,10 @@ export function createApp(deps: AppDeps) {
 
   app.get('/api/health', (c) => c.json({ ok: true }))
 
-  const auth = authMiddleware(deps.config)
-  app.use('/api/*', async (c, next) => (c.req.path === '/api/health' ? next() : auth(c, next)))
+  app.use('/api/*', exceptHealth(authMiddleware(deps.config)))
+  app.use('/api/*', exceptHealth(dbMiddleware(deps.getDb)))
+
+  app.route('/api/me', meRoutes)
 
   return app
 }
