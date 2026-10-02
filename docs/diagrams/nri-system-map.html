@@ -1,0 +1,517 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}</style></head><body><title>NRI Finance System Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; two wide diagrams in their own scrollers; module cards in a 3-up grid; a read/write matrix. Yen = indigo, rupee = marigold, the remittance bridge = teal. */
+:root {
+  --bg: #f5f6f9;
+  --surface: #ffffff;
+  --fg: #1a1f2e;
+  --muted: #5a6276;
+  --line: #d6dae4;
+  --jpy: #3b4c9e;
+  --jpy-tint: #e9ecf8;
+  --inr: #a85f07;
+  --inr-tint: #fbf0df;
+  --bridge: #0b7a6b;
+  --bridge-tint: #dff2ee;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11141c; --surface: #191e29; --fg: #e5e8ef; --muted: #9aa2b4; --line: #2d3443;
+    --jpy: #93a2ee; --jpy-tint: #222a46; --inr: #e7a650; --inr-tint: #382a15;
+    --bridge: #52c4b3; --bridge-tint: #15342f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11141c; --surface: #191e29; --fg: #e5e8ef; --muted: #9aa2b4; --line: #2d3443;
+  --jpy: #93a2ee; --jpy-tint: #222a46; --inr: #e7a650; --inr-tint: #382a15;
+  --bridge: #52c4b3; --bridge-tint: #15342f; color-scheme: dark;
+}
+
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 64px; display: grid; gap: 56px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 24px; font-weight: 700; }
+h3 { font-size: 17px; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+
+header { display: grid; gap: 14px; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.fact { font-family: var(--font-mono); font-size: 12.5px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); }
+.fact.jpy { border-color: var(--jpy); color: var(--jpy); }
+.fact.inr { border-color: var(--inr); color: var(--inr); }
+
+section { display: grid; gap: 18px; min-width: 0; }
+.sec-head { display: grid; gap: 6px; }
+
+figure { margin: 0; display: grid; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; min-width: 0; }
+.scroll { overflow-x: auto; }
+figure svg { display: block; width: 100%; min-width: 760px; height: auto; color: var(--muted); }
+figcaption { font-size: 14px; color: var(--muted); max-width: 72ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 14px; height: 10px; border-radius: 2px; border: 1.5px solid; display: inline-block; }
+.sw.jpy { background: var(--jpy-tint); border-color: var(--jpy); }
+.sw.inr { background: var(--inr-tint); border-color: var(--inr); }
+.sw.bridge { background: var(--bridge-tint); border-color: var(--bridge); }
+.sw.new { background: transparent; border-style: dashed; border-color: var(--bridge); }
+
+/* SVG paint, all from tokens */
+.z-jpy { fill: var(--jpy-tint); stroke: var(--jpy); stroke-width: 1; }
+.z-inr { fill: var(--inr-tint); stroke: var(--inr); stroke-width: 1; }
+.n { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.n-jpy { fill: var(--surface); stroke: var(--jpy); stroke-width: 1.2; }
+.n-inr { fill: var(--surface); stroke: var(--inr); stroke-width: 1.2; }
+.n-bridge { fill: var(--bridge-tint); stroke: var(--bridge); stroke-width: 1.6; }
+.n-new { fill: var(--surface); stroke: var(--bridge); stroke-width: 1.4; stroke-dasharray: 5 3; }
+.n-core { fill: var(--surface); stroke: var(--fg); stroke-width: 1.4; }
+.t { fill: var(--fg); font-family: var(--font-body); font-size: 14px; font-weight: 600; }
+.ts { fill: var(--muted); font-family: var(--font-body); font-size: 12px; }
+.tz-jpy { fill: var(--jpy); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; font-weight: 500; }
+.tz-inr { fill: var(--inr); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; font-weight: 500; }
+.tl { fill: var(--muted); font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.08em; }
+.al { fill: var(--muted); font-family: var(--font-mono); font-size: 11.5px; }
+.al-bridge { fill: var(--bridge); font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; }
+.w { fill: none; stroke: currentColor; stroke-width: 1.4; }
+.w-bridge { fill: none; stroke: var(--bridge); stroke-width: 1.8; }
+.w-dash { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-dasharray: 5 4; }
+.mk { fill: currentColor; }
+.mk-bridge { fill: var(--bridge); }
+
+/* Module cards */
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 900px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .cards { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.card-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.chip { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; white-space: nowrap; border: 1px solid var(--line); color: var(--muted); }
+.chip.new { border-color: var(--bridge); color: var(--bridge); background: var(--bridge-tint); }
+.chip.change { border-color: var(--inr); color: var(--inr); background: var(--inr-tint); }
+.job { font-size: 14px; color: var(--muted); }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.card li.added::marker { color: var(--bridge); }
+.cur { font-family: var(--font-mono); font-size: 12px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; }
+
+/* Matrix */
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 14px; }
+th, td { padding: 10px 12px; text-align: center; border-bottom: 1px solid var(--line); }
+thead th { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 500; vertical-align: bottom; }
+thead th.newcol { color: var(--bridge); }
+tbody th { text-align: left; font-weight: 600; white-space: nowrap; }
+tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
+.wr { color: var(--fg); font-size: 15px; }
+.rd { color: var(--muted); font-size: 15px; }
+.none { color: var(--line); }
+
+/* Decisions */
+.decisions { display: grid; gap: 12px; counter-reset: d; }
+.decision { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; }
+.decision::before { counter-increment: d; content: counter(d); grid-row: span 2; font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--bridge); line-height: 1.1; }
+.decision p { font-size: 14px; color: var(--muted); }
+.decision strong { font-weight: 600; color: var(--fg); }
+.rec { color: var(--fg); }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Personal finance · NRI, Japan → India · review draft</div>
+  <h1>NRI Finance System Map</h1>
+  <p>What each module of the rebuilt app does, how money and data move between them, and the few decisions to settle before building. Figures come from your current workbook and data file.</p>
+  <div class="facts">
+    <span class="fact">Review cycle: 25th → 24th</span>
+    <span class="fact jpy">Earn &amp; spend in ¥</span>
+    <span class="fact inr">Family, loan &amp; SIP in ₹</span>
+    <span class="fact">Planning rate ¥1.69 per ₹1</span>
+    <span class="fact">One HTML file + your local data file</span>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head">
+    <div class="eyebrow">Figure 1</div>
+    <h2>How your money moves each cycle</h2>
+  </div>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 440" role="img" aria-label="Salary in yen splits into daily spending, JPY savings, and remittance. Only the remittance converts yen to rupees, and it splits into family support, India savings, SIP and the home loan.">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk" d="M0 0 L10 5 L0 10 z"/></marker>
+        <marker id="arb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-bridge" d="M0 0 L10 5 L0 10 z"/></marker>
+      </defs>
+
+      <!-- zones -->
+      <rect class="z-jpy" x="200" y="20" width="340" height="400" rx="10"/>
+      <text class="tz-jpy" x="216" y="44">JAPAN · JPY</text>
+      <rect class="z-inr" x="735" y="20" width="245" height="400" rx="10"/>
+      <text class="tz-inr" x="751" y="44">INDIA · INR</text>
+
+      <!-- salary -->
+      <rect class="n-core" x="20" y="190" width="150" height="80" rx="8"/>
+      <text class="t" x="95" y="220" text-anchor="middle">Salary</text>
+      <text class="ts" x="95" y="240" text-anchor="middle">¥500,000 / month</text>
+      <text class="ts" x="95" y="256" text-anchor="middle">credited on the 25th</text>
+
+      <!-- japan nodes -->
+      <rect class="n-jpy" x="260" y="70" width="250" height="80" rx="8"/>
+      <text class="t" x="385" y="102" text-anchor="middle">Daily spending</text>
+      <text class="ts" x="385" y="122" text-anchor="middle">rent · groceries · transport · wants</text>
+      <text class="ts" x="385" y="138" text-anchor="middle">logged per transaction, in ¥</text>
+
+      <rect class="n-jpy" x="260" y="190" width="250" height="80" rx="8"/>
+      <text class="t" x="385" y="220" text-anchor="middle">JPY savings &amp; emergency fund</text>
+      <text class="ts" x="385" y="240" text-anchor="middle">goal ¥1,000,000</text>
+      <text class="ts" x="385" y="256" text-anchor="middle">shown as months of expenses covered</text>
+
+      <!-- bridge -->
+      <rect class="n-bridge" x="560" y="190" width="150" height="80" rx="8"/>
+      <text class="t" x="635" y="218" text-anchor="middle">Remittance</text>
+      <text class="ts" x="635" y="238" text-anchor="middle">¥ sent → ₹ received</text>
+      <text class="ts" x="635" y="254" text-anchor="middle">rate + fee per transfer</text>
+      <text class="al-bridge" x="635" y="178" text-anchor="middle">₹ split by purpose →</text>
+
+      <!-- india nodes -->
+      <rect class="n-inr" x="770" y="60" width="190" height="56" rx="8"/>
+      <text class="t" x="865" y="84" text-anchor="middle">Family support</text>
+      <text class="ts" x="865" y="102" text-anchor="middle">family</text>
+
+      <rect class="n-inr" x="770" y="140" width="190" height="56" rx="8"/>
+      <text class="t" x="865" y="164" text-anchor="middle">India savings</text>
+      <text class="ts" x="865" y="182" text-anchor="middle">bank account &amp; FD</text>
+
+      <rect class="n-inr" x="770" y="220" width="190" height="56" rx="8"/>
+      <text class="t" x="865" y="244" text-anchor="middle">SIP investments</text>
+      <text class="ts" x="865" y="262" text-anchor="middle">₹50,000 / month, +10% a year</text>
+
+      <rect class="n-inr" x="770" y="300" width="190" height="56" rx="8"/>
+      <text class="t" x="865" y="324" text-anchor="middle">Home loan</text>
+      <text class="ts" x="865" y="342" text-anchor="middle">EMI ₹42,000 + prepayments</text>
+
+      <!-- salary splits -->
+      <path class="w" d="M170 205 H188 V110 H258" marker-end="url(#ar)"/>
+      <text class="al" x="230" y="103" text-anchor="middle">spend</text>
+      <path class="w" d="M170 230 H258" marker-end="url(#ar)"/>
+      <text class="al" x="230" y="223" text-anchor="middle">save</text>
+      <path class="w-bridge" d="M170 255 H188 V372 H635 V272" marker-end="url(#arb)"/>
+      <text class="al-bridge" x="420" y="364" text-anchor="middle">send home</text>
+
+      <!-- remittance fan-out -->
+      <path class="w-bridge" d="M710 230 H742 V88 H768" marker-end="url(#arb)"/>
+      <path class="w-bridge" d="M742 168 H768" marker-end="url(#arb)"/>
+      <path class="w-bridge" d="M742 230 V248 H768" marker-end="url(#arb)"/>
+      <path class="w-bridge" d="M742 248 V328 H768" marker-end="url(#arb)"/>
+    </svg>
+    </div>
+    <figcaption>Salary arrives in yen on the 25th and splits three ways. Only the remittance crosses into rupees. Each transfer records both amounts and the rate, so every India-side number traces back to the yen it came from.</figcaption>
+    <div class="legend">
+      <span><i class="sw jpy"></i>Japan side, kept in ¥</span>
+      <span><i class="sw inr"></i>India side, kept in ₹</span>
+      <span><i class="sw bridge"></i>Remittance, the only ¥ → ₹ conversion</span>
+    </div>
+  </figure>
+</section>
+
+<section>
+  <div class="sec-head">
+    <div class="eyebrow">Figure 2</div>
+    <h2>How the app is put together</h2>
+  </div>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 412" role="img" aria-label="Nine screens read and write through a single Store. The Store hands raw records to the calculation engine for totals, saves every change to a browser mirror, and writes to your data file on disk. The mirror re-syncs to the file on reconnect.">
+      <defs>
+        <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk" d="M0 0 L10 5 L0 10 z"/></marker>
+      </defs>
+      <text class="tl" x="27" y="28">SCREENS</text>
+
+      <rect class="n-core" x="27" y="40" width="98" height="70" rx="8"/>
+      <text class="t" x="76" y="70" text-anchor="middle">Dashboard</text>
+      <text class="ts" x="76" y="88" text-anchor="middle">overview</text>
+
+      <rect class="n" x="133" y="40" width="98" height="70" rx="8"/>
+      <text class="t" x="182" y="70" text-anchor="middle">Spending</text>
+      <text class="ts" x="182" y="88" text-anchor="middle">ledger</text>
+
+      <rect class="n-new" x="239" y="40" width="98" height="70" rx="8"/>
+      <text class="t" x="288" y="70" text-anchor="middle">Remittances</text>
+      <text class="ts" x="288" y="88" text-anchor="middle">¥ → ₹</text>
+
+      <rect class="n" x="345" y="40" width="98" height="70" rx="8"/>
+      <text class="t" x="394" y="70" text-anchor="middle">JPY savings</text>
+      <text class="ts" x="394" y="88" text-anchor="middle">&amp; emergency</text>
+
+      <rect class="n" x="451" y="40" width="98" height="70" rx="8"/>
+      <text class="t" x="500" y="70" text-anchor="middle">India savings</text>
+      <text class="ts" x="500" y="88" text-anchor="middle">&amp; SIP</text>
+
+      <rect class="n" x="557" y="40" width="98" height="70" rx="8"/>
+      <text class="t" x="606" y="70" text-anchor="middle">Home loan</text>
+      <text class="ts" x="606" y="88" text-anchor="middle">EMI, prepay</text>
+
+      <rect class="n-new" x="663" y="40" width="98" height="70" rx="8"/>
+      <text class="t" x="712" y="70" text-anchor="middle">Budgets</text>
+      <text class="ts" x="712" y="88" text-anchor="middle">&amp; targets</text>
+
+      <rect class="n" x="769" y="40" width="98" height="70" rx="8"/>
+      <text class="t" x="818" y="70" text-anchor="middle">Reports</text>
+      <text class="ts" x="818" y="88" text-anchor="middle">&amp; export</text>
+
+      <rect class="n" x="875" y="40" width="98" height="70" rx="8"/>
+      <text class="t" x="924" y="70" text-anchor="middle">Settings</text>
+      <text class="ts" x="924" y="88" text-anchor="middle">&amp; data file</text>
+
+      <!-- screens <-> store -->
+      <g>
+        <path class="w" d="M76 114 V166" marker-start="url(#ar2)" marker-end="url(#ar2)"/>
+        <path class="w" d="M182 114 V166" marker-start="url(#ar2)" marker-end="url(#ar2)"/>
+        <path class="w" d="M288 114 V166" marker-start="url(#ar2)" marker-end="url(#ar2)"/>
+        <path class="w" d="M394 114 V166" marker-start="url(#ar2)" marker-end="url(#ar2)"/>
+        <path class="w" d="M500 114 V166" marker-start="url(#ar2)" marker-end="url(#ar2)"/>
+        <path class="w" d="M606 114 V166" marker-start="url(#ar2)" marker-end="url(#ar2)"/>
+        <path class="w" d="M712 114 V166" marker-start="url(#ar2)" marker-end="url(#ar2)"/>
+        <path class="w" d="M818 114 V166" marker-start="url(#ar2)" marker-end="url(#ar2)"/>
+        <path class="w" d="M924 114 V166" marker-start="url(#ar2)" marker-end="url(#ar2)"/>
+      </g>
+      <text class="al" x="129" y="144" text-anchor="middle">read &amp; edit</text>
+      <text class="al" x="871" y="144" text-anchor="middle">re-render</text>
+
+      <rect class="n-core" x="27" y="170" width="946" height="60" rx="8"/>
+      <text class="t" x="500" y="196" text-anchor="middle">Store</text>
+      <text class="ts" x="500" y="216" text-anchor="middle">one in-memory document · tells every open screen to re-render on change · remembers edits not yet saved to disk</text>
+
+      <!-- store -> lower layer -->
+      <path class="w" d="M172 234 V296" marker-start="url(#ar2)" marker-end="url(#ar2)"/>
+      <text class="al" x="182" y="270">records → totals</text>
+      <path class="w" d="M500 234 V296" marker-end="url(#ar2)"/>
+      <text class="al" x="510" y="270">every change</text>
+      <path class="w" d="M828 234 V296" marker-end="url(#ar2)"/>
+      <text class="al" x="838" y="270">write to disk</text>
+
+      <rect class="n" x="27" y="300" width="290" height="80" rx="8"/>
+      <text class="t" x="172" y="330" text-anchor="middle">Calculation engine</text>
+      <text class="ts" x="172" y="350" text-anchor="middle">25th–24th cycles · ¥/₹ conversion</text>
+      <text class="ts" x="172" y="366" text-anchor="middle">loan schedule · SIP projection</text>
+
+      <rect class="n" x="355" y="300" width="290" height="80" rx="8"/>
+      <text class="t" x="500" y="330" text-anchor="middle">Browser mirror</text>
+      <text class="ts" x="500" y="350" text-anchor="middle">instant autosave in localStorage</text>
+      <text class="ts" x="500" y="366" text-anchor="middle">keeps edits if a disk write fails</text>
+
+      <rect class="n" x="683" y="300" width="290" height="80" rx="8"/>
+      <text class="t" x="828" y="330" text-anchor="middle">finance-data.json</text>
+      <text class="ts" x="828" y="350" text-anchor="middle">your file on disk, the real record</text>
+      <text class="ts" x="828" y="366" text-anchor="middle">Chrome / Edge file access</text>
+
+      <path class="w-dash" d="M645 340 H681" marker-end="url(#ar2)"/>
+      <text class="al" x="664" y="400" text-anchor="middle">pushes unsaved edits on reconnect</text>
+    </svg>
+    </div>
+    <figcaption>Screens never talk to each other directly. Each one reads from and edits the Store, and the Store tells every open screen to redraw. Totals, loan schedules and projections are always recalculated from the raw records, never stored, so they can't drift out of date.</figcaption>
+    <div class="legend">
+      <span><i class="sw new"></i>New module</span>
+      <span>Solid line: data moves on every change</span>
+      <span>Dashed line: only when you reconnect the file</span>
+    </div>
+  </figure>
+</section>
+
+<section>
+  <div class="sec-head">
+    <div class="eyebrow">Feature list</div>
+    <h2>What each module does</h2>
+    <p class="muted">Teal bullets are additions over today's app. Each card ends with the currency it works in.</p>
+  </div>
+  <div class="cards">
+
+    <article class="card">
+      <div class="card-top"><h3>Dashboard</h3><span class="chip change">Changes</span></div>
+      <p class="job">The screen you open on the 25th to review the cycle that just closed.</p>
+      <ul>
+        <li>Income, spent, saved and savings rate for the cycle</li>
+        <li>Sent home this cycle: ¥ sent, ₹ received</li>
+        <li class="added">Net worth split: Japan ¥, India ₹, and combined at today's rate</li>
+        <li class="added">Emergency fund as months of expenses covered</li>
+        <li>Loan balance and payoff month</li>
+        <li>SIP corpus projected to 2036</li>
+      </ul>
+      <div class="cur">¥ for Japan · ₹ for India</div>
+    </article>
+
+    <article class="card">
+      <div class="card-top"><h3>Spending ledger</h3><span class="chip">Built</span></div>
+      <p class="job">Every yen you spend in Japan, one row per transaction.</p>
+      <ul>
+        <li>Add, edit, delete; amount entered in ¥</li>
+        <li>Filter by cycle, category, payment method (Bank, Cash, Credit Card, IC Card), need or want</li>
+        <li>Search and sort any column</li>
+        <li>Editable categories with colours</li>
+        <li class="added">Remittances move out of this ledger into their own module</li>
+      </ul>
+      <div class="cur">¥</div>
+    </article>
+
+    <article class="card">
+      <div class="card-top"><h3>Remittances</h3><span class="chip new">New</span></div>
+      <p class="job">The bridge: every transfer from Japan to India.</p>
+      <ul>
+        <li class="added">Date, ¥ sent, ₹ received, fee, service used</li>
+        <li class="added">Effective rate worked out per transfer</li>
+        <li class="added">Purpose: family, India savings, SIP, loan EMI, prepayment</li>
+        <li class="added">Feeds the family total, SIP actuals and loan payments</li>
+        <li class="added">Rate history from your own transfers</li>
+      </ul>
+      <div class="cur">¥ in · ₹ out</div>
+    </article>
+
+    <article class="card">
+      <div class="card-top"><h3>JPY savings &amp; emergency fund</h3><span class="chip change">Changes</span></div>
+      <p class="job">Money you keep in Japan.</p>
+      <ul>
+        <li class="added">Balance per Japan account, updated each cycle</li>
+        <li>Emergency fund goal ¥1,000,000 with progress</li>
+        <li class="added">Months covered = balance ÷ average monthly spend</li>
+        <li>Contribution target vs actual per cycle</li>
+      </ul>
+      <div class="cur">¥</div>
+    </article>
+
+    <article class="card">
+      <div class="card-top"><h3>India savings &amp; SIP</h3><span class="chip change">Changes</span></div>
+      <p class="job">Money that has landed in India and is working.</p>
+      <ul>
+        <li class="added">India bank and FD balances</li>
+        <li>SIP plan: ₹50,000 a month, +10% a year</li>
+        <li class="added">Actual SIP paid (from remittances) vs plan</li>
+        <li>Fund allocation: Nifty 50, Flexi, Mid, Small, Global, Gold</li>
+        <li>Projection to 2036, with loan EMI redirected after payoff</li>
+      </ul>
+      <div class="cur">₹</div>
+    </article>
+
+    <article class="card">
+      <div class="card-top"><h3>Home loan</h3><span class="chip">Built</span></div>
+      <p class="job">The path to paying off ₹25,00,000.</p>
+      <ul>
+        <li>Schedule at 8.1%, EMI ₹42,000, 72 months left</li>
+        <li>Extra prepayments per month, schedule recalculates</li>
+        <li class="added">Prepayments filled in from remittances marked "prepayment"</li>
+        <li>Payoff month</li>
+        <li class="added">Interest saved by prepaying</li>
+      </ul>
+      <div class="cur">₹</div>
+    </article>
+
+    <article class="card">
+      <div class="card-top"><h3>Budgets &amp; targets</h3><span class="chip new">New</span></div>
+      <p class="job">The plan for the cycle, set before you spend it.</p>
+      <ul>
+        <li class="added">Budget per spending category, in ¥, with what's left</li>
+        <li>Targets: savings ¥, emergency fund ¥, prepayment ₹</li>
+        <li class="added">Remittance target per cycle</li>
+        <li class="added">Warning when a category goes over</li>
+      </ul>
+      <div class="cur">¥, except prepayment in ₹</div>
+    </article>
+
+    <article class="card">
+      <div class="card-top"><h3>Reports</h3><span class="chip change">Changes</span></div>
+      <p class="job">Trends across cycles.</p>
+      <ul>
+        <li>Spend per cycle and by category</li>
+        <li class="added">Japan vs India flow per cycle: spent, kept, sent</li>
+        <li class="added">¥/₹ rate you actually got, over time</li>
+        <li>Export to CSV or Excel</li>
+      </ul>
+      <div class="cur">¥ for spending · both for transfers</div>
+    </article>
+
+    <article class="card">
+      <div class="card-top"><h3>Settings &amp; data</h3><span class="chip">Built</span></div>
+      <p class="job">Assumptions and where your data lives.</p>
+      <ul>
+        <li>Salary, planning rate, cycle start day (25)</li>
+        <li>Loan and SIP assumptions, loan start cycle</li>
+        <li>Connect or reconnect finance-data.json</li>
+        <li>JSON backup and restore</li>
+      </ul>
+      <div class="cur">both</div>
+    </article>
+
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <div class="eyebrow">Connections</div>
+    <h2>Which module reads and writes which data</h2>
+    <p class="muted">● writes the data · ○ only reads it. Teal headers are new kinds of record. Settings &amp; data can also export everything.</p>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col" style="text-align:left">Module</th>
+          <th scope="col">Spending</th>
+          <th scope="col" class="newcol">Remittances</th>
+          <th scope="col" class="newcol">Account balances</th>
+          <th scope="col">Budgets &amp; targets</th>
+          <th scope="col">Loan prepayments</th>
+          <th scope="col">SIP plan</th>
+          <th scope="col">Settings</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Dashboard</th><td class="rd">○</td><td class="rd">○</td><td class="rd">○</td><td class="rd">○</td><td class="rd">○</td><td class="rd">○</td><td class="rd">○</td></tr>
+        <tr><th scope="row">Spending ledger</th><td class="wr">●</td><td class="none">–</td><td class="none">–</td><td class="none">–</td><td class="none">–</td><td class="none">–</td><td class="rd">○</td></tr>
+        <tr><th scope="row">Remittances</th><td class="none">–</td><td class="wr">●</td><td class="none">–</td><td class="none">–</td><td class="rd">○</td><td class="rd">○</td><td class="rd">○</td></tr>
+        <tr><th scope="row">JPY savings &amp; EF</th><td class="rd">○</td><td class="none">–</td><td class="wr">●</td><td class="rd">○</td><td class="none">–</td><td class="none">–</td><td class="rd">○</td></tr>
+        <tr><th scope="row">India savings &amp; SIP</th><td class="none">–</td><td class="rd">○</td><td class="wr">●</td><td class="none">–</td><td class="none">–</td><td class="wr">●</td><td class="rd">○</td></tr>
+        <tr><th scope="row">Home loan</th><td class="none">–</td><td class="rd">○</td><td class="none">–</td><td class="rd">○</td><td class="wr">●</td><td class="none">–</td><td class="rd">○</td></tr>
+        <tr><th scope="row">Budgets &amp; targets</th><td class="rd">○</td><td class="rd">○</td><td class="none">–</td><td class="wr">●</td><td class="none">–</td><td class="none">–</td><td class="rd">○</td></tr>
+        <tr><th scope="row">Reports</th><td class="rd">○</td><td class="rd">○</td><td class="rd">○</td><td class="none">–</td><td class="none">–</td><td class="none">–</td><td class="rd">○</td></tr>
+        <tr><th scope="row">Settings &amp; data</th><td class="none">–</td><td class="none">–</td><td class="none">–</td><td class="none">–</td><td class="none">–</td><td class="none">–</td><td class="wr">●</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <div class="eyebrow">Before building</div>
+    <h2>Decisions to confirm</h2>
+  </div>
+  <div class="decisions">
+    <div class="decision">
+      <strong>Remittances get their own ledger instead of being a spending category.</strong>
+      <p>A transfer has two amounts, a rate and a fee, and a purpose that feeds three other modules. <span class="rec">Recommended.</span> Your existing "Family / India" rows would be moved over on first load.</p>
+    </div>
+    <div class="decision">
+      <strong>Account balances are entered as a snapshot each cycle.</strong>
+      <p>The workbook has flows but no opening balances, so balances can't be derived. <span class="rec">Recommended:</span> you type each account's balance on review day; the app shows the change since last cycle.</p>
+    </div>
+    <div class="decision">
+      <strong>A remittance marked "loan EMI" or "prepayment" updates the loan schedule automatically.</strong>
+      <p>Saves entering the same payment twice. The schedule would show which months were actually paid versus planned.</p>
+    </div>
+    <div class="decision">
+      <strong>Category budgets are set once and carried forward each cycle.</strong>
+      <p>You edit them only when something changes, rather than re-entering every 25th.</p>
+    </div>
+    <div class="decision">
+      <strong>Keep the app as one HTML file.</strong>
+      <p>It opens by double-click and your data stays in finance-data.json beside it. Nine screens fit as tabs; splitting into separate pages would break the shared Store.</p>
+    </div>
+  </div>
+</section>
+
+</div>
+</body></html>
