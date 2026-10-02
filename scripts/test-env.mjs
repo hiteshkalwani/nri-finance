@@ -13,7 +13,8 @@ const out = {
   SUPABASE_URL: env.API_URL,
   SUPABASE_ANON_KEY: env.ANON_KEY ?? env.PUBLISHABLE_KEY,
   SUPABASE_SERVICE_ROLE_KEY: env.SERVICE_ROLE_KEY ?? env.SECRET_KEY,
-  SUPABASE_JWT_SECRET: env.JWT_SECRET,
+  // No SUPABASE_JWT_SECRET: local Auth signs ES256 tokens published at the JWKS URL, same as production,
+  // so the API verifies them the same way everywhere. Only unit tests pass a secret explicitly.
   DATABASE_URL: env.DB_URL,
   VITE_SUPABASE_URL: env.API_URL,
   VITE_SUPABASE_ANON_KEY: env.ANON_KEY ?? env.PUBLISHABLE_KEY,

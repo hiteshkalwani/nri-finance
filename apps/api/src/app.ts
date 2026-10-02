@@ -2,11 +2,12 @@ import { Hono } from 'hono'
 import type { Db } from '@nri/db'
 import type { Config } from './config'
 import { toErrorResponse } from './errors'
+import { authMiddleware, type AuthVars } from './middleware/auth'
 
 export type AppDeps = { config: Config; getDb: () => Db }
 
 export function createApp(deps: AppDeps) {
-  const app = new Hono()
+  const app = new Hono<{ Variables: AuthVars }>()
 
   app.onError((err, c) => {
     const { status, body } = toErrorResponse(err)
@@ -18,6 +19,8 @@ export function createApp(deps: AppDeps) {
 
   app.get('/api/health', (c) => c.json({ ok: true }))
 
-  void deps // routes using deps are added in Tasks 9–11
+  const auth = authMiddleware(deps.config)
+  app.use('/api/*', async (c, next) => (c.req.path === '/api/health' ? next() : auth(c, next)))
+
   return app
 }
