@@ -3,3 +3,10 @@ node_modules/
 .DS_Store
 finance-data.json
 finance-backup-*.json
+.env.local
+.env*.local
+dist/
+.vercel/
+playwright-report/
+test-results/
+supabase/.temp/

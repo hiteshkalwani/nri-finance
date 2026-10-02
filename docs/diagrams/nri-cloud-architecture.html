@@ -1,0 +1,331 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>*,*::before,*::after{box-sizing:border-box}body{margin:0}</style></head><body><title>NRI Finance Cloud Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column, two wide diagrams in scrollers. Vercel = slate-black, Supabase = green, your devices = indigo, request path = teal. */
+:root {
+  --bg: #f5f6f9; --surface: #ffffff; --fg: #1a1f2e; --muted: #5a6276; --line: #d6dae4;
+  --dev: #3b4c9e; --dev-tint: #e9ecf8;
+  --vercel: #2a2f3a; --vercel-tint: #eef0f3;
+  --supa: #1f7a4d; --supa-tint: #e2f3ea;
+  --flow: #0b7a6b;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11141c; --surface: #191e29; --fg: #e5e8ef; --muted: #9aa2b4; --line: #2d3443;
+    --dev: #93a2ee; --dev-tint: #222a46; --vercel: #cfd5e0; --vercel-tint: #1f2430;
+    --supa: #5fd39a; --supa-tint: #14301f; --flow: #52c4b3; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11141c; --surface: #191e29; --fg: #e5e8ef; --muted: #9aa2b4; --line: #2d3443;
+  --dev: #93a2ee; --dev-tint: #222a46; --vercel: #cfd5e0; --vercel-tint: #1f2430;
+  --supa: #5fd39a; --supa-tint: #14301f; --flow: #52c4b3; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1060px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 64px; display: grid; gap: 48px; }
+h1, h2 { font-family: var(--font-display); margin: 0; line-height: 1.15; text-wrap: balance; }
+h1 { font-size: clamp(30px, 5vw, 42px); font-weight: 700; }
+h2 { font-size: 23px; font-weight: 700; }
+p { margin: 0; max-width: 70ch; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+header, section { display: grid; gap: 12px; min-width: 0; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; }
+.fact { font-family: var(--font-mono); font-size: 12.5px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); }
+figure { margin: 0; display: grid; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; min-width: 0; }
+.scroll { overflow-x: auto; }
+figure svg { display: block; width: 100%; min-width: 780px; height: auto; color: var(--muted); }
+figcaption { font-size: 14px; color: var(--muted); max-width: 76ch; }
+
+.z-dev { fill: var(--dev-tint); stroke: var(--dev); stroke-width: 1; }
+.z-vercel { fill: var(--vercel-tint); stroke: var(--vercel); stroke-width: 1; }
+.z-supa { fill: var(--supa-tint); stroke: var(--supa); stroke-width: 1; }
+.n { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.n-dev { fill: var(--surface); stroke: var(--dev); stroke-width: 1.2; }
+.n-vercel { fill: var(--surface); stroke: var(--vercel); stroke-width: 1.2; }
+.n-supa { fill: var(--surface); stroke: var(--supa); stroke-width: 1.2; }
+.n-fn { fill: none; stroke: var(--vercel); stroke-width: 1.2; stroke-dasharray: 5 3; }
+.zl-dev { fill: var(--dev); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; font-weight: 500; }
+.zl-vercel { fill: var(--vercel); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; font-weight: 500; }
+.zl-supa { fill: var(--supa); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; font-weight: 500; }
+.t { fill: var(--fg); font-family: var(--font-body); font-size: 13.5px; font-weight: 600; }
+.ts { fill: var(--muted); font-family: var(--font-body); font-size: 11.5px; }
+.al { fill: var(--muted); font-family: var(--font-mono); font-size: 11px; }
+.al-flow { fill: var(--flow); font-family: var(--font-mono); font-size: 11px; font-weight: 500; }
+.w { fill: none; stroke: currentColor; stroke-width: 1.3; }
+.w-flow { fill: none; stroke: var(--flow); stroke-width: 1.8; }
+.w-dash { fill: none; stroke: currentColor; stroke-width: 1.3; stroke-dasharray: 5 4; }
+.mk { fill: currentColor; }
+.mk-flow { fill: var(--flow); }
+.step { fill: var(--flow); }
+.step-t { fill: var(--surface); font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
+
+/* ER diagram */
+.tb { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.tb-head { fill: var(--vercel-tint); }
+.tn { fill: var(--fg); font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; }
+.tc { fill: var(--fg); font-family: var(--font-mono); font-size: 11px; }
+.tfk { fill: var(--flow); font-family: var(--font-mono); font-size: 11px; }
+.note { fill: var(--muted); font-family: var(--font-body); font-size: 12.5px; }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">NRI finance app · v2 · architecture review</div>
+  <h1>NRI Finance Cloud Architecture</h1>
+  <p>How the Vue app, the Node API on Vercel and Supabase connect, and the tables that hold your data. Both run on free tiers.</p>
+  <div class="facts">
+    <span class="fact">Vue 3 + Vite PWA</span>
+    <span class="fact">Hono API on Vercel functions</span>
+    <span class="fact">Supabase Postgres + Auth</span>
+    <span class="fact">Drizzle ORM</span>
+    <span class="fact">One user: you</span>
+  </div>
+</header>
+
+<section>
+  <div class="eyebrow">Figure 1</div>
+  <h2>How a request travels</h2>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 480" role="img" aria-label="Your phone or laptop loads the Vue app from Vercel, signs in with Supabase Auth to get a token, then calls the Hono API on Vercel with that token. The API verifies the token, runs the calculation engine, and reads and writes Supabase Postgres through the connection pooler, scoped to your user id.">
+      <defs>
+        <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk" d="M0 0 L10 5 L0 10 z"/></marker>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-flow" d="M0 0 L10 5 L0 10 z"/></marker>
+      </defs>
+
+      <!-- zones -->
+      <rect class="z-dev" x="20" y="56" width="200" height="404" rx="10"/>
+      <text class="zl-dev" x="36" y="80">YOUR DEVICES</text>
+      <rect class="z-vercel" x="262" y="56" width="400" height="404" rx="10"/>
+      <text class="zl-vercel" x="278" y="80">VERCEL · FREE</text>
+      <rect class="z-supa" x="704" y="56" width="276" height="404" rx="10"/>
+      <text class="zl-supa" x="720" y="80">SUPABASE · FREE</text>
+
+      <!-- devices -->
+      <rect class="n-dev" x="40" y="110" width="160" height="70" rx="8"/>
+      <text class="t" x="120" y="138" text-anchor="middle">Phone</text>
+      <text class="ts" x="120" y="156" text-anchor="middle">installed as an app (PWA)</text>
+      <rect class="n-dev" x="40" y="250" width="160" height="70" rx="8"/>
+      <text class="t" x="120" y="278" text-anchor="middle">Laptop</text>
+      <text class="ts" x="120" y="296" text-anchor="middle">Chrome, Safari, any browser</text>
+      <text class="ts" x="120" y="402" text-anchor="middle">Both run the same</text>
+      <text class="ts" x="120" y="418" text-anchor="middle">Vue 3 app; the token</text>
+      <text class="ts" x="120" y="434" text-anchor="middle">is kept in the browser</text>
+
+      <!-- vercel: static -->
+      <rect class="n-vercel" x="286" y="98" width="352" height="56" rx="8"/>
+      <text class="t" x="462" y="122" text-anchor="middle">Static site on Vercel's CDN</text>
+      <text class="ts" x="462" y="140" text-anchor="middle">apps/web build: HTML, JS, CSS, service worker</text>
+
+      <!-- vercel: function -->
+      <rect class="n-fn" x="286" y="186" width="352" height="256" rx="8"/>
+      <text class="al" x="300" y="204">serverless function · /api/*</text>
+      <rect class="n-vercel" x="302" y="214" width="320" height="36" rx="6"/>
+      <text class="t" x="462" y="237" text-anchor="middle">Hono router</text>
+      <rect class="n-vercel" x="302" y="266" width="320" height="40" rx="6"/>
+      <text class="t" x="462" y="284" text-anchor="middle">Auth check</text>
+      <text class="ts" x="462" y="299" text-anchor="middle">verify token → your user_id</text>
+      <rect class="n-vercel" x="302" y="322" width="320" height="40" rx="6"/>
+      <text class="t" x="462" y="340" text-anchor="middle">Route handlers</text>
+      <text class="ts" x="462" y="355" text-anchor="middle">validate input (zod) · business rules</text>
+      <rect class="n-vercel" x="302" y="380" width="152" height="48" rx="6"/>
+      <text class="t" x="378" y="400" text-anchor="middle">packages/core</text>
+      <text class="ts" x="378" y="416" text-anchor="middle">cycles · FX · loan · SIP</text>
+      <rect class="n-vercel" x="470" y="380" width="152" height="48" rx="6"/>
+      <text class="t" x="546" y="400" text-anchor="middle">packages/db</text>
+      <text class="ts" x="546" y="416" text-anchor="middle">Drizzle queries</text>
+      <path class="w" d="M462 250 V264" marker-end="url(#a1)"/>
+      <path class="w" d="M462 306 V320" marker-end="url(#a1)"/>
+      <path class="w" d="M400 362 V378" marker-end="url(#a1)"/>
+      <path class="w" d="M524 362 V378" marker-end="url(#a1)"/>
+
+      <!-- supabase -->
+      <rect class="n-supa" x="724" y="98" width="236" height="76" rx="8"/>
+      <text class="t" x="842" y="124" text-anchor="middle">Supabase Auth</text>
+      <text class="ts" x="842" y="142" text-anchor="middle">email + password or magic link</text>
+      <text class="ts" x="842" y="158" text-anchor="middle">issues a signed token (JWT)</text>
+
+      <rect class="n-supa" x="724" y="250" width="236" height="192" rx="8"/>
+      <text class="t" x="842" y="276" text-anchor="middle">Postgres</text>
+      <text class="ts" x="842" y="300" text-anchor="middle">connection pooler, port 6543</text>
+      <text class="ts" x="842" y="318" text-anchor="middle">12 tables, all keyed by user_id</text>
+      <text class="ts" x="842" y="336" text-anchor="middle">row-level security on every table</text>
+      <text class="ts" x="842" y="354" text-anchor="middle">migrations from packages/db</text>
+      <text class="ts" x="842" y="372" text-anchor="middle">daily backups (Supabase)</text>
+      <text class="ts" x="842" y="390" text-anchor="middle">+ export button in Settings</text>
+
+      <!-- 1 load app -->
+      <path class="w" d="M200 130 H243 V126 H284" marker-end="url(#a1)"/>
+      <circle class="step" cx="231" cy="108" r="9"/><text class="step-t" x="231" y="112" text-anchor="middle">1</text>
+      <text class="al" x="270" y="172">load app</text>
+
+      <!-- 2 sign in -->
+      <path class="w-flow" d="M170 110 V36 H900 V96" marker-start="url(#a2)" marker-end="url(#a2)"/>
+      <circle class="step" cx="470" cy="36" r="9"/><text class="step-t" x="470" y="40" text-anchor="middle">2</text>
+      <text class="al-flow" x="486" y="28">sign in → token comes back</text>
+
+      <!-- 3 api call -->
+      <path class="w-flow" d="M200 285 H250 V232 H300" marker-start="url(#a2)" marker-end="url(#a2)"/>
+      <circle class="step" cx="250" cy="262" r="9"/><text class="step-t" x="250" y="266" text-anchor="middle">3</text>
+      <text class="al-flow" x="120" y="342" text-anchor="middle">HTTPS + token,</text>
+      <text class="al-flow" x="120" y="356" text-anchor="middle">JSON back</text>
+
+      <!-- 4 verify keys -->
+      <path class="w-dash" d="M622 286 H683 V136 H722" marker-end="url(#a1)"/>
+      <circle class="step" cx="683" cy="210" r="9"/><text class="step-t" x="683" y="214" text-anchor="middle">4</text>
+      <text class="al" x="714" y="206">signing keys,</text>
+      <text class="al" x="714" y="220">cached</text>
+
+      <!-- 5 sql -->
+      <path class="w-flow" d="M622 404 H683 V346 H722" marker-start="url(#a2)" marker-end="url(#a2)"/>
+      <circle class="step" cx="683" cy="376" r="9"/><text class="step-t" x="683" y="380" text-anchor="middle">5</text>
+      <text class="al-flow" x="683" y="336" text-anchor="middle">SQL</text>
+    </svg>
+    </div>
+    <figcaption>1: the phone or laptop loads the Vue app from Vercel. 2: you sign in with Supabase Auth, which returns a signed token. 3: every API call sends that token. 4: the API checks the token against Supabase's signing keys and takes your user id from it. 5: it reads and writes Postgres through the pooler, filtered to your user id. Row-level security in Postgres blocks other users' rows even if a query has a bug. Totals and projections are computed in packages/core, never stored.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="eyebrow">Figure 2</div>
+  <h2>The tables and how they link</h2>
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 1000 690" role="img" aria-label="Twelve Postgres tables. Transactions link to categories and accounts. Remittances link to accounts and loans. Balance snapshots link to accounts, category budgets to categories, planned prepayments to loans, and SIP allocations to SIP plans. Profiles and cycle targets stand alone. Every table also links to the signed-in user.">
+      <defs>
+        <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-flow" d="M0 0 L10 5 L0 10 z"/></marker>
+      </defs>
+
+      <!-- Column A: accounts, balance_snapshots -->
+      <rect class="tb" x="30" y="40" width="200" height="144" rx="6"/>
+      <rect class="tb-head" x="31" y="41" width="198" height="27" rx="5"/>
+      <text class="tn" x="42" y="59">accounts</text>
+      <text class="tc" x="42" y="82">id</text>
+      <text class="tc" x="42" y="100">name</text>
+      <text class="tc" x="42" y="118">country · JP / IN</text>
+      <text class="tc" x="42" y="136">currency · JPY / INR</text>
+      <text class="tc" x="42" y="154">type · bank, cash, FD…</text>
+      <text class="tc" x="42" y="172">is_emergency_fund</text>
+
+      <rect class="tb" x="30" y="270" width="200" height="90" rx="6"/>
+      <rect class="tb-head" x="31" y="271" width="198" height="27" rx="5"/>
+      <text class="tn" x="42" y="289">balance_snapshots</text>
+      <text class="tfk" x="42" y="312">account_id → accounts</text>
+      <text class="tc" x="42" y="330">cycle · 2026-10</text>
+      <text class="tc" x="42" y="348">balance</text>
+
+      <!-- Column B: transactions, remittances -->
+      <rect class="tb" x="280" y="40" width="200" height="180" rx="6"/>
+      <rect class="tb-head" x="281" y="41" width="198" height="27" rx="5"/>
+      <text class="tn" x="292" y="59">transactions</text>
+      <text class="tc" x="292" y="82">occurred_on</text>
+      <text class="tc" x="292" y="100">description</text>
+      <text class="tfk" x="292" y="118">category_id → categories</text>
+      <text class="tfk" x="292" y="136">account_id → accounts</text>
+      <text class="tc" x="292" y="154">amount_jpy · integer</text>
+      <text class="tc" x="292" y="172">amount_inr · numeric</text>
+      <text class="tc" x="292" y="190">payment_method</text>
+      <text class="tc" x="292" y="208">need_want · notes</text>
+
+      <rect class="tb" x="280" y="270" width="200" height="180" rx="6"/>
+      <rect class="tb-head" x="281" y="271" width="198" height="27" rx="5"/>
+      <text class="tn" x="292" y="289">remittances</text>
+      <text class="tc" x="292" y="312">sent_on</text>
+      <text class="tc" x="292" y="330">jpy_sent · inr_received</text>
+      <text class="tc" x="292" y="348">fee_jpy · service</text>
+      <text class="tc" x="292" y="366">purpose · family, sip, emi…</text>
+      <text class="tfk" x="292" y="384">from_account_id → accounts</text>
+      <text class="tfk" x="292" y="402">to_account_id → accounts</text>
+      <text class="tfk" x="292" y="420">loan_id → loans</text>
+      <text class="tc" x="292" y="438">notes</text>
+
+      <!-- Column C: categories, loans -->
+      <rect class="tb" x="530" y="40" width="200" height="108" rx="6"/>
+      <rect class="tb-head" x="531" y="41" width="198" height="27" rx="5"/>
+      <text class="tn" x="542" y="59">categories</text>
+      <text class="tc" x="542" y="82">id</text>
+      <text class="tc" x="542" y="100">name · unique</text>
+      <text class="tc" x="542" y="118">color · sort_order</text>
+      <text class="tc" x="542" y="136">archived_at</text>
+
+      <rect class="tb" x="530" y="270" width="200" height="144" rx="6"/>
+      <rect class="tb-head" x="531" y="271" width="198" height="27" rx="5"/>
+      <text class="tn" x="542" y="289">loans</text>
+      <text class="tc" x="542" y="312">id · name</text>
+      <text class="tc" x="542" y="330">principal_inr</text>
+      <text class="tc" x="542" y="348">annual_rate_pct</text>
+      <text class="tc" x="542" y="366">emi_inr</text>
+      <text class="tc" x="542" y="384">tenure_months</text>
+      <text class="tc" x="542" y="402">start_cycle</text>
+
+      <!-- Column D: category_budgets, loan_planned_prepayments -->
+      <rect class="tb" x="780" y="40" width="200" height="90" rx="6"/>
+      <rect class="tb-head" x="781" y="41" width="198" height="27" rx="5"/>
+      <text class="tn" x="792" y="59">category_budgets</text>
+      <text class="tfk" x="792" y="82">category_id → categories</text>
+      <text class="tc" x="792" y="100">amount_jpy</text>
+      <text class="tc" x="792" y="118">effective_from_cycle</text>
+
+      <rect class="tb" x="780" y="270" width="200" height="90" rx="6"/>
+      <rect class="tb-head" x="781" y="271" width="198" height="27" rx="5"/>
+      <text class="tn" x="792" y="289">loan_planned_prepay…</text>
+      <text class="tfk" x="792" y="312">loan_id → loans</text>
+      <text class="tc" x="792" y="330">month_index</text>
+      <text class="tc" x="792" y="348">amount_inr</text>
+
+      <!-- Row 3 -->
+      <rect class="tb" x="30" y="500" width="200" height="108" rx="6"/>
+      <rect class="tb-head" x="31" y="501" width="198" height="27" rx="5"/>
+      <text class="tn" x="42" y="519">profiles</text>
+      <text class="tc" x="42" y="542">cycle_start_day · 25</text>
+      <text class="tc" x="42" y="560">salary_jpy</text>
+      <text class="tc" x="42" y="578">planning_rate_jpy_per_inr</text>
+      <text class="tc" x="42" y="596">timezone · Asia/Tokyo</text>
+
+      <rect class="tb" x="280" y="500" width="200" height="126" rx="6"/>
+      <rect class="tb-head" x="281" y="501" width="198" height="27" rx="5"/>
+      <text class="tn" x="292" y="519">cycle_targets</text>
+      <text class="tc" x="292" y="542">cycle</text>
+      <text class="tc" x="292" y="560">savings_target_jpy</text>
+      <text class="tc" x="292" y="578">emergency_fund_target_jpy</text>
+      <text class="tc" x="292" y="596">remittance_target_jpy</text>
+      <text class="tc" x="292" y="614">prepayment_target_inr</text>
+
+      <rect class="tb" x="530" y="500" width="200" height="108" rx="6"/>
+      <rect class="tb-head" x="531" y="501" width="198" height="27" rx="5"/>
+      <text class="tn" x="542" y="519">sip_plans</text>
+      <text class="tc" x="542" y="542">id · starting_monthly_inr</text>
+      <text class="tc" x="542" y="560">step_up_pct</text>
+      <text class="tc" x="542" y="578">expected_return_pct</text>
+      <text class="tc" x="542" y="596">redirect_emi_after_payoff</text>
+
+      <rect class="tb" x="780" y="500" width="200" height="90" rx="6"/>
+      <rect class="tb-head" x="781" y="501" width="198" height="27" rx="5"/>
+      <text class="tn" x="792" y="519">sip_allocations</text>
+      <text class="tfk" x="792" y="542">plan_id → sip_plans</text>
+      <text class="tc" x="792" y="560">fund_name</text>
+      <text class="tc" x="792" y="578">pct · total 100</text>
+
+      <!-- relationships: child → parent -->
+      <path class="w-flow" d="M480 114 H505 V55 H528" marker-end="url(#a3)"/>
+      <path class="w-flow" d="M280 132 H255 V96 H232" marker-end="url(#a3)"/>
+      <path class="w-flow" d="M280 398 H262 V150 H232" marker-end="url(#a3)"/>
+      <path class="w-flow" d="M130 270 V186" marker-end="url(#a3)"/>
+      <path class="w-flow" d="M480 416 H505 V285 H528" marker-end="url(#a3)"/>
+      <path class="w-flow" d="M780 78 H732" marker-end="url(#a3)"/>
+      <path class="w-flow" d="M780 308 H732" marker-end="url(#a3)"/>
+      <path class="w-flow" d="M780 538 H732" marker-end="url(#a3)"/>
+
+      <text class="note" x="30" y="664">Every table also has user_id → the signed-in user (auth.users), and row-level security limits each row to its owner.</text>
+      <text class="note" x="30" y="684">Arrows point from the row holding the link to the row it points at. ¥ is stored as integer; ₹ as numeric(14,2).</text>
+    </svg>
+    </div>
+    <figcaption>Twelve tables. Remittances are the hub: one transfer points at the account it left, the account it reached, and the loan it paid, which is how the loan schedule shows actual payments without entering them twice.</figcaption>
+  </figure>
+</section>
+</div>
+</body></html>

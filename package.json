@@ -1,10 +1,33 @@
 {
-  "name": "personal-finance-html-devtools",
+  "name": "nri-finance",
   "private": true,
-  "description": "Dev-only test tooling for verifying index.html headlessly. Not part of the shipped app.",
+  "type": "module",
+  "packageManager": "pnpm@11.10.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"pnpm --filter @nri/api dev\" \"pnpm --filter @nri/web dev\"",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "eslint .",
+    "test:unit": "pnpm -r run test",
+    "test:integration": "pnpm -r run test:int",
+    "test:env": "node scripts/test-env.mjs",
+    "db:generate": "pnpm --filter @nri/db generate",
+    "db:migrate": "pnpm --filter @nri/db migrate",
+    "build:vercel": "node scripts/vercel-build.mjs",
+    "test:e2e": "playwright test"
+  },
   "devDependencies": {
-    "jsdom": "^25.0.0",
-    "fake-indexeddb": "^6.0.0",
-    "xlsx": "^0.18.5"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.3",
+    "concurrently": "^10.0.5",
+    "eslint": "^10.11.0",
+    "eslint-plugin-vue": "^10.11.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.0",
+    "vue-eslint-parser": "^10.4.1"
   }
 }
