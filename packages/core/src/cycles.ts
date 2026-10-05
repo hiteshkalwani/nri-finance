@@ -52,6 +52,7 @@ export function cycleRange(from: Cycle, to: Cycle): Cycle[] {
 }
 
 export function lastCycles(end: Cycle, n: number): Cycle[] {
+  if (n <= 0) return []
   let start = end
   for (let i = 1; i < n; i++) start = previousCycle(start)
   return cycleRange(start, end)

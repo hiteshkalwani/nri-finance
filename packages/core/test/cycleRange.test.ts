@@ -18,4 +18,9 @@ describe('cycle navigation', () => {
     expect(twelve[0]).toBe('2025-11')
     expect(twelve[11]).toBe('2026-10')
   })
+  it('returns empty for n <= 0, and the cycle itself for n = 1', () => {
+    expect(lastCycles('2026-10', 0)).toEqual([])
+    expect(lastCycles('2026-10', -1)).toEqual([])
+    expect(lastCycles('2026-10', 1)).toEqual(['2026-10'])
+  })
 })
