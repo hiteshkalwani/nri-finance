@@ -7,6 +7,7 @@ import { dbMiddleware, type AppVars } from './middleware/db'
 import { categoryRoutes } from './routes/categories'
 import { importRoutes } from './routes/import'
 import { meRoutes } from './routes/me'
+import { transactionRoutes } from './routes/transactions'
 
 export type AppDeps = { config: Config; getDb: () => Db }
 
@@ -34,6 +35,7 @@ export function createApp(deps: AppDeps) {
   app.route('/api/me', meRoutes)
   app.route('/api/import', importRoutes)
   app.route('/api/categories', categoryRoutes)
+  app.route('/api/transactions', transactionRoutes)
 
   return app
 }
