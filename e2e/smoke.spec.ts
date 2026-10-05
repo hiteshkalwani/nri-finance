@@ -56,6 +56,8 @@ test.describe('on a laptop', () => {
     await signIn(page, '/spend')
     expect(page.viewportSize()?.width).toBe(1280) // now the Desktop Chrome viewport, not Pixel 7
     await page.locator('#search').fill('e2e quick-add')
+    // Default sort is date, so the filtered list still renders its date-group header (spec §4.2).
+    await expect(page.locator('.day-row').first()).toBeVisible()
     await expect(page.getByTestId('ledger-total')).toContainText('1 expenses')
     await page.getByText('e2e quick-add').click()
     await page.locator('#amount').fill('2000')
