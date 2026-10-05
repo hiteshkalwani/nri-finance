@@ -1,0 +1,80 @@
+# Local stack: the Postgres and Auth images the Supabase CLI 2.119 ran, an nginx gateway in Kong's place for
+# /auth/v1, and (with --profile app) the production build on :3000.
+# Values come from docker/.env.stack.local, written by `pnpm stack:keys`. Host ports bind to 127.0.0.1 only.
+name: nri-finance
+
+services:
+  db:
+    image: public.ecr.aws/supabase/postgres:17.11.0.002
+    command: ["postgres", "-D", "/etc/postgresql"]
+    environment:
+      POSTGRES_USER: supabase_admin
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: /var/run/postgresql
+      POSTGRES_INITDB_ARGS: --allow-group-access --locale-provider=icu --encoding=UTF-8 --icu-locale=en_US.UTF-8
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXP: 3600
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./docker/db/schema.sql:/etc/postgresql.schema.sql:ro
+    ports: ["127.0.0.1:54322:5432"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "127.0.0.1"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+
+  auth:
+    image: public.ecr.aws/supabase/gotrue:v2.197.0
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      API_EXTERNAL_URL: http://127.0.0.1:54321/auth/v1
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgresql://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      GOTRUE_DB_MIGRATIONS_PATH: /usr/local/etc/auth/migrations
+      GOTRUE_SITE_URL: http://localhost:5173
+      GOTRUE_URI_ALLOW_LIST: http://localhost:5173,http://localhost:3000
+      GOTRUE_DISABLE_SIGNUP: "true" # AUTH-3: only accounts created by an admin can sign in
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true" # email + password sign-in must stay on
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: "false"
+      GOTRUE_JWT_ISSUER: http://127.0.0.1:54321/auth/v1
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_SECRET: ${JWT_SECRET} # verifies the HS256 anon / service_role keys
+      GOTRUE_JWT_KEYS: ${JWT_KEYS} # ES256 key that signs user tokens (published as JWKS)
+      GOTRUE_JWT_VALID_METHODS: HS256,ES256
+      GOTRUE_RATE_LIMIT_OTP: 300 # sign-ins + sign-ups per 5 min; tests sign in many fresh users
+      GOTRUE_RATE_LIMIT_TOKEN_REFRESH: 150
+      GOTRUE_RATE_LIMIT_VERIFY: 30
+      GOTRUE_RATE_LIMIT_EMAIL_SENT: 360000
+      GOTRUE_SECURITY_REFRESH_TOKEN_ROTATION_ENABLED: "true"
+      GOTRUE_SECURITY_REFRESH_TOKEN_REUSE_INTERVAL: 10
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:9999/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+
+  gateway:
+    image: nginx:1.27-alpine
+    depends_on:
+      auth: { condition: service_healthy }
+    volumes:
+      - ./docker/gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports: ["127.0.0.1:54321:8000"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8000/auth/v1/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+volumes:
+  db-data:
