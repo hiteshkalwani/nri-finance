@@ -76,5 +76,27 @@ services:
       timeout: 2s
       retries: 30
 
+  app:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+      args:
+        VITE_SUPABASE_URL: http://127.0.0.1:54321
+        VITE_SUPABASE_ANON_KEY: ${ANON_KEY}
+    depends_on:
+      db: { condition: service_healthy }
+      gateway: { condition: service_healthy }
+    environment:
+      SUPABASE_URL: http://127.0.0.1:54321 # the issuer in every token, as the browser sees Auth
+      SUPABASE_AUTH_INTERNAL_URL: http://gateway:8000 # where this container can actually reach Auth
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
+    ports: ["127.0.0.1:3000:3000"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
 volumes:
   db-data:
