@@ -58,3 +58,11 @@ it('maps the friendly sort options onto sort/dir', () => {
   expect(sortValue({ sort: 'category', dir: 'asc' })).toBe('category:asc')
   expect(sortValue({})).toBe('occurredOn:desc')
 })
+
+// Task 6 feeds sortFromValue URL-controlled values; anything not a known SORT_OPTIONS value
+// must fall back to the default sort rather than producing an invalid key/order.
+it('falls back to the default sort for a value outside SORT_OPTIONS', () => {
+  expect(sortFromValue('nonsense')).toEqual({ key: 'occurredOn', order: 'desc' })
+  expect(sortFromValue('amountJpy:sideways')).toEqual({ key: 'occurredOn', order: 'desc' })
+  expect(sortFromValue('')).toEqual({ key: 'occurredOn', order: 'desc' })
+})
