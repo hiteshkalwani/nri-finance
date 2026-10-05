@@ -33,7 +33,7 @@ const runImport = useMutation({
     importMessage.value =
       `Imported ${i.transactions} transactions, ${i.remittances} remittances, ${i.categories} categories, ${i.accounts} accounts.` +
       (r.skippedRows.length ? ` Skipped ${r.skippedRows.length}: ${r.skippedRows.join(', ')}` : '')
-    void qc.invalidateQueries({ queryKey: ['me'] })
+    void Promise.all(['me', 'categories', 'transactions', 'dashboard'].map((k) => qc.invalidateQueries({ queryKey: [k] })))
   },
 })
 async function onFile(files: File | File[] | null) {
