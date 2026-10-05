@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { Transaction, TransactionPage, type NeedWant, type PaymentMethod, type SortField } from '@nri/contracts'
@@ -8,7 +8,7 @@ import { apiFetch } from '../lib/api'
 import { useCategories } from '../lib/categories'
 import { NEED_LABELS, PAYMENT_LABELS } from '../lib/expenseForm'
 import { cycleLabel, rupees, yen } from '../lib/format'
-import { PAGE_SIZE, routeQueryFrom, sortFromRoute, toApiQuery, type LedgerState } from '../lib/ledger'
+import { PAGE_SIZE, routeQueryFrom, routeSearchValue, sortFromRoute, toApiQuery, type LedgerState } from '../lib/ledger'
 import { useProfile } from '../lib/profile'
 import { undo } from '../lib/undo'
 
@@ -40,7 +40,19 @@ const page = useQuery({
 
 const search = ref(str(route.query.q) ?? '')
 let timer: ReturnType<typeof setTimeout> | undefined
-watch(search, (v) => { clearTimeout(timer); timer = setTimeout(() => push({ q: v, page: 1 }), 300) })
+onUnmounted(() => clearTimeout(timer))
+// The URL is the source of truth: keep the box in sync on back/forward (or any other route-query
+// change), but only schedule a push when the box actually differs from the URL — otherwise a resync
+// from the route would itself re-trigger the debounce and fight the navigation that just happened.
+watch(() => route.query.q, (v) => {
+  const next = routeSearchValue(v)
+  if (next !== search.value) search.value = next
+})
+watch(search, (v) => {
+  clearTimeout(timer)
+  if (v === routeSearchValue(route.query.q)) return
+  timer = setTimeout(() => push({ q: v, page: 1 }), 300)
+})
 
 function state(): LedgerState {
   return {
@@ -53,7 +65,8 @@ function state(): LedgerState {
     page: Number(str(route.query.page) ?? 1),
   }
 }
-function push(change: Partial<LedgerState>) { void router.replace({ query: routeQueryFrom({ ...state(), ...change }) }) }
+// Explicit path: a late-firing (debounced) push must never land on whatever page the user has since navigated to.
+function push(change: Partial<LedgerState>) { void router.replace({ path: '/spend', query: routeQueryFrom({ ...state(), ...change }) }) }
 function onOptions(o: { page: number; sortBy: { key: string; order?: 'asc' | 'desc' | boolean }[] }) {
   const s = o.sortBy[0]
   push({ page: o.page, sort: s ? { key: s.key as SortField, order: s.order === 'asc' ? 'asc' : 'desc' } : { key: 'occurredOn', order: 'desc' } })

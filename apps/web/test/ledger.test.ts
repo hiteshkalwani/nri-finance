@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { routeQueryFrom, sortFromRoute, toApiQuery, toCreateInput } from '../src/lib/ledger'
+import { routeQueryFrom, routeSearchValue, sortFromRoute, toApiQuery, toCreateInput } from '../src/lib/ledger'
 
 it('maps the page URL to API query params, dropping empty values', () => {
   const p = toApiQuery({ cycle: '2026-10', categoryId: '', q: 'lunch', sort: 'amountJpy', dir: 'asc', page: '2' })
@@ -20,4 +20,11 @@ it('rebuilds a create body from a deleted row for Undo, in the currency it was e
   } as const
   expect(toCreateInput(t)).toEqual({ occurredOn: '2026-10-01', categoryId: 'c', accountId: null, description: 'd', notes: '', paymentMethod: 'cash', needWant: 'need', amountInrPaise: 100000 })
   expect(toCreateInput({ ...t, enteredCurrency: 'JPY', amountInrPaise: null })).toMatchObject({ amountJpy: 1695 })
+})
+
+it('reads the search box value from the URL, treating a missing/non-string q as empty', () => {
+  expect(routeSearchValue('lunch')).toBe('lunch')
+  expect(routeSearchValue(undefined)).toBe('')
+  expect(routeSearchValue(null)).toBe('')
+  expect(routeSearchValue(['lunch'])).toBe('')
 })

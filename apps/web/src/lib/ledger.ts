@@ -27,6 +27,11 @@ export function sortFromRoute(route: RouteQuery): { key: SortField; order: 'asc'
   return [{ key, order: str(route.dir) === 'asc' ? 'asc' : 'desc' }]
 }
 
+/** The search box's value as the URL's `q` would show it (non-strings, e.g. undefined, read as ''). */
+export function routeSearchValue(routeQ: unknown): string {
+  return str(routeQ)
+}
+
 export function routeQueryFrom(s: LedgerState): Record<string, string> {
   const q: Record<string, string> = {}
   if (s.cycle) q.cycle = s.cycle
