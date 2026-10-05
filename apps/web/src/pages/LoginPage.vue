@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { safeNext } from '../lib/next'
 import { supabase } from '../lib/supabase'
 
 const email = ref('')
@@ -16,7 +17,7 @@ async function submit() {
   const { error: e } = await supabase.auth.signInWithPassword({ email: email.value, password: password.value })
   busy.value = false
   if (e) { error.value = 'Email or password is incorrect.'; return }
-  await router.replace(typeof route.query.next === 'string' ? route.query.next : '/')
+  await router.replace(safeNext(route.query.next))
 }
 </script>
 

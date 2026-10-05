@@ -1,8 +1,12 @@
 import type { Router } from 'vue-router'
+import { openSignIn } from './session'
 
-/** On a 401 from the API: go to sign-in, remembering the page to come back to (AUTH-2). */
-export function redirectToLogin(router: Router) {
-  const current = router.currentRoute.value
-  if (current.path === '/login') return undefined
-  return router.push({ path: '/login', query: { next: current.fullPath } })
+/**
+ * On a 401 from the API during a session: open the sign-in dialog over the current page instead of navigating away,
+ * so anything typed into a form stays (AUTH-2). Navigation without a session is handled by the router guard.
+ */
+export function handleUnauthorized(router: Router): 'dialog' | 'ignored' {
+  if (router.currentRoute.value.meta.public) return 'ignored'
+  openSignIn()
+  return 'dialog'
 }
