@@ -21,6 +21,17 @@ jobs:
       # Production build (web + bundled API + CSP from the embedded Supabase URL) must succeed on its own too.
       - run: pnpm build:vercel
       - run: pnpm exec playwright install --with-deps chrome
+      # public.ecr.aws rate-limits anonymous pulls from shared runner IPs ("toomanyrequests: Rate exceeded");
+      # compose pulls layers in parallel, so pre-pull the stack's images one at a time with backoff.
+      - name: Pull stack images
+        run: |
+          for img in $(docker compose --env-file docker/.env.stack.local config --images); do
+            for i in 1 2 3 4 5 6; do
+              docker pull -q "$img" && break
+              [ "$i" = 6 ] && exit 1
+              echo "pull of $img failed (attempt $i), retrying in $((i * 20))s"; sleep $((i * 20))
+            done
+          done
       # Same command as on the Mac: compose stack, built app on :3000, integration + e2e tests.
       - run: pnpm stack:check
       - name: Collect logs on failure
