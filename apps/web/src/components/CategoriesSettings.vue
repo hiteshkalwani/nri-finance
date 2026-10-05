@@ -62,14 +62,19 @@ function startEdit(c: Category) { editing.value = c.id; editName.value = c.name 
       <v-list density="compact">
         <v-list-item v-for="(c, i) in cats.data.value ?? []" :key="c.id" :class="{ 'text-disabled': c.archived }">
           <template #prepend><v-icon :color="c.color">mdi-circle</v-icon></template>
-          <v-text-field v-if="editing === c.id" v-model="editName" density="compact" hide-details autofocus
-            @keyup.enter="patch.mutate({ id: c.id, body: { name: editName } })" @keyup.escape="editing = null" />
+          <div v-if="editing === c.id" class="d-flex ga-1 align-center">
+            <v-text-field v-model="editName" label="Category name" density="compact" hide-details autofocus
+              @keyup.enter="patch.mutate({ id: c.id, body: { name: editName } })" @keyup.escape="editing = null" />
+            <v-btn icon="mdi-check" variant="text" size="small" aria-label="Save name" @click="patch.mutate({ id: c.id, body: { name: editName } })" />
+            <v-btn icon="mdi-close" variant="text" size="small" aria-label="Cancel rename" @click="editing = null" />
+          </div>
           <v-list-item-title v-else>{{ c.name }}<span v-if="c.archived"> (archived)</span></v-list-item-title>
           <template #append>
             <v-menu>
               <template #activator="{ props }"><v-btn v-bind="props" icon="mdi-palette-outline" variant="text" size="small" aria-label="Colour" /></template>
-              <div class="d-flex flex-wrap ga-1 pa-2 bg-surface" style="max-width: 200px">
-                <v-btn v-for="p in PALETTE" :key="p" icon size="x-small" :color="p" :aria-label="p" @click="patch.mutate({ id: c.id, body: { color: p } })" />
+              <div class="d-flex flex-wrap ga-1 pa-2 bg-surface" style="max-width: 200px" role="radiogroup" aria-label="Colour">
+                <v-btn v-for="p in PALETTE" :key="p" icon size="x-small" :color="p" :aria-label="p" :aria-checked="c.color === p" role="radio"
+                  :variant="c.color === p ? 'outlined' : 'flat'" @click="patch.mutate({ id: c.id, body: { color: p } })" />
               </div>
             </v-menu>
             <v-btn icon="mdi-pencil-outline" variant="text" size="small" aria-label="Rename" @click="startEdit(c)" />
