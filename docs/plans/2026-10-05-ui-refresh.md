@@ -451,6 +451,7 @@ Build (spec §4.5):
 - Categories card: header with `#new-category` input + colour + **icon** picker + Add; rows: `CategoryAvatar`, name, colour dot, actions (↑ ↓, rename with Save/Cancel, colour menu, **icon menu**: a `v-menu` with a 6×4 grid of these emoji — 🏠 🛒 🍜 ☕ 🚃 🚕 ✈️ 💡 📱 💊 🏥 🛍️ 👕 🎁 🎬 🎮 📚 🎓 🐶 💼 🧾 💸 🏦 ⭐ — plus "No icon"; each choice is a button with `aria-label` = the emoji's name in words (e.g. "House", "Shopping cart") and `aria-checked` for the current one), archive/unarchive, delete when unused. PATCH `{ icon }` / `{ icon: null }`.
 - Import card: dashed drop zone ("Drop **finance-data.json** here, or choose a file"); dropping a file or choosing via the existing `#import-file` input both call the existing `onFile`; success/error alerts unchanged.
 - Account card: "Signed in as <email>" + Sign out (same handler as the shell).
+- Appearance card: segmented control System / Light / Dark bound to `useThemePref()` (Task 3).
 
 Acceptance: web tests pass; e2e 4 passed (import via `#import-file` still works; Categories card refresh assertion still passes); screenshots vs mockup Settings.
 
