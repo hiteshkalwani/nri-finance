@@ -1,4 +1,8 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
+
+vi.mock('../src/lib/supabase', () => ({
+  supabase: { auth: { getSession: async () => ({ data: { session: { access_token: 'tok-123' } } }) } },
+}))
 import { activeCategories, moveId, PALETTE } from '../src/lib/categories'
 
 it('moves an id up or down and ignores moves past either end', () => {
