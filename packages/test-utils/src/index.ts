@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 const env = (k: string) => {
   const v = process.env[k]
-  if (!v) throw new Error(`${k} missing — run "pnpm test:env" with Supabase running`)
+  if (!v) throw new Error(`${k} missing — run "pnpm stack:up" (it writes .env.local)`)
   return v
 }
 
