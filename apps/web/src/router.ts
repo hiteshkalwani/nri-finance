@@ -8,6 +8,8 @@ export const router = createRouter({
     { path: '/', component: () => import('./pages/HomePage.vue') },
     { path: '/settings', component: () => import('./pages/SettingsPage.vue') },
     { path: '/spend/new', component: () => import('./pages/QuickAddPage.vue') },
+    { path: '/spend', component: () => import('./pages/LedgerPage.vue') },
+    { path: '/spend/:id', component: () => import('./pages/EditTransactionPage.vue') },
     { path: '/:pathMatch(.*)*', component: () => import('./pages/NotFoundPage.vue'), meta: { public: true } },
   ],
 })
