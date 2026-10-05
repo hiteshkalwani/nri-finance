@@ -36,9 +36,11 @@ export function pageCount(total: number, pageSize: number): number {
  * Whether a date-group's total on the ledger page should be marked "on this page" rather than
  * shown as a plain total. A group in the middle of a page is fully contained — every row for that
  * date is on this page, so its total is already the whole day. Only the first or last group on a
- * page could have more of the same date sitting on a neighbouring page (ascending or descending
- * sort, either edge), and only when there's more than one page for it to continue onto.
+ * page could have more of the same date sitting on a neighbouring page — the first group only if
+ * there's a page before this one (its date may continue from there), the last group only if
+ * there's a page after this one (its date may continue onto it). Page 1's first group and the
+ * last page's last group have no such neighbour, so neither is "partial".
  */
-export function isPartialPageGroup(groupIndex: number, groupCount: number, totalPages: number): boolean {
-  return totalPages > 1 && (groupIndex === 0 || groupIndex === groupCount - 1)
+export function isPartialPageGroup(groupIndex: number, groupCount: number, totalPages: number, page: number): boolean {
+  return (groupIndex === 0 && page > 1) || (groupIndex === groupCount - 1 && page < totalPages)
 }

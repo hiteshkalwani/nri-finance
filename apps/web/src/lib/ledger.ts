@@ -14,10 +14,23 @@ const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const KEYS = ['cycle', 'categoryId', 'paymentMethod', 'needWant', 'q', 'sort', 'dir', 'page'] as const
 export const PAGE_SIZE = 50
 
+/**
+ * A junk or out-of-range `page` (e.g. `?page=abc` or `?page=0`, both URL-fed) must not reach the
+ * API as-is — the API rejects anything that isn't a positive integer with a 400, which otherwise
+ * surfaced as a confusing "No expenses match these filters." Falls back to 1, same as an absent
+ * page.
+ */
+export function coercePage(v: unknown): number {
+  const n = Number(str(v))
+  return Number.isInteger(n) && n >= 1 ? n : 1
+}
+
 /** The page URL is the source of truth for filters/sort/page (reload and back/forward keep them). */
 export function toApiQuery(route: RouteQuery): URLSearchParams {
   const p = new URLSearchParams()
-  for (const k of KEYS) if (str(route[k])) p.set(k, str(route[k]))
+  for (const k of KEYS) { if (k !== 'page' && str(route[k])) p.set(k, str(route[k])) }
+  const page = coercePage(route.page)
+  if (page > 1) p.set('page', String(page)) // matches the API's own default of 1 when absent
   p.set('pageSize', String(PAGE_SIZE))
   return p
 }
