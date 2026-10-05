@@ -1,4 +1,4 @@
-import type { NeedWant, PaymentMethod, SortField, Transaction, TransactionCreate } from '@nri/contracts'
+import type { NeedWant, PaymentMethod, SortField, Transaction, TransactionRestore } from '@nri/contracts'
 
 export type LedgerState = {
   cycle: string | null
@@ -32,23 +32,29 @@ export function routeSearchValue(routeQ: unknown): string {
   return str(routeQ)
 }
 
+/** Vuetify's clearable × sets the search field's v-model to `null`; treat that like an empty box. */
+export function coerceSearch(v: string | null | undefined): string {
+  return v ?? ''
+}
+
 export function routeQueryFrom(s: LedgerState): Record<string, string> {
   const q: Record<string, string> = {}
   if (s.cycle) q.cycle = s.cycle
   if (s.categoryId) q.categoryId = s.categoryId
   if (s.paymentMethod) q.paymentMethod = s.paymentMethod
   if (s.needWant) q.needWant = s.needWant
-  if (s.q.trim()) q.q = s.q.trim()
+  const search = coerceSearch(s.q).trim()
+  if (search) q.q = search
   if (!(s.sort.key === 'occurredOn' && s.sort.order === 'desc')) { q.sort = s.sort.key; q.dir = s.sort.order }
   if (s.page > 1) q.page = String(s.page)
   return q
 }
 
-/** Undo after delete: re-create from the copy kept client-side, in the currency it was entered in. */
-export function toCreateInput(t: Transaction): TransactionCreate {
-  const common = {
+/** Undo after delete: re-create the row exactly as it was (TransactionRestore) — no ¥/₹ conversion, archived category OK. */
+export function toRestoreInput(t: Transaction): TransactionRestore {
+  return {
     occurredOn: t.occurredOn, categoryId: t.categoryId, accountId: t.accountId, description: t.description,
     notes: t.notes, paymentMethod: t.paymentMethod, needWant: t.needWant,
+    amountJpy: t.amountJpy, enteredCurrency: t.enteredCurrency, amountInrPaise: t.amountInrPaise, rateUsed: t.rateUsed,
   }
-  return t.enteredCurrency === 'INR' && t.amountInrPaise !== null ? { ...common, amountInrPaise: t.amountInrPaise } : { ...common, amountJpy: t.amountJpy }
 }

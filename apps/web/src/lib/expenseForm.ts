@@ -1,4 +1,4 @@
-import type { Category, NeedWant, PaymentMethod } from '@nri/contracts'
+import type { Category, NeedWant, PaymentMethod, Transaction } from '@nri/contracts'
 import { jpyFromInrPaise, paiseFromDecimal } from '@nri/core'
 
 export type Currency = 'JPY' | 'INR'
@@ -26,4 +26,19 @@ export function parseAmount(text: string, currency: Currency): { amountJpy: numb
 export function previewJpy(text: string, rate: string): number | null {
   const a = parseAmount(text, 'INR')
   return a && 'amountInrPaise' in a ? jpyFromInrPaise(a.amountInrPaise, rate) : null
+}
+
+/**
+ * The amount fields to send in an edit PATCH: none when the currency and parsed amount are both
+ * unchanged from the row being edited (TXN-4) — an unchanged ₹ amount must not be re-converted at
+ * today's planning rate — otherwise the parsed amount, so a currency switch or a real change is sent.
+ */
+export function amountPatchFor(
+  original: Pick<Transaction, 'enteredCurrency' | 'amountJpy' | 'amountInrPaise'>,
+  currency: Currency,
+  parsed: { amountJpy: number } | { amountInrPaise: number },
+): { amountJpy: number } | { amountInrPaise: number } | Record<string, never> {
+  const unchanged = currency === original.enteredCurrency &&
+    ('amountJpy' in parsed ? parsed.amountJpy === original.amountJpy : parsed.amountInrPaise === original.amountInrPaise)
+  return unchanged ? {} : parsed
 }

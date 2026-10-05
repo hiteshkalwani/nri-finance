@@ -6,8 +6,8 @@ import { AccountList, Transaction, type NeedWant, type PaymentMethod } from '@nr
 import { decimalFromPaise } from '@nri/core'
 import { apiFetch, ApiRequestError } from '../lib/api'
 import { useCategories } from '../lib/categories'
-import { NEED_LABELS, PAYMENT_LABELS, parseAmount, type Currency } from '../lib/expenseForm'
-import { toCreateInput } from '../lib/ledger'
+import { amountPatchFor, NEED_LABELS, PAYMENT_LABELS, parseAmount, type Currency } from '../lib/expenseForm'
+import { toRestoreInput } from '../lib/ledger'
 import { undo } from '../lib/undo'
 
 const route = useRoute()
@@ -57,10 +57,8 @@ const save = useMutation({
     const t = row.data.value!
     const parsedAmount = parseAmount(amount.value, currency.value)
     if (!parsedAmount) throw new ApiRequestError(400, 'VALIDATION_FAILED', currency.value === 'JPY' ? 'Enter a whole number of yen' : 'Enter rupees with up to two decimals')
-    const unchanged = currency.value === t.enteredCurrency &&
-      ('amountJpy' in parsedAmount ? parsedAmount.amountJpy === t.amountJpy : parsedAmount.amountInrPaise === t.amountInrPaise)
     const body = {
-      ...(unchanged ? {} : parsedAmount), // an unchanged ₹ amount is not re-converted at today's rate
+      ...amountPatchFor(t, currency.value, parsedAmount), // an unchanged ₹ amount is not re-converted at today's rate
       categoryId: categoryId.value, accountId: accountId.value, occurredOn: occurredOn.value,
       paymentMethod: paymentMethod.value, needWant: needWant.value, description: description.value, notes: notes.value,
     }
@@ -71,7 +69,7 @@ const save = useMutation({
 })
 const remove = useMutation({
   mutationFn: () => apiFetch(`/api/transactions/${row.data.value!.id}`, { method: 'DELETE' }),
-  onSuccess: async () => { undo.pending.value = toCreateInput(row.data.value!); await refresh(); await router.push('/spend') },
+  onSuccess: async () => { undo.pending.value = toRestoreInput(row.data.value!); await refresh(); await router.push('/spend') },
   onError: fail,
 })
 </script>
