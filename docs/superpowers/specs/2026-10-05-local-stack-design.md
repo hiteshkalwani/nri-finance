@@ -1,6 +1,6 @@
 # Local stack on docker compose — design
 
-Date: 2026-10-05. Status: approved in conversation, pending spec review.
+Date: 2026-10-05. Status: approved 2026-10-05. Amended while planning (see §13).
 Amends: TRD §9.1 (Local environment), §10 (Testing), §12.2.
 
 ## 1. Goal
@@ -35,20 +35,19 @@ Success criteria:
    │                │   /auth/v1/*  ──▶ auth (gotrue v2.197.0) ─┐      │
    │                │                                           ▼      │
    │                │                      db (supabase/postgres 17.11) :54322
-   │                │  migrate  (one-shot, after auth is healthy)      │
    │                │                                                  │
    ├─ :3000 ───────▶│ app (profile "app"): Vercel build output         │
    │                └──────────────────────────────────────────────────┘
    └─ daily dev: Vite :5173 + API :8787 on the Mac (hot reload) → gateway + db
+      pnpm db:migrate runs on the Mac as the last step of stack:up
 ```
 
 | Service | Image | Host port | Role |
 |---|---|---|---|
 | `db` | `public.ecr.aws/supabase/postgres:17.11.0.002` | 54322 | Postgres with Supabase roles (`anon`, `authenticated`, `service_role`, `supabase_auth_admin`) and `auth.uid()`. Named volume `db-data`. Healthcheck `pg_isready`. |
 | `auth` | `public.ecr.aws/supabase/gotrue:v2.197.0` | — | Supabase Auth. Runs its own migrations into the `auth` schema on start. Healthcheck `GET /health`. |
-| `gateway` | `nginx:1.27-alpine` | 54321 | Maps `/auth/v1/*` → `auth:9999/*` (prefix stripped), adds CORS for the two local web origins. Plays Kong's role so client and test URLs stay `http://localhost:54321/auth/v1/...`. |
-| `migrate` | built from `docker/Dockerfile` (target `migrate`) | — | Runs `drizzle-kit migrate` once, after `auth` is healthy (our RLS migration references `auth.users`). Exits 0. |
-| `app` | built from `docker/Dockerfile` (target `app`), profile `app` | 3000 | Serves `.vercel/output` exactly as built for Vercel: static files, `/api/*` → the bundled function, the headers and SPA fallback from `config.json`. |
+| `gateway` | `nginx:1.27-alpine` | 54321 | Maps `/auth/v1/*` → `auth:9999/*` (prefix stripped), adds CORS for the two local web origins. Plays Kong's role so client and test URLs stay `http://127.0.0.1:54321/auth/v1/...`. |
+| `app` | built from `docker/app.Dockerfile`, profile `app` | 3000 | Serves `.vercel/output` exactly as built for Vercel: static files, `/api/*` → the bundled function, the headers and SPA fallback from `config.json`. |
 
 The images for `db` and `auth` are the versions the Supabase CLI 2.119 already used for M0, so behaviour is unchanged.
 
@@ -64,18 +63,18 @@ GoTrue environment, carrying over every M0 setting:
 | `GOTRUE_DISABLE_SIGNUP` | `true` | `[auth] enable_signup=false` (AUTH-3) |
 | `GOTRUE_EXTERNAL_EMAIL_ENABLED` | `true` | `[auth.email] enable_signup=true` (email login must stay on) |
 | `GOTRUE_MAILER_AUTOCONFIRM` | `true` | `enable_confirmations=false` |
-| `GOTRUE_RATE_LIMIT_TOKEN_REFRESH` / sign-in limit | 150 / 300 per 5 min | `[auth.rate_limit]` |
+| `GOTRUE_RATE_LIMIT_TOKEN_REFRESH` / `GOTRUE_RATE_LIMIT_OTP` | 150 / 300 per 5 min | `[auth.rate_limit]` (values copied from the CLI's container) |
 | `GOTRUE_JWT_EXP` | 3600 | `jwt_expiry` |
-| `GOTRUE_JWT_ISSUER` | `http://localhost:54321/auth/v1` | issuer the API checks |
+| `GOTRUE_JWT_ISSUER` | `http://127.0.0.1:54321/auth/v1` | issuer the API checks |
 | `GOTRUE_JWT_AUD` | `authenticated` | audience the API checks |
-| `GOTRUE_JWT_KEYS` | ES256 private JWK (sign + verify) and an HS256 `oct` key (verify only) | §4 |
-| `GOTRUE_JWT_SECRET` | the HS256 secret | §4 |
-| `API_EXTERNAL_URL` | `http://localhost:54321/auth/v1` | |
+| `GOTRUE_JWT_KEYS` | one ES256 private JWK (`key_ops` sign + verify) | §4 |
+| `GOTRUE_JWT_SECRET` + `GOTRUE_JWT_VALID_METHODS=HS256,ES256` | the HS256 secret that verifies the `anon` / `service_role` keys | §4 |
+| `API_EXTERNAL_URL` | `http://127.0.0.1:54321/auth/v1` | |
 | `GOTRUE_SITE_URL` | `http://localhost:5173` | |
 | `GOTRUE_DB_DATABASE_URL` | `postgres://supabase_auth_admin:<pw>@db:5432/postgres` | |
 
 User tokens are ES256 and their public key is served at `/auth/v1/.well-known/jwks.json`, the same as hosted Supabase.
-The `anon` and `service_role` keys are HS256 tokens verified by the `oct` key, the same as the Supabase CLI.
+The `anon` and `service_role` keys are HS256 tokens verified with `GOTRUE_JWT_SECRET`, the same as the Supabase CLI.
 
 ## 4. Keys and environment files
 
@@ -84,14 +83,14 @@ The `anon` and `service_role` keys are HS256 tokens verified by the `oct` key, t
   with `role` `anon` / `service_role`, `iss` `supabase`, 10-year expiry, as the Supabase CLI issues them). It refuses to overwrite an
   existing file unless `--force`.
 - The same script writes `.env.local` (replacing `scripts/test-env.mjs`): `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
-  `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL` (`localhost:54322`), `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+  `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL` (`127.0.0.1:54322`), `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
   Keys are unchanged; only the generator changes.
 - Both paths match the existing `.env*.local` ignore rule. A test asserts both are ignored.
 - All values are local-only and are never used for the cloud project.
 
 ## 5. Code change: internal JWKS address
 
-Inside the `app` container `localhost:54321` is the container itself, so the API cannot fetch the public keys from the
+Inside the `app` container `127.0.0.1:54321` is the container itself, so the API cannot fetch the public keys from the
 issuer address. Add an optional `SUPABASE_AUTH_INTERNAL_URL` to `loadConfig`:
 
 - Issuer check unchanged: `${SUPABASE_URL}/auth/v1`.
@@ -102,13 +101,12 @@ issuer address. Add an optional `SUPABASE_AUTH_INTERNAL_URL` to `loadConfig`:
 
 ## 6. App image and the Vercel output server
 
-`docker/Dockerfile`, multi-stage on `node:22-slim` with pnpm via corepack:
+`docker/app.Dockerfile`, multi-stage on `node:22-slim` with pnpm via corepack:
 
-1. `deps`: `pnpm install --frozen-lockfile` with the workspace manifests.
-2. `migrate` target: deps + `packages/db`; command `pnpm --filter @nri/db exec drizzle-kit migrate`.
-3. `build`: copy source, run `pnpm build:vercel` with build args `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
-   (so the CSP and the bundle use `http://localhost:54321`).
-4. `app` target: `node:22-slim` with only `.vercel/output` and `scripts/serve-vercel-output.mjs`.
+1. `build`: copy the workspace manifests, `pnpm install --frozen-lockfile` (cached until a manifest changes), copy the
+   source, run `pnpm build:vercel` with build args `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (so the CSP and the
+   bundle use `http://127.0.0.1:54321`).
+2. runtime: `node:22-slim` with only `.vercel/output` and `scripts/serve-vercel-output.mjs`.
 
 `scripts/serve-vercel-output.mjs` is a small Node `http` server that reads `.vercel/output/config.json` and applies
 its routes in order: header routes, `/api/(.*)` → the default export of `functions/api.func/index.mjs`, filesystem
@@ -121,7 +119,7 @@ falls back to `index.html`, path traversal (`/../`) refused with 404.
 | Command | Does |
 |---|---|
 | `pnpm stack:keys` | Generate `docker/.env.stack.local` and `.env.local` (once). |
-| `pnpm stack:up` | `docker compose up -d --wait` for `db`, `auth`, `gateway`, `migrate`; runs `stack:keys` first if the file is missing. |
+| `pnpm stack:up` | `docker compose up -d --wait` for `db`, `auth`, `gateway`, then `pnpm db:migrate` from the Mac; runs `stack:keys` first if the file is missing. |
 | `pnpm dev` | Unchanged: Vite + API on the Mac, against the stack. |
 | `pnpm stack:check` | `stack:up`, then `docker compose --profile app up -d --build --wait app`, then `pnpm test:integration` and `pnpm test:e2e` with `E2E_BASE_URL=http://localhost:3000`. |
 | `pnpm stack:down` | `docker compose --profile app down`. |
@@ -140,7 +138,7 @@ report as artifacts.
 ## 9. Removed
 
 - `supabase` dev dependency, `supabase/` folder, `scripts/test-env.mjs`, the `test:env` script.
-- TRD §9.1 Local row, §10 tool column, §12.2 updated to describe the compose stack.
+- TRD §2 repo layout, §9.1 Local row, §10 tool column and CI sentence, §12.2 updated to describe the compose stack.
 
 ## 10. Error handling
 
@@ -157,7 +155,9 @@ report as artifacts.
 - Scripts (`node:test`): `stack-keys` (writes both files, valid JWK set, `anon`/`service_role` JWTs verify with the
   secret, refuses overwrite, files are gitignored), `serve-vercel-output` (§6 cases).
 - Integration: the existing 25 db/api integration tests, unchanged, pass against the compose stack.
-- E2E: the existing smoke test passes against both Vite (`pnpm test:e2e`) and the built app (`stack:check`).
+- E2E: the existing smoke test passes against both Vite (`pnpm test:e2e`) and the built app (`stack:check`), and deletes
+  its test user afterwards (M0 review minor).
+- Web unit: the 401 → sign-in redirect keeps the current page in `?next=` (M0 review minor).
 
 ## 12. Risks proven first (Task 1 of the plan is a spike)
 
@@ -168,3 +168,14 @@ report as artifacts.
 3. GoTrue answers CORS preflight from `localhost:5173` and `localhost:3000` (else the gateway adds the headers).
 
 If 1 or 2 fails, stop and report to the user before changing the design.
+
+## 13. Amendments made while planning (2026-10-05)
+
+1. Supabase URL and issuer are `http://127.0.0.1:54321`, not `localhost`: the Supabase CLI's working Auth container uses
+   `127.0.0.1`, and the API's issuer check compares the exact string. Browser pages stay on `localhost:5173` / `:3000`.
+2. No `migrate` container: `stack:up` runs `pnpm db:migrate` from the Mac after `auth` is healthy, with the drizzle-kit
+   already installed, so daily dev never builds an image. CI does the same.
+3. `GOTRUE_JWT_KEYS` holds only the ES256 key; HS256 verification of the `anon` / `service_role` keys comes from
+   `GOTRUE_JWT_SECRET`, exactly as the CLI configures it (read from its running container).
+4. Two M0 review minors ride along because they touch the e2e harness this work rewrites: the e2e user is deleted
+   afterwards, and the 401 redirect gets a unit test.
