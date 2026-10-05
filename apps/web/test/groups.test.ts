@@ -22,15 +22,21 @@ it('counts pages, always at least 1 even with zero rows', () => {
   expect(pageCount(149, 50)).toBe(3)
 })
 
-it('marks a date group "on this page" only at a page edge, and only when there is more than one page', () => {
-  // Single page: nothing can continue past it, whatever the group's position.
-  expect(isPartialPageGroup(0, 3, 1)).toBe(false)
-  expect(isPartialPageGroup(2, 3, 1)).toBe(false)
-  // Multiple pages: the first and last groups on the page might continue onto a neighbour...
-  expect(isPartialPageGroup(0, 3, 2)).toBe(true)
-  expect(isPartialPageGroup(2, 3, 2)).toBe(true)
-  // ...but a group fully in the middle of the page is already whole.
-  expect(isPartialPageGroup(1, 3, 2)).toBe(false)
-  // A single-group page: that one group is both first and last.
-  expect(isPartialPageGroup(0, 1, 2)).toBe(true)
+it('marks a date group "on this page" only at a page edge that actually has a neighbouring page', () => {
+  // Single page (totalPages=1): no neighbour on either side, whatever the group's position.
+  expect(isPartialPageGroup(0, 3, 1, 1)).toBe(false)
+  expect(isPartialPageGroup(2, 3, 1, 1)).toBe(false)
+  // Page 1 of many: its first group has no page before it (false), but its last group might
+  // continue onto page 2 (true).
+  expect(isPartialPageGroup(0, 3, 3, 1)).toBe(false)
+  expect(isPartialPageGroup(2, 3, 3, 1)).toBe(true)
+  // A middle page (page 2 of 3): both edges have a neighbour, so both are true.
+  expect(isPartialPageGroup(0, 3, 3, 2)).toBe(true)
+  expect(isPartialPageGroup(2, 3, 3, 2)).toBe(true)
+  // The last page (page 3 of 3): its first group might continue from page 2 (true), but its last
+  // group has no page after it (false).
+  expect(isPartialPageGroup(0, 3, 3, 3)).toBe(true)
+  expect(isPartialPageGroup(2, 3, 3, 3)).toBe(false)
+  // A group fully in the middle of any page is never partial, regardless of the page.
+  expect(isPartialPageGroup(1, 3, 3, 2)).toBe(false)
 })

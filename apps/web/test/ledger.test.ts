@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { coerceSearch, routeQueryFrom, routeSearchValue, sortFromRoute, toApiQuery, toRestoreInput } from '../src/lib/ledger'
+import { coercePage, coerceSearch, routeQueryFrom, routeSearchValue, sortFromRoute, toApiQuery, toRestoreInput } from '../src/lib/ledger'
 import { SORT_OPTIONS, sortFromValue, sortValue } from '../src/lib/ledger'
 
 it('maps the page URL to API query params, dropping empty values', () => {
@@ -65,4 +65,24 @@ it('falls back to the default sort for a value outside SORT_OPTIONS', () => {
   expect(sortFromValue('nonsense')).toEqual({ key: 'occurredOn', order: 'desc' })
   expect(sortFromValue('amountJpy:sideways')).toEqual({ key: 'occurredOn', order: 'desc' })
   expect(sortFromValue('')).toEqual({ key: 'occurredOn', order: 'desc' })
+})
+
+// Fix round 1: a junk or out-of-range `page` (URL-fed) must coerce to 1, not reach the API as-is.
+it('coerces a junk or out-of-range page to 1', () => {
+  expect(coercePage('2')).toBe(2)
+  expect(coercePage('abc')).toBe(1)
+  expect(coercePage('0')).toBe(1)
+  expect(coercePage('-1')).toBe(1)
+  expect(coercePage('2.5')).toBe(1)
+  expect(coercePage('')).toBe(1)
+  expect(coercePage(undefined)).toBe(1)
+  expect(coercePage(null)).toBe(1)
+  expect(coercePage(['2'])).toBe(1) // a repeated ?page=&page= is a route-array, not a page
+})
+
+it('drops a junk/invalid page from the API query instead of forwarding it (the API 400s on it)', () => {
+  expect(Object.fromEntries(toApiQuery({ page: 'abc' }))).toEqual({ pageSize: '50' })
+  expect(Object.fromEntries(toApiQuery({ page: '0' }))).toEqual({ pageSize: '50' })
+  expect(Object.fromEntries(toApiQuery({ page: '-1' }))).toEqual({ pageSize: '50' })
+  expect(Object.fromEntries(toApiQuery({ page: '3' }))).toEqual({ page: '3', pageSize: '50' })
 })

@@ -13,6 +13,7 @@ import { NEED_LABELS, PAYMENT_LABELS } from '../lib/expenseForm'
 import { cycleLabel, yen } from '../lib/format'
 import { groupByDate, isPartialPageGroup, pageCount } from '../lib/groups'
 import {
+  coercePage,
   coerceSearch,
   PAGE_SIZE,
   routeQueryFrom,
@@ -90,7 +91,7 @@ function state(): LedgerState {
     needWant: str(route.query.needWant) as NeedWant | null,
     q: str(route.query.q) ?? '',
     sort: sortFromRoute(route.query)[0]!,
-    page: Number(str(route.query.page) ?? 1),
+    page: coercePage(route.query.page),
   }
 }
 // Explicit path: a late-firing (debounced) push must never land on whatever page the user has since navigated to.
@@ -136,7 +137,7 @@ const restore = useMutation({
         clearable
         density="compact"
         hide-details
-        style="flex: 0 0 180px"
+        style="flex: 0 0 160px"
         @update:model-value="(v) => push({ categoryId: v, page: 1 })"
       />
       <v-select
@@ -146,7 +147,7 @@ const restore = useMutation({
         clearable
         density="compact"
         hide-details
-        style="flex: 0 0 220px"
+        style="flex: 0 0 205px"
         @update:model-value="(v) => push({ paymentMethod: v, page: 1 })"
       />
       <v-select
@@ -156,7 +157,7 @@ const restore = useMutation({
         clearable
         density="compact"
         hide-details
-        style="flex: 0 0 190px"
+        style="flex: 0 0 180px"
         @update:model-value="(v) => push({ needWant: v, page: 1 })"
       />
       <v-text-field
@@ -167,7 +168,7 @@ const restore = useMutation({
         clearable
         density="compact"
         hide-details
-        style="flex: 1; min-width: 200px"
+        style="flex: 1 1 160px"
         @update:model-value="(v: string | null) => (search = coerceSearch(v))"
       />
       <v-select
@@ -188,20 +189,31 @@ const restore = useMutation({
     </div>
     <v-progress-linear v-if="page.isFetching.value" indeterminate />
 
-    <template v-if="!page.isFetching.value && items.length === 0">
+    <template v-if="page.error.value">
+      <p class="pa-5 mb-0 text-error">
+        {{ page.error.value instanceof ApiRequestError ? page.error.value.message : 'Could not load expenses.' }}
+      </p>
+    </template>
+    <template v-else-if="!page.isFetching.value && items.length === 0">
       <p class="pa-5 mb-0 text-medium-emphasis">No expenses match these filters.</p>
     </template>
     <template v-else-if="isDateSort">
       <template v-for="(g, i) in groups" :key="g.date">
-        <div class="day-row">
+        <div class="day-row" role="heading" aria-level="3">
           <span>{{ g.label }}</span>
-          <span class="num">{{ yen(g.totalJpy) }}{{ isPartialPageGroup(i, groups.length, totalPages) ? ' on this page' : '' }}</span>
+          <span class="num">{{ yen(g.totalJpy) }}{{ isPartialPageGroup(i, groups.length, totalPages, state().page) ? ' on this page' : '' }}</span>
         </div>
-        <ExpenseRow v-for="t in g.rows" :key="t.id" :t="t" :category="catOf(t.categoryId)" />
+        <!-- Each day's rows are their own list — day-row headers sit outside it (role="heading"
+             above), so role="list" here only ever has role="listitem" children (valid ARIA). -->
+        <div role="list" :aria-label="`Expenses on ${g.label}`">
+          <ExpenseRow v-for="t in g.rows" :key="t.id" :t="t" :category="catOf(t.categoryId)" role="listitem" />
+        </div>
       </template>
     </template>
     <template v-else>
-      <ExpenseRow v-for="t in items" :key="t.id" :t="t" :category="catOf(t.categoryId)" />
+      <div role="list" aria-label="Expenses">
+        <ExpenseRow v-for="t in items" :key="t.id" :t="t" :category="catOf(t.categoryId)" role="listitem" />
+      </div>
     </template>
   </v-card>
 
@@ -235,7 +247,11 @@ const restore = useMutation({
 /* Each select above sets its own `flex: 0 0 <width>` (fixed, no grow/shrink) rather than relying
    on the browser's default auto-sizing, which otherwise renders some selects a bit narrower than
    their label needs — that silently truncated "Payment method" to "Payment met…" with a cap this
-   generous. Below 600px, every filter control takes the full row instead (its inline `flex`
+   generous. The four fixed widths (plus Search's own flex-basis and the 8px gaps) are sized to
+   fit on one row at the laptop width the mockup assumes (1280px, with the 232px sidebar) without
+   any of them truncating — checked against "Payment method" and every SORT_OPTIONS title, the two
+   widest labels. Search is the one control that actually flexes, so it absorbs whatever room is
+   left over. Below 600px, every filter control takes the full row instead (its inline `flex`
    needs `!important` to win over that fixed basis). */
 @media (max-width: 600px) {
   .filters > * {
