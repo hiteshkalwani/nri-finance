@@ -2,7 +2,7 @@ import { cycleBounds } from '@nri/core'
 
 const jpy = new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' })
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 })
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 export const yen = (n: number) => jpy.format(n)
 export const rupees = (paise: number) => inr.format(paise / 100)

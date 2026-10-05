@@ -27,6 +27,29 @@ export function sortFromRoute(route: RouteQuery): { key: SortField; order: 'asc'
   return [{ key, order: str(route.dir) === 'asc' ? 'asc' : 'desc' }]
 }
 
+export type SortValue = `${SortField}:asc` | `${SortField}:desc`
+
+/** Friendly sort picker options, each mapped to a single `sort:dir` route value. */
+export const SORT_OPTIONS: { title: string; value: SortValue }[] = [
+  { title: 'Newest', value: 'occurredOn:desc' },
+  { title: 'Oldest', value: 'occurredOn:asc' },
+  { title: 'Amount high→low', value: 'amountJpy:desc' },
+  { title: 'Amount low→high', value: 'amountJpy:asc' },
+  { title: 'Category A→Z', value: 'category:asc' },
+  { title: 'Description A→Z', value: 'description:asc' },
+]
+
+export function sortFromValue(v: SortValue | string): { key: SortField; order: 'asc' | 'desc' } {
+  const [key, order] = v.split(':') as [SortField, 'asc' | 'desc']
+  return { key, order }
+}
+
+/** The current sort as a single picker value, built on the same route reading as the table. */
+export function sortValue(route: RouteQuery): SortValue {
+  const { key, order } = sortFromRoute(route)[0]!
+  return `${key}:${order}` as SortValue
+}
+
 /** The search box's value as the URL's `q` would show it (non-strings, e.g. undefined, read as ''). */
 export function routeSearchValue(routeQ: unknown): string {
   return str(routeQ)

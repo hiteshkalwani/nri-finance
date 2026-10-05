@@ -3,7 +3,41 @@
 
 .v-application {
   font-family: 'Inter Variable', system-ui, sans-serif;
-  --v-font-family: 'Inter Variable', system-ui, sans-serif;
+  --v-font-body: 'Inter Variable', system-ui, sans-serif;
+  --v-font-heading: 'Inter Variable', system-ui, sans-serif;
+}
+
+/* Vuetify 4.2's utilities only ship the M3 type-scale classes (.text-headline-*, .text-title-*,
+   .text-body-*, .text-label-*); existing pages still use the legacy MD2 names below, which
+   otherwise render at the browser default size. New components use the M3 names directly. */
+.text-h5 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 2rem;
+}
+.text-h6 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.6rem;
+}
+.text-subtitle-1 {
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5rem;
+}
+.text-subtitle-2 {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.375rem;
+}
+.text-body-2 {
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.25rem;
+}
+.text-caption {
+  font-size: 0.75rem;
+  line-height: 1.25rem;
 }
 
 /* Tabular figures for any numeric value (amounts, balances, percentages). */
