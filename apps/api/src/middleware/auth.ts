@@ -6,11 +6,23 @@ import { ApiError } from '../errors'
 
 export type AuthVars = { userId: string; email: string | null; claims: Claims }
 
+// jose's exact wording for a non-200 JWKS response / an unparseable body (see jose/dist/webapi/jwks/remote.js).
+// Matched on the literal message, not a "JSON Web Key Set" substring: JWKSNoMatchingKey and
+// JWKSMultipleMatchingKeys also mention "JSON Web Key Set" in their message but mean "bad/rotated token", not an outage.
+const JWKS_FETCH_FAILURE_MESSAGES = new Set([
+  'Expected 200 OK from the JSON Web Key Set HTTP response',
+  'Failed to parse the JSON Web Key Set HTTP response as JSON',
+])
+
 /** True when the key set could not be fetched (network, timeout, non-200, garbage) — an outage, not a bad token. */
 function isJwksOutage(e: unknown): boolean {
+  // A token with an unknown/rotated kid throws one of these even when the JWKS fetch succeeded — never an outage.
+  if (e instanceof errors.JWKSNoMatchingKey || e instanceof errors.JWKSMultipleMatchingKeys) return false
   if (e instanceof errors.JWKSTimeout || e instanceof errors.JWKSInvalid) return true
-  if (e instanceof TypeError) return true // fetch() network failure
-  return e instanceof errors.JOSEError && /JSON Web Key Set/i.test(e.message)
+  // Node's fetch() throws a TypeError with this exact message for any network-level failure (refused, DNS, etc.);
+  // other TypeErrors (e.g. a bug in our own code) must not be mistaken for an outage.
+  if (e instanceof TypeError && e.message === 'fetch failed') return true
+  return e instanceof errors.JOSEError && JWKS_FETCH_FAILURE_MESSAGES.has(e.message)
 }
 
 export function authMiddleware(config: Config) {
