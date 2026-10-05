@@ -163,6 +163,7 @@ No policies for `anon`, so Supabase's auto-generated REST API exposes nothing to
 | `PUT /api/categories/order` | Reorder categories | CAT-1 | M1 |
 | `GET /api/transactions?cycle&categoryId&paymentMethod&needWant&q&sort&page&pageSize` | List + filters | TXN-3 | M1 |
 | `GET /api/transactions/:id` · `POST /api/transactions` · `PATCH /:id` · `DELETE /:id` | Ledger CRUD; single-item `GET` for the edit page | TXN-1,2,4 | M1 |
+| `POST /api/transactions/restore` | Undo after delete: re-creates a row with its original ¥/₹/rate verbatim (no re-conversion), archived category allowed | TXN-1 | M1 |
 | `GET /api/dashboard?cycle` | Computed cycle summary (sections grow per milestone) | DASH-* | M1→M4 |
 | `GET /api/accounts` | List accounts (read-only in M1, for the account picker) | ACC-1 | M1 |
 | `POST /api/accounts` · `PATCH /:id` | Create / archive accounts | ACC-1 | M2 |
