@@ -8,13 +8,21 @@ const d = {
   byCycle: [{ cycle: '2026-09', spentJpy: 1000 }, { cycle: '2026-10', spentJpy: 2500 }],
 }
 
-it('builds the donut from categories with their colours', () => {
-  expect(donutData(d)).toEqual({ labels: ['Food', 'Rent'], datasets: [{ data: [2000, 500], backgroundColor: ['#4caf50', '#2196f3'] }] })
+const rows = [
+  { categoryId: 'a', name: 'Food', color: '#4caf50', spentJpy: 2000, pct: 80 },
+  { categoryId: null, name: 'Everything else', color: 'not-a-colour', spentJpy: 500, pct: 20 },
+]
+
+it('builds the donut from legend rows, falling back to the given colour for an invalid category colour', () => {
+  expect(donutData(rows, '#999999')).toEqual({
+    labels: ['Food', 'Everything else'],
+    datasets: [{ data: [2000, 500], backgroundColor: ['#4caf50', '#999999'], borderWidth: 0 }],
+  })
 })
 
-it('builds the bar from cycles, highlighting the selected one', () => {
-  const b = barData(d, '#1976d2', '#90caf9')
+it('builds the bar from cycles, the selected cycle in the given primary colour and the rest at 35% opacity of it', () => {
+  const b = barData(d, '#f0682e')
   expect(b.labels).toEqual(['Sep', 'Oct'])
   expect(b.datasets[0]!.data).toEqual([1000, 2500])
-  expect(b.datasets[0]!.backgroundColor).toEqual(['#90caf9', '#1976d2'])
+  expect(b.datasets[0]!.backgroundColor).toEqual(['#f0682e59', '#f0682e'])
 })
