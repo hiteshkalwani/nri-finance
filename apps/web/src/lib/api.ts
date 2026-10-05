@@ -24,3 +24,18 @@ export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}
   }
   return schema ? schema.parse(body) : (body as T)
 }
+
+/** A 4xx response (bad input, unauthorized, not found, …) means the request itself is wrong — it will never succeed by retrying it as-is, unlike a 5xx or a network hiccup. */
+export function isClientError(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.status >= 400 && error.status < 500
+}
+
+/**
+ * vue-query `retry` option: up to 3 attempts, but never for a 4xx. 401 handling is unaffected —
+ * `apiFetch` above calls `onUnauthorized()` (opens the sign-in dialog) on the very first 401,
+ * before this is ever consulted, so skipping retries here only stops it firing redundantly on
+ * attempts 2–4 of what was already a settled "sign in again."
+ */
+export function retryUnlessClientError(failureCount: number, error: unknown): boolean {
+  return !isClientError(error) && failureCount < 3
+}

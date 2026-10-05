@@ -84,7 +84,10 @@ const avatarCategory = computed(() => props.category ?? { name: 'Uncategorised',
 }
 .chip.want {
   border-color: rgb(var(--v-theme-primary));
-  color: rgb(var(--v-theme-primary));
+  /* Not --v-theme-primary: the bright accent fails spec §7's 4.5:1 text-contrast minimum against
+     this same tint in light theme (2.74:1 rest / 2.36:1 hover) — primary-darken-1 is a darker
+     shade of the same hue that clears it in both themes (see src/theme.ts, apps/web/test/theme.test.ts). */
+  color: rgb(var(--v-theme-primary-darken-1));
   background: rgba(var(--v-theme-primary), 0.12);
 }
 .amt {
