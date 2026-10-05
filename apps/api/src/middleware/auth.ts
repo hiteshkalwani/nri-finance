@@ -1,10 +1,17 @@
 import { createMiddleware } from 'hono/factory'
-import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose'
+import { createRemoteJWKSet, errors, jwtVerify, type JWTVerifyGetKey } from 'jose'
 import type { Claims } from '@nri/db'
 import type { Config } from '../config'
 import { ApiError } from '../errors'
 
 export type AuthVars = { userId: string; email: string | null; claims: Claims }
+
+/** True when the key set could not be fetched (network, timeout, non-200, garbage) — an outage, not a bad token. */
+function isJwksOutage(e: unknown): boolean {
+  if (e instanceof errors.JWKSTimeout || e instanceof errors.JWKSInvalid) return true
+  if (e instanceof TypeError) return true // fetch() network failure
+  return e instanceof errors.JOSEError && /JSON Web Key Set/i.test(e.message)
+}
 
 export function authMiddleware(config: Config) {
   const issuer = `${config.supabaseUrl}/auth/v1`
@@ -23,7 +30,10 @@ export function authMiddleware(config: Config) {
       const { payload } = await jwtVerify(match[1]!, key as Uint8Array, { issuer, audience: 'authenticated' })
       if (!payload.sub) throw new Error('token has no subject')
       claims = payload as Claims
-    } catch {
+    } catch (e) {
+      if (!config.jwtSecret && isJwksOutage(e)) {
+        throw new ApiError(503, 'AUTH_UNAVAILABLE', 'The sign-in service is unreachable right now. Please try again shortly.')
+      }
       throw new ApiError(401, 'UNAUTHORIZED', 'Your session has expired or is invalid. Please sign in again.')
     }
     c.set('claims', claims)

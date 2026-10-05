@@ -56,3 +56,20 @@ it('rejects a token whose issuer is not this project, even though the key verifi
   const res = await call({ supabaseUrl: 'http://another.invalid:54321', authInternalUrl: internalUrl, databaseUrl: 'x' })
   expect(res.status).toBe(401)
 })
+
+it('answers 503 AUTH_UNAVAILABLE, not 401, when the key server is unreachable', async () => {
+  const res = await call({ supabaseUrl: publicUrl, authInternalUrl: 'http://127.0.0.1:9', databaseUrl: 'x' })
+  expect(res.status).toBe(503)
+  expect((await res.json()).error.code).toBe('AUTH_UNAVAILABLE')
+})
+
+it('answers 503 when the key server returns an error page', async () => {
+  const broken = createServer((_req, res) => { res.statusCode = 502; res.end('bad gateway') })
+  await new Promise<void>((resolve) => broken.listen(0, '127.0.0.1', resolve))
+  try {
+    const res = await call({ supabaseUrl: publicUrl, authInternalUrl: `http://127.0.0.1:${(broken.address() as AddressInfo).port}`, databaseUrl: 'x' })
+    expect(res.status).toBe(503)
+  } finally {
+    await new Promise<void>((resolve) => broken.close(() => resolve()))
+  }
+})
