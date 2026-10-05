@@ -88,7 +88,8 @@ Check: `country = 'JP' ⇔ currency = 'JPY'` (v2 assumption; relax later if need
 Unique `(user_id, lower(name))`.
 
 **transactions**
-`occurred_on date not null`, `category_id uuid not null references categories`, `account_id uuid references accounts`, `description text not null default ''`, `amount_jpy integer not null check (> 0)`, `entered_currency currency not null default 'JPY'`, `amount_inr numeric(14,2)` (set when entered in ₹, TXN-4), `rate_used numeric(12,6)` (set when converted), `payment_method payment_method not null` (`bank`,`cash`,`credit_card`,`ic_card`), `need_want need_want not null` (`need`,`want`), `notes text not null default ''`, `legacy_id text`.
+`occurred_on date not null`, `category_id uuid not null`, `account_id uuid`, `description text not null default ''`, `amount_jpy integer not null check (> 0)`, `entered_currency currency not null default 'JPY'`, `amount_inr numeric(14,2)` (set when entered in ₹, TXN-4), `rate_used numeric(12,6)` (set when converted), `payment_method payment_method not null` (`bank`,`cash`,`credit_card`,`ic_card`), `need_want need_want not null` (`need`,`want`), `notes text not null default ''`, `legacy_id text`.
+Foreign keys: `(user_id, category_id)` → `categories (user_id, id)`; `(user_id, account_id)` → `accounts (user_id, id)` (same-owner composite keys, migration 0003).
 Indexes: `(user_id, occurred_on desc)`, `(user_id, category_id)`.
 
 **remittances**
@@ -123,6 +124,8 @@ Unique `(user_id)`.
 `plan_id uuid not null references sip_plans on delete cascade`, `fund_name text not null`, `pct numeric(5,2) not null check (> 0 and <= 100)`.
 Sum to 100 is enforced in the service (SIP-2).
 
+Every link between owned tables is a composite foreign key on `(user_id, …)`, so a row can never point at another user's row.
+
 ### 4.2 Row-level security
 
 For every table: `alter table … enable row level security;` and one policy per operation for role `authenticated`:
@@ -139,7 +142,7 @@ No policies for `anon`, so Supabase's auto-generated REST API exposes nothing to
 - Money in JSON: `…Jpy` integer yen, `…Paise` integer paise. Rates as strings with 6 decimals (`"1.694915"`) to avoid float drift.
 - Lists: `?page=1&pageSize=50` (max 200) → `{ items, total, page, pageSize }`.
 - Errors: `{ "error": { "code", "message", "details"? } }`
-  `400 VALIDATION_FAILED` (details = zod issues), `401 UNAUTHORIZED`, `404 NOT_FOUND`, `409 CONFLICT` (e.g. category in use), `500 INTERNAL`.
+  `400 VALIDATION_FAILED` (details = zod issues), `401 UNAUTHORIZED`, `404 NOT_FOUND`, `409 CONFLICT` (e.g. category in use), `500 INTERNAL`, `503 DATABASE_UNAVAILABLE`, `503 AUTH_UNAVAILABLE` (sign-in key server unreachable; not a sign-out).
 - Every request/response body has a zod schema in `packages/contracts`; the web app uses the same schemas for forms.
 
 ### 5.2 Request lifecycle
@@ -157,10 +160,13 @@ No policies for `anon`, so Supabase's auto-generated REST API exposes nothing to
 | `GET /api/me` · `PUT /api/me` | Profile read / update | PROF-1 | M0 |
 | `POST /api/import/v1` | Import v1 `finance-data.json` (idempotent) | IMP-1..4 | M0 |
 | `GET /api/categories` · `POST` · `PATCH /:id` · `DELETE /:id` | Categories; delete returns 409 if used | CAT-1 | M1 |
+| `PUT /api/categories/order` | Reorder categories | CAT-1 | M1 |
 | `GET /api/transactions?cycle&categoryId&paymentMethod&needWant&q&sort&page&pageSize` | List + filters | TXN-3 | M1 |
-| `POST /api/transactions` · `PATCH /:id` · `DELETE /:id` | Ledger CRUD | TXN-1,2,4 | M1 |
+| `GET /api/transactions/:id` · `POST /api/transactions` · `PATCH /:id` · `DELETE /:id` | Ledger CRUD; single-item `GET` for the edit page | TXN-1,2,4 | M1 |
+| `POST /api/transactions/restore` | Undo after delete: re-creates a row with its original ¥/₹/rate verbatim (no re-conversion), archived category allowed | TXN-1 | M1 |
 | `GET /api/dashboard?cycle` | Computed cycle summary (sections grow per milestone) | DASH-* | M1→M4 |
-| `GET /api/accounts` · `POST` · `PATCH /:id` | Accounts (archive via PATCH) | ACC-1 | M2 |
+| `GET /api/accounts` | List accounts (read-only in M1, for the account picker) | ACC-1 | M1 |
+| `POST /api/accounts` · `PATCH /:id` | Create / archive accounts | ACC-1 | M2 |
 | `GET /api/remittances?cycle&purpose&page&pageSize` · `POST` · `PATCH /:id` · `DELETE /:id` | Remittances | REM-1..4 | M2 |
 | `GET /api/balances/:cycle` · `PUT /api/balances/:cycle` | Snapshots for a cycle, bulk upsert | BAL-1,2 | M2 |
 | `GET /api/loans` · `POST` · `PATCH /:id` | Loans | LOAN-1 | M3 |
@@ -194,12 +200,12 @@ Pure functions, no I/O, 100% branch coverage target. Ported from v1 `js/calc.js`
 
 ## 7. Web app
 
-- Routes: `/login`, `/` (dashboard), `/spend`, `/spend/new` (quick add), `/remit`, `/accounts`, `/balances/:cycle`, `/loans/:id`, `/sip`, `/budgets`, `/review/:cycle`, `/reports`, `/settings`.
+- Routes: `/login`, `/` (dashboard), `/spend`, `/spend/new` (quick add), `/spend/:id` (edit), `/remit`, `/accounts`, `/balances/:cycle`, `/loans/:id`, `/sip`, `/budgets`, `/review/:cycle`, `/reports`, `/settings`, and a catch-all for unknown routes (Not found page).
 - Layout: bottom navigation on phones (Dashboard, Spend, **+**, Remit, More), side navigation on wider screens.
 - Server state through TanStack Query (cache per resource, invalidate on mutation); Pinia only for UI state (selected cycle, filters).
 - Forms validate with the shared zod schema before sending; the API validates again.
 - Money input: ¥ fields accept whole numbers only; ₹ fields accept two decimals and are converted to paise before sending.
-- Session: `supabase-js` handles refresh; an expired session opens sign-in in a dialog so an in-progress form is kept (AUTH-2).
+- Session: `supabase-js` handles refresh; an expired session opens sign-in in a dialog so an in-progress form is kept (AUTH-2, implemented).
 - Accessibility: labels on every control, visible focus, color never the only signal for over-budget.
 
 ## 8. Security

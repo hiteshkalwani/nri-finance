@@ -44,11 +44,37 @@ function isDatabaseUnavailable(err: unknown): boolean {
   return false
 }
 
+// Readable messages for constraints a user can hit through the API; others get the generic one.
+const CONSTRAINT_MESSAGES: Record<string, string> = {
+  transactions_category_owner: 'That category does not exist',
+  transactions_account_owner: 'That account does not exist',
+  categories_user_name: 'A category with that name already exists',
+}
+
+function pgConstraint(err: unknown): { code: string; constraint: string } | null {
+  for (const e of [err, (err as { cause?: unknown } | null)?.cause]) {
+    const code = (e as { code?: unknown } | null)?.code
+    if (code === '23503' || code === '23505') {
+      return { code, constraint: String((e as { constraint_name?: unknown }).constraint_name ?? '') }
+    }
+  }
+  return null
+}
+
 export function toErrorResponse(err: unknown): { status: ContentfulStatusCode; body: object } {
   if (err instanceof ApiError) {
     const error: Record<string, unknown> = { code: err.code, message: err.message }
     if (err.details !== undefined) error.details = err.details
     return { status: err.status, body: { error } }
+  }
+  const violation = pgConstraint(err)
+  if (violation?.code === '23503') {
+    const message = CONSTRAINT_MESSAGES[violation.constraint] ?? 'A referenced record does not exist'
+    return { status: 400, body: { error: { code: 'VALIDATION_FAILED', message, details: { constraint: violation.constraint } } } }
+  }
+  if (violation?.code === '23505') {
+    const message = CONSTRAINT_MESSAGES[violation.constraint] ?? 'That already exists'
+    return { status: 409, body: { error: { code: 'CONFLICT', message } } }
   }
   if (isDatabaseUnavailable(err)) {
     return {

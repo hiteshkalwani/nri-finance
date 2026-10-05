@@ -121,6 +121,8 @@ svg .band{fill:var(--soft);stroke:var(--line)}
 .list{margin:0;padding:0;list-style:none}
 .list li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
 .list li:last-child{border-bottom:0}
+.list li.done{color:var(--muted)}
+.list li.done>span:first-child{text-decoration:line-through}
 ol.next{margin:0;padding-left:20px}
 ol.next li{margin:6px 0}
 .who{font-size:12px;font-weight:600;color:var(--accent)}
@@ -131,7 +133,7 @@ footer{margin-top:48px;color:var(--muted);font-size:13px}
 <header>
   <h1>NRI Finance v2 — implementation plan</h1>
   <p class="lede">Every piece of work from foundation to retiring the v1 app, with what is built and what is pending.
-  Source of truth: <code>docs/checklist.md</code>, <code>docs/prd.md</code>, and the local stack spec. Status as of 5 Oct 2026, after the local stack.</p>
+  Source of truth: <code>docs/checklist.md</code>, <code>docs/prd.md</code>, and the local stack spec. Status as of 5 Oct 2026, after M1 (spending).</p>
   <nav class="toc" aria-label="Sections">
     <a href="#roadmap">Roadmap</a><a href="#wbs">WBS</a><a href="#outline">WBS outline</a>
     <a href="#map">Module map</a><a href="#stack">Local stack</a><a href="#fixes">Fix queue</a><a href="#next">Next steps</a>
@@ -152,9 +154,9 @@ footer{margin-top:48px;color:var(--muted);font-size:13px}
     <div class="card mile partial"><span class="here">you are here</span><h3>M0 Foundation</h3><span class="chip s-partial">Partly done</span>
       <p class="goal">Sign in on phone and laptop and see imported data.</p>
       <ul><li>Repo, CI, schema, RLS ✅</li><li>Sign-in, profile, import ✅</li><li>Local stack ✅</li><li>Cloud deploy ⬜</li></ul></div>
-    <div class="card mile"><h3>M1 Spending</h3><span class="chip s-todo">Pending</span>
+    <div class="card mile partial"><h3>M1 Spending</h3><span class="chip s-partial">Partly done</span>
       <p class="goal">Stop using v1 for daily logging.</p>
-      <ul><li>Ledger + quick-add</li><li>Categories</li><li>Dashboard basics</li></ul></div>
+      <ul><li>Ledger + quick-add ✅</li><li>Categories ✅</li><li>Dashboard basics ✅</li><li>Cut-over: re-import v1 ⬜</li></ul></div>
     <div class="card mile"><h3>M2 Remittances</h3><span class="chip s-todo">Pending</span>
       <p class="goal">First real cycle review in v2.</p>
       <ul><li>Remittances</li><li>Accounts, balances</li><li>Emergency fund</li></ul></div>
@@ -304,20 +306,20 @@ footer{margin-top:48px;color:var(--muted);font-size:13px}
   <div class="two">
     <div class="card"><h3 style="font-size:16px;margin-bottom:8px">Now</h3>
       <ol class="next">
-        <li><span class="who">CLAUDE</span> Final review of the local-stack branch; fix anything important.</li>
-        <li><span class="who">YOU</span> Approve pushing <code>local-stack</code> and opening a pull request, so CI runs <code>stack:check</code> on GitHub.</li>
-        <li><span class="who">BOTH</span> Short design for S3 file storage (WBS 1.6.1).</li>
+        <li><span class="who">YOU</span> Cut-over: re-import the latest v1 <code>finance-data.json</code>, then log only in v2 (WBS 4.7).</li>
+        <li><span class="who">YOU</span> Create the Supabase (Tokyo) and Vercel projects (1.5.1, 1.5.3).</li>
+        <li><span class="who">CLAUDE</span> Apply migrations, run live checks, import on your phone (1.5.2, 1.5.4).</li>
       </ol></div>
     <div class="card"><h3 style="font-size:16px;margin-bottom:8px">Then</h3>
       <ol class="next" start="4">
-        <li><span class="who">YOU</span> Create the Supabase (Tokyo) and Vercel projects (1.5.1, 1.5.3).</li>
-        <li><span class="who">CLAUDE</span> Apply migrations, run live checks, import on your phone (1.5.2, 1.5.4).</li>
-        <li><span class="who">BOTH</span> Close M0; plan M1, starting with same-owner foreign keys (1.2.4).</li>
+        <li><span class="who">BOTH</span> Close M0: TRD §9.1/§9.2 match the deploy; weekly <code>pg_dump</code> backup job (1.5.5, 1.5.6).</li>
+        <li><span class="who">BOTH</span> Short design for S3 file storage (1.6.1).</li>
+        <li><span class="who">BOTH</span> Plan M2: remittances, accounts and balances, emergency fund.</li>
       </ol></div>
   </div>
 </section>
 
-<footer>Generated from <code>docs/checklist.md</code> on 5 Oct 2026. Branch <code>local-stack</code>.</footer>
+<footer>Generated from <code>docs/checklist.md</code> on 5 Oct 2026. Branch <code>m1-spending</code>.</footer>
 </main>
 
 <script>
@@ -333,13 +335,13 @@ const WBS = [
    {c:'1.2.1', n:'Schema: 12 tables, integer ¥ / numeric ₹', s:'done'},
    {c:'1.2.2', n:'Migrations 0000–0002', s:'done'},
    {c:'1.2.3', n:'Row-level security per user', s:'done', note:'Tested via API and direct SQL'},
-   {c:'1.2.4', n:'Same-owner foreign keys', s:'todo', ms:'M1', note:'Must land before M1 accepts ids from the browser'},
+   {c:'1.2.4', n:'Same-owner foreign keys', s:'done', ms:'M1', note:'Migration 0003: composite (user_id, …) foreign keys'},
    {c:'1.2.5', n:'Revoke broad default grants', s:'todo', note:'Before cloud deploy'}]},
   {c:'1.3', n:'API core', ms:'M0', kids:[
    {c:'1.3.1', n:'Health, JWT check via JWKS (ES256)', s:'done'},
    {c:'1.3.2', n:'Per-request transaction, rollback on error', s:'done'},
    {c:'1.3.3', n:'Errors: 400 / 401 / 404 / 503 (DB down or paused)', s:'done'},
-   {c:'1.3.4', n:'JWKS fetch failure → 503 instead of sign-out', s:'todo', ms:'M1'}]},
+   {c:'1.3.4', n:'JWKS fetch failure → 503 instead of sign-out', s:'done', ms:'M1'}]},
   {c:'1.4', n:'Local stack (docker compose)', ms:'M0', kids:[
    {c:'1.4.1', n:'Design spec', s:'done', o:'Both', note:'Approved; amended while planning'},
    {c:'1.4.2', n:'Implementation plan', s:'done'},
@@ -363,7 +365,7 @@ const WBS = [
    {c:'1.6.1', n:'Design: which files, bucket, presigned uploads, local MinIO, milestone', s:'todo', o:'Both', note:'Decided 5 Oct: S3'}]}]},
  {c:'2', n:'Sign-in and profile', ms:'M0', kids:[
   {c:'2.1', r:'AUTH-1', n:'Email + password sign-in; stay signed in on phone and laptop', s:'partial', note:'Works locally; needs cloud deploy'},
-  {c:'2.2', r:'AUTH-2', n:'Sign out; expiry returns to sign-in without losing a form', s:'partial', note:'Form lost; sign-out keeps cached data', ms:'M1'},
+  {c:'2.2', r:'AUTH-2', n:'Sign out; expiry returns to sign-in without losing a form', s:'done', note:'Sign-in dialog; cache cleared on sign-out', ms:'M1'},
   {c:'2.3', r:'AUTH-3', n:'Sign-up closed', s:'done'},
   {c:'2.4', r:'PROF-1', n:'Profile: salary, planning rate, cycle day, timezone', s:'done'}]},
  {c:'3', n:'Import from v1', ms:'M0', kids:[
@@ -372,16 +374,17 @@ const WBS = [
   {c:'3.3', r:'IMP-3', n:'Starter accounts (JP bank, JP EF, IN bank)', s:'done'},
   {c:'3.4', r:'IMP-4', n:'Idempotent re-import', s:'done'}]},
  {c:'4', n:'Spending ledger and categories', ms:'M1', kids:[
-  {c:'4.1', r:'TXN-1', n:'Add / edit / delete transactions', s:'todo'},
-  {c:'4.2', r:'TXN-2', n:'Quick-add on phone (today in JST)', s:'todo'},
-  {c:'4.3', r:'TXN-3', n:'Filters, sort, pagination', s:'todo'},
-  {c:'4.4', r:'TXN-4', n:'Enter in ₹, converted and stored', s:'todo', note:'P1'},
-  {c:'4.5', r:'CAT-1', n:'Categories: add, rename, recolor, reorder, archive', s:'todo'},
-  {c:'4.6', n:'"Not found" page for unknown routes', s:'todo'}]},
+  {c:'4.1', r:'TXN-1', n:'Add / edit / delete transactions', s:'done', note:'Edit page adds delete + undo'},
+  {c:'4.2', r:'TXN-2', n:'Quick-add on phone (today in JST)', s:'done', note:'Per-category defaults; date editable'},
+  {c:'4.3', r:'TXN-3', n:'Filters, sort, pagination', s:'done', note:'URL-backed; keyboard-reachable rows'},
+  {c:'4.4', r:'TXN-4', n:'Enter in ₹, converted and stored', s:'done', note:'P1'},
+  {c:'4.5', r:'CAT-1', n:'Categories: add, rename, recolor, reorder, archive', s:'done', note:'Colour from 12; reorder with up/down buttons'},
+  {c:'4.6', n:'"Not found" page for unknown routes', s:'done'},
+  {c:'4.7', n:'Cut-over: re-import v1, stop using v1', s:'todo', o:'You'}]},
  {c:'5', n:'Dashboard', ms:'M1', kids:[
-  {c:'5.1', r:'DASH-1', n:'Cycle picker (current cycle, JST)', s:'todo'},
-  {c:'5.2', r:'DASH-2', n:'Income, spent, kept, savings rate', s:'todo'},
-  {c:'5.3', r:'DASH-3', n:'Category donut, 12-cycle bar', s:'todo'},
+  {c:'5.1', r:'DASH-1', n:'Cycle picker (current cycle, JST)', s:'done'},
+  {c:'5.2', r:'DASH-2', n:'Income, spent, kept, savings rate', s:'done'},
+  {c:'5.3', r:'DASH-3', n:'Category donut, 12-cycle bar', s:'done', note:'Keyboard-reachable text list; click opens the ledger filtered'},
   {c:'5.4', r:'DASH-4', n:'Sent home: ¥ sent, ₹ received, by purpose', s:'todo', ms:'M2'},
   {c:'5.5', r:'DASH-5', n:'Net worth: Japan ¥, India ₹, combined', s:'todo', ms:'M2', note:'P1'},
   {c:'5.6', r:'DASH-6', n:'Emergency fund, goal, months covered', s:'todo', ms:'M2'},
@@ -424,10 +427,10 @@ const WBS = [
   {c:'12.4', r:'PWA-1', n:'Installable, offline shell, asset caching', s:'todo'}]},
 ];
 const FIXES = [
- ['Same-owner foreign keys','Before M1','1.2.4'],['Revoke broad default grants','Before cloud deploy','1.2.5'],
- ['e2e deletes its user; test the 401 → ?next= redirect','Local stack','1.4.10'],
- ['Keep unsaved form on re-sign-in; clear cache on sign-out','M1','2.2'],['"Not found" page','M1','4.6'],
- ['JWKS failure → 503','M1','1.3.4'],['Import warns when a profile exists; EF goal','M2','3.1 / 7.4'],
+ ['Same-owner foreign keys','Before M1','1.2.4',true],['Revoke broad default grants','Before cloud deploy','1.2.5'],
+ ['e2e deletes its user; test the 401 → ?next= redirect','Local stack','1.4.10',true],
+ ['Keep unsaved form on re-sign-in; clear cache on sign-out','M1','2.2',true],['"Not found" page','M1','4.6',true],
+ ['JWKS failure → 503','M1','1.3.4',true],['Import warns when a profile exists; EF goal','M2','3.1 / 7.4'],
  ['Rate decimals: code vs TRD','M2','6.3'],['Long cache for /assets/*','M5','12.4']];
 
 const LABEL = {done:'Done', partial:'Partly done', wip:'In progress', todo:'Pending'};
@@ -518,7 +521,7 @@ document.getElementById('tree').addEventListener('click', e => {
   const c = b.dataset.go; open.add(c); if(c.includes('.')) open.add(c.split('.')[0]);
   render(); document.getElementById('w-'+c)?.scrollIntoView({behavior:'smooth', block:'center'});
 });
-document.getElementById('fixList').innerHTML = FIXES.map(([t,w,c]) =>
-  `<li><span>${esc(t)}</span><span style="white-space:nowrap"><span class="ms">${esc(w)}</span> <span class="c mono" style="color:var(--muted)">WBS ${esc(c)}</span></span></li>`).join('');
+document.getElementById('fixList').innerHTML = FIXES.map(([t,w,c,done]) =>
+  `<li class="${done?'done':''}"><span>${esc(t)}</span><span style="white-space:nowrap">${done?'<span class="chip s-done">Done</span> ':''}<span class="ms">${esc(w)}</span> <span class="c mono" style="color:var(--muted)">WBS ${esc(c)}</span></span></li>`).join('');
 </script>
 </body></html>

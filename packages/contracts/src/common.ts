@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const ErrorCode = z.enum([
-  'VALIDATION_FAILED', 'UNAUTHORIZED', 'NOT_FOUND', 'CONFLICT', 'DATABASE_UNAVAILABLE', 'INTERNAL',
+  'VALIDATION_FAILED', 'UNAUTHORIZED', 'NOT_FOUND', 'CONFLICT', 'DATABASE_UNAVAILABLE', 'AUTH_UNAVAILABLE', 'INTERNAL',
 ])
 export type ErrorCode = z.infer<typeof ErrorCode>
 export const ErrorBody = z.object({
