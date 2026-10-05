@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { coerceSearch, routeQueryFrom, routeSearchValue, sortFromRoute, toApiQuery, toRestoreInput } from '../src/lib/ledger'
+import { SORT_OPTIONS, sortFromValue, sortValue } from '../src/lib/ledger'
 
 it('maps the page URL to API query params, dropping empty values', () => {
   const p = toApiQuery({ cycle: '2026-10', categoryId: '', q: 'lunch', sort: 'amountJpy', dir: 'asc', page: '2' })
@@ -49,4 +50,11 @@ it('reads the search box value from the URL, treating a missing/non-string q as 
   expect(routeSearchValue(undefined)).toBe('')
   expect(routeSearchValue(null)).toBe('')
   expect(routeSearchValue(['lunch'])).toBe('')
+})
+
+it('maps the friendly sort options onto sort/dir', () => {
+  expect(SORT_OPTIONS.map((o) => o.title)).toEqual(['Newest', 'Oldest', 'Amount high→low', 'Amount low→high', 'Category A→Z', 'Description A→Z'])
+  expect(sortFromValue('amountJpy:asc')).toEqual({ key: 'amountJpy', order: 'asc' })
+  expect(sortValue({ sort: 'category', dir: 'asc' })).toBe('category:asc')
+  expect(sortValue({})).toBe('occurredOn:desc')
 })
