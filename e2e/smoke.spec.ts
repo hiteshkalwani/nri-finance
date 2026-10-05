@@ -15,5 +15,5 @@ test('sign in, import v1 data, see the profile', async ({ page }) => {
   await expect(page.getByText(/Imported \d+ transactions/)).toBeVisible()
 
   await page.getByRole('link', { name: 'Dashboard' }).click()
-  await expect(page.getByTestId('salary')).toHaveText('Salary: ¥500,000 / month')
+  await expect(page.getByTestId('income')).toHaveText('￥500,000')
 })
