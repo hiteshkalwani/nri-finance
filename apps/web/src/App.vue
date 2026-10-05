@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/vue-query'
 import SignInDialog from './components/SignInDialog.vue'
 import { supabase } from './lib/supabase'
 import { undo } from './lib/undo'
+import { useThemePref } from './lib/useThemePref'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,10 +14,17 @@ const qc = useQueryClient()
 const { xs } = useDisplay()
 const signedInPage = computed(() => !route.meta.public)
 const nav = [
-  { title: 'Dashboard', icon: 'mdi-view-dashboard-outline', to: '/' },
-  { title: 'Spend', icon: 'mdi-format-list-bulleted', to: '/spend' },
+  { title: 'Dashboard', icon: 'mdi-home-outline', to: '/' },
+  { title: 'Spend', icon: 'mdi-credit-card-outline', to: '/spend' },
   { title: 'Settings', icon: 'mdi-cog-outline', to: '/settings' },
 ]
+
+const { pref: themePref, cycleThemePref } = useThemePref()
+const themeWord = computed(() => (themePref.value === 'system' ? 'System' : themePref.value === 'light' ? 'Light' : 'Dark'))
+const themeIcon = computed(() =>
+  themePref.value === 'system' ? 'mdi-theme-light-dark' : themePref.value === 'light' ? 'mdi-white-balance-sunny' : 'mdi-weather-night',
+)
+const themeAriaLabel = computed(() => `Theme: ${themeWord.value}`)
 
 async function signOut() {
   qc.clear() // nothing from this account stays in memory
@@ -29,29 +37,126 @@ async function signOut() {
 <template>
   <v-app>
     <template v-if="signedInPage">
-      <v-app-bar density="comfortable" title="NRI Finance">
-        <template #append>
-          <v-btn v-if="!xs" to="/spend/new" color="primary" variant="flat" prepend-icon="mdi-plus">Add expense</v-btn>
-          <v-btn variant="text" @click="signOut">Sign out</v-btn>
-        </template>
-      </v-app-bar>
-      <v-navigation-drawer v-if="!xs" permanent width="200">
-        <v-list nav>
-          <v-list-item v-for="n in nav" :key="n.to" :to="n.to" :prepend-icon="n.icon" :title="n.title" :exact="n.to === '/'" />
+      <!-- Wide: a permanent sidebar carries the brand, nav and sign out; each page renders its own
+           header row (Tasks 5-8's PageHeader), so there is no app bar here. -->
+      <v-navigation-drawer v-if="!xs" permanent width="232" color="background" class="side-drawer">
+        <div class="brand">
+          <span class="mark">¥₹</span>
+          <span>NRI Finance</span>
+        </div>
+        <v-list nav density="comfortable" class="px-2">
+          <v-list-item
+            to="/spend/new"
+            prepend-icon="mdi-plus-circle"
+            title="Add expense"
+            rounded="lg"
+            class="mb-3 font-weight-medium text-primary"
+          />
+          <v-list-item
+            v-for="n in nav"
+            :key="n.to"
+            :to="n.to"
+            :prepend-icon="n.icon"
+            :title="n.title"
+            :exact="n.to === '/'"
+            rounded="lg"
+            active-class="bg-surface-variant"
+          />
         </v-list>
+        <template #append>
+          <v-divider class="mb-2" />
+          <v-btn
+            variant="text"
+            block
+            class="justify-start px-4 mb-1"
+            :prepend-icon="themeIcon"
+            :aria-label="themeAriaLabel"
+            @click="cycleThemePref"
+          >
+            {{ themeWord }}
+          </v-btn>
+          <v-btn variant="text" block class="justify-start px-4 mb-2" prepend-icon="mdi-logout" @click="signOut">
+            Sign out
+          </v-btn>
+        </template>
       </v-navigation-drawer>
-      <v-bottom-navigation v-else grow>
-        <v-btn to="/" exact><v-icon>mdi-view-dashboard-outline</v-icon><span>Dashboard</span></v-btn>
-        <v-btn to="/spend" exact><v-icon>mdi-format-list-bulleted</v-icon><span>Spend</span></v-btn>
-        <v-btn to="/spend/new" color="primary" aria-label="Add expense"><v-icon>mdi-plus-circle</v-icon><span>Add</span></v-btn>
+
+      <!-- Phone: a compact top bar with just the brand, a theme toggle, and a bottom nav with the raised "+". -->
+      <v-app-bar v-else density="compact" flat color="background" class="top-bar">
+        <span class="mark ml-2">¥₹</span>
+        <v-app-bar-title class="font-weight-bold">NRI Finance</v-app-bar-title>
+        <v-btn
+          variant="text"
+          size="small"
+          class="mr-2"
+          :prepend-icon="themeIcon"
+          :aria-label="themeAriaLabel"
+          @click="cycleThemePref"
+        >
+          {{ themeWord }}
+        </v-btn>
+      </v-app-bar>
+
+      <v-bottom-navigation v-if="xs" grow color="primary" bg-color="surface" class="bottom-nav">
+        <v-btn to="/" exact><v-icon>mdi-home-outline</v-icon><span>Dashboard</span></v-btn>
+        <v-btn to="/spend" exact><v-icon>mdi-credit-card-outline</v-icon><span>Spend</span></v-btn>
+        <v-btn icon to="/spend/new" aria-label="Add expense" class="add-expense-fab">
+          <v-icon>mdi-plus</v-icon>
+        </v-btn>
         <v-btn to="/settings"><v-icon>mdi-dots-horizontal</v-icon><span>More</span></v-btn>
       </v-bottom-navigation>
     </template>
+
     <v-main>
-      <v-container class="py-6" style="max-width: 1100px">
+      <v-container class="py-6" :style="{ maxWidth: xs ? undefined : '1100px' }">
         <router-view />
       </v-container>
     </v-main>
     <SignInDialog />
   </v-app>
 </template>
+
+<style scoped>
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 4px 8px 18px;
+}
+.mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgb(var(--v-theme-primary));
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  flex: none;
+}
+.side-drawer {
+  border-right: 1px solid rgb(var(--v-border-color));
+}
+.top-bar {
+  border-bottom: 1px solid rgb(var(--v-border-color));
+}
+.bottom-nav {
+  overflow: visible;
+}
+.add-expense-fab {
+  flex: 0 0 auto !important;
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 42px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  background: rgb(var(--v-theme-primary)) !important;
+  color: #fff;
+  margin-top: -14px;
+  box-shadow: 0 4px 12px rgba(240, 104, 46, 0.35);
+}
+</style>

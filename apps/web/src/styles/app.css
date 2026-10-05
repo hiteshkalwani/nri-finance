@@ -1,0 +1,47 @@
+/* Global styles that the Vuetify theme can't express. Values from the mockup's
+   <style> block (.eyebrow, .day, .card) — docs/diagrams/nri-ui-mockup.html. */
+
+.v-application {
+  font-family: 'Inter Variable', system-ui, sans-serif;
+  --v-font-family: 'Inter Variable', system-ui, sans-serif;
+}
+
+/* Tabular figures for any numeric value (amounts, balances, percentages). */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Small uppercase section label, e.g. above a card's date range. */
+.eyebrow {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  font-weight: 600;
+  opacity: var(--v-medium-emphasis-opacity);
+}
+
+/* Date-group header row inside a list (ledger / recent expenses), with a subtle
+   fill, a muted 13px label, and a top border separating it from the prior group. */
+.day-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgb(var(--v-theme-on-surface-variant));
+  background: rgb(var(--v-theme-surface-variant));
+  border-top: 1px solid rgb(var(--v-border-color));
+}
+
+.card-border {
+  border: 1px solid rgb(var(--v-border-color));
+}
+
+.v-card {
+  border-radius: 14px;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}

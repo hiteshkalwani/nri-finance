@@ -18,7 +18,7 @@ Success criteria:
    (390–412 px): warm canvas, white rounded cards, outline-icon sidebar with active pill, orange accent, Inter font.
 2. Nothing the M1 spec requires is lost (every M1 behaviour, filter, URL state, keyboard path and label stays).
 3. All existing unit, integration and e2e tests pass; existing test hooks (`data-testid`s, ids, aria-labels) stay.
-4. Light and dark themes both readable (follows the system setting).
+4. Light and dark themes both readable; a theme toggle (System / Light / Dark, default System) is remembered per device.
 
 ## 2. Visual system
 
@@ -52,6 +52,10 @@ Success criteria:
 - Phone (< 600 px): bottom navigation Dashboard · Spend · raised orange **+** (Add expense, keeps aria-label) · More; no
   sidebar.
 - Session dialog, Not found and sign-in restyled with the same cards/buttons.
+- **Theme toggle** (added 2026-10-05 at the user's request): preference System / Light / Dark, default System (follows
+  `prefers-color-scheme`, live), stored per device in `localStorage` (`nri.theme`; falls back to System if storage is
+  unavailable). Quick toggle at the bottom of the sidebar (phones: compact top bar) that cycles the three values with an
+  accessible label ("Theme: Dark"); an Appearance segmented control in Settings.
 
 ## 4. Screens
 
