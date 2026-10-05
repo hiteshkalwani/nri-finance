@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process'
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
-import { securityHeaders } from './vercel-headers.mjs'
+import { outputConfig, securityHeaders } from './vercel-headers.mjs'
 
 const out = '.vercel/output'
 rmSync(out, { recursive: true, force: true })
@@ -27,13 +27,5 @@ writeFileSync(`${fn}/package.json`, JSON.stringify({ type: 'module' }))
 // hnd1 = Tokyo, next to the Supabase project (ap-northeast-1); each request makes several DB round trips.
 writeFileSync(`${fn}/.vc-config.json`, JSON.stringify({ runtime: 'nodejs22.x', handler: 'index.mjs', launcherType: 'Nodejs', regions: ['hnd1'] }))
 
-writeFileSync(`${out}/config.json`, JSON.stringify({
-  version: 3,
-  routes: [
-    { src: '/(.*)', headers, continue: true },
-    { src: '/api/(.*)', dest: '/api' },
-    { handle: 'filesystem' },
-    { src: '/(.*)', dest: '/index.html' },
-  ],
-}, null, 2))
+writeFileSync(`${out}/config.json`, JSON.stringify(outputConfig(headers), null, 2))
 console.log('Vercel build output written to', out)

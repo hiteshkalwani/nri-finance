@@ -16,9 +16,22 @@ jobs:
       - run: pnpm lint
       - run: pnpm test:unit
       - run: pnpm test:scripts
-      - run: pnpm exec supabase start
-      - run: pnpm test:env
-      - run: pnpm db:migrate
-      - run: pnpm test:integration
-      # Production build (web + bundled API + CSP from the embedded Supabase URL) must succeed too.
+      # Local-only keys for this runner; also writes the .env.local the build and tests read.
+      - run: pnpm stack:keys
+      # Production build (web + bundled API + CSP from the embedded Supabase URL) must succeed on its own too.
       - run: pnpm build:vercel
+      - run: pnpm exec playwright install --with-deps chrome
+      # Same command as on the Mac: compose stack, built app on :3000, integration + e2e tests.
+      - run: pnpm stack:check
+      - name: Collect logs on failure
+        if: failure()
+        run: docker compose --env-file docker/.env.stack.local --profile app logs > compose.log 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: stack-check-diagnostics
+          path: |
+            compose.log
+            playwright-report/
+            test-results/
+          retention-days: 7

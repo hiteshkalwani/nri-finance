@@ -6,11 +6,9 @@ import { VueQueryPlugin } from '@tanstack/vue-query'
 import App from './App.vue'
 import { router } from './router'
 import { setOnUnauthorized } from './lib/api'
+import { redirectToLogin } from './lib/unauthorized'
 
-setOnUnauthorized(() => {
-  const next = router.currentRoute.value.fullPath
-  if (router.currentRoute.value.path !== '/login') void router.push({ path: '/login', query: { next } })
-})
+setOnUnauthorized(() => void redirectToLogin(router))
 
 createApp(App)
   .use(router)

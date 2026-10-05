@@ -56,7 +56,8 @@ Supabase Postgres via transaction pooler (port 6543)
 ├── packages/core/        pure calculations, no I/O (port of js/calc.js + tests)
 ├── packages/contracts/   zod schemas + TS types for every request/response
 ├── packages/db/          Drizzle schema, migrations, RLS policies, request-scoped db helper
-├── supabase/             Supabase CLI config for local Postgres + Auth
+├── docker/               Local stack support: db init SQL, nginx gateway, app image
+├── docker-compose.yml    Local stack: Supabase Postgres + Auth, gateway, app (profile)
 ├── legacy/               v1 single-file app (moved here in M5)
 └── docs/                 prd.md, trd.md, plans/
 ```
@@ -216,7 +217,8 @@ Pure functions, no I/O, 100% branch coverage target. Ported from v1 `js/calc.js`
 
 | Env | Web + API | Database |
 |---|---|---|
-| Local | `pnpm dev` (Vite + Hono on Node) | Supabase CLI (`supabase start`, Docker) |
+| Local (dev) | `pnpm stack:up`, then `pnpm dev` (Vite + Hono on the Mac, hot reload) | docker compose: Supabase Postgres 17 + Auth, nginx gateway on 127.0.0.1:54321 |
+| Local (check) | `pnpm stack:check`: the Vercel build output in a container on :3000 | Same compose stack |
 | Preview | Vercel preview per pull request | Supabase dev project |
 | Production | Vercel production (main branch) | Supabase production project |
 
@@ -238,12 +240,12 @@ Pure functions, no I/O, 100% branch coverage target. Ported from v1 `js/calc.js`
 |---|---|---|
 | core | Every function in §6, including cycle boundaries (24th/25th, Dec→Jan), rounding, clamp at zero, JST "today" | Vitest |
 | contracts | Schemas accept valid and reject invalid payloads | Vitest |
-| API integration | Each route against local Supabase; two test users per suite; asserts user A can never read or change user B's rows (via API and via direct SQL as `authenticated`) | Vitest + Supabase CLI |
+| API integration | Each route against local Supabase; two test users per suite; asserts user A can never read or change user B's rows (via API and via direct SQL as `authenticated`) | Vitest + docker compose stack |
 | Import | v1 `finance-data.json` fixture → expected rows; second run inserts nothing | Vitest |
 | Web | Form behaviour (quick add, remittance rate preview) | Vitest + Vue Test Utils |
-| End to end | Sign in → add expense → dashboard updates, on a phone-sized viewport | Playwright |
+| End to end | Sign in → add expense → dashboard updates, on a phone-sized viewport; against Vite in dev and the built app in `stack:check` | Playwright |
 
-CI runs typecheck, lint, unit and integration tests on every pull request; e2e runs against the Vercel preview URL.
+CI runs typecheck, lint, unit and script tests, the production build, then `pnpm stack:check` (integration and e2e against the built app). E2E also runs against the Vercel preview URL once deploys exist.
 
 ## 11. Risks
 
@@ -258,6 +260,6 @@ CI runs typecheck, lint, unit and integration tests on every pull request; e2e r
 ## 12. Decisions to confirm before M0
 
 1. UI kit: Vuetify 3 (Material Design). Alternative: PrimeVue or plain Tailwind.
-2. Local development uses the Supabase CLI, which needs Docker Desktop on the Mac.
+2. Local development uses a project-owned docker compose stack (needs Docker Desktop on the Mac); see `docs/superpowers/specs/2026-10-05-local-stack-design.md`.
 3. A GitHub repository is needed for Vercel deploys and the backup job. Public or private? (Private recommended.)
 4. The three PRD open questions (§9 of the PRD).
