@@ -4,11 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { Transaction, TransactionPage, type NeedWant, type PaymentMethod, type SortField } from '@nri/contracts'
 import { cycleOf, lastCycles, todayIn } from '@nri/core'
-import { apiFetch } from '../lib/api'
+import { apiFetch, ApiRequestError } from '../lib/api'
 import { useCategories } from '../lib/categories'
 import { NEED_LABELS, PAYMENT_LABELS } from '../lib/expenseForm'
 import { cycleLabel, rupees, yen } from '../lib/format'
-import { PAGE_SIZE, routeQueryFrom, routeSearchValue, sortFromRoute, toApiQuery, type LedgerState } from '../lib/ledger'
+import { coerceSearch, PAGE_SIZE, routeQueryFrom, routeSearchValue, sortFromRoute, toApiQuery, type LedgerState } from '../lib/ledger'
 import { useProfile } from '../lib/profile'
 import { undo } from '../lib/undo'
 
@@ -40,7 +40,10 @@ const page = useQuery({
 
 const search = ref(str(route.query.q) ?? '')
 let timer: ReturnType<typeof setTimeout> | undefined
-onUnmounted(() => clearTimeout(timer))
+onUnmounted(() => {
+  clearTimeout(timer)
+  undo.pending.value = null // the snackbar has had its chance; don't resurface it on a later visit
+})
 // The URL is the source of truth: keep the box in sync on back/forward (or any other route-query
 // change), but only schedule a push when the box actually differs from the URL — otherwise a resync
 // from the route would itself re-trigger the debounce and fight the navigation that just happened.
@@ -49,9 +52,11 @@ watch(() => route.query.q, (v) => {
   if (next !== search.value) search.value = next
 })
 watch(search, (v) => {
+  // Vuetify's clearable × sets the model to null even though `search` is typed as string.
+  const value = coerceSearch(v)
   clearTimeout(timer)
-  if (v === routeSearchValue(route.query.q)) return
-  timer = setTimeout(() => push({ q: v, page: 1 }), 300)
+  if (value === routeSearchValue(route.query.q)) return
+  timer = setTimeout(() => push({ q: value, page: 1 }), 300)
 })
 
 function state(): LedgerState {
@@ -81,12 +86,16 @@ const headers = [
   { title: 'Need/want', key: 'needWant' },
 ]
 
+const restoreError = ref('')
 const restore = useMutation({
-  mutationFn: () => apiFetch('/api/transactions', { method: 'POST', body: JSON.stringify(undo.pending.value) }, Transaction),
+  mutationFn: () => apiFetch('/api/transactions/restore', { method: 'POST', body: JSON.stringify(undo.pending.value) }, Transaction),
   onSuccess: async () => {
     undo.pending.value = null
+    restoreError.value = ''
     await Promise.all(['transactions', 'dashboard', 'categories'].map((k) => qc.invalidateQueries({ queryKey: [k] })))
   },
+  // Keep the pending undo so the snackbar (and Undo button) stay available to retry.
+  onError: (e) => { restoreError.value = e instanceof ApiRequestError ? e.message : 'Could not restore that expense' },
 })
 </script>
 
@@ -104,7 +113,8 @@ const restore = useMutation({
       label="Payment" clearable density="compact" hide-details style="max-width: 170px" @update:model-value="(v) => push({ paymentMethod: v, page: 1 })" />
     <v-select :model-value="state().needWant" :items="Object.entries(NEED_LABELS).map(([value, title]) => ({ value, title }))"
       label="Need/want" clearable density="compact" hide-details style="max-width: 150px" @update:model-value="(v) => push({ needWant: v, page: 1 })" />
-    <v-text-field id="search" v-model="search" label="Search" prepend-inner-icon="mdi-magnify" clearable density="compact" hide-details style="max-width: 240px" />
+    <v-text-field id="search" :model-value="search" label="Search" prepend-inner-icon="mdi-magnify" clearable density="compact" hide-details
+      style="max-width: 240px" @update:model-value="(v: string | null) => (search = coerceSearch(v))" />
   </div>
   <div class="text-body-2 mb-2" data-testid="ledger-total">
     {{ page.data.value?.total ?? 0 }} expenses · {{ yen(page.data.value?.totalJpy ?? 0) }}
@@ -131,5 +141,8 @@ const restore = useMutation({
   <v-snackbar :model-value="!!undo.pending.value" timeout="5000" @update:model-value="(v) => { if (!v) undo.pending.value = null }">
     Deleted
     <template #actions><v-btn variant="text" :loading="restore.isPending.value" @click="restore.mutate()">Undo</v-btn></template>
+  </v-snackbar>
+  <v-snackbar :model-value="!!restoreError" color="error" @update:model-value="(v) => { if (!v) restoreError = '' }">
+    {{ restoreError }}
   </v-snackbar>
 </template>

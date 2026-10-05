@@ -5,6 +5,7 @@ import { useDisplay } from 'vuetify'
 import { useQueryClient } from '@tanstack/vue-query'
 import SignInDialog from './components/SignInDialog.vue'
 import { supabase } from './lib/supabase'
+import { undo } from './lib/undo'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,6 +20,7 @@ const nav = [
 
 async function signOut() {
   qc.clear() // nothing from this account stays in memory
+  undo.pending.value = null // a pending Undo must not survive sign-out into the next session
   await supabase.auth.signOut()
   await router.push('/login')
 }
