@@ -42,6 +42,7 @@ describe('/api/dashboard', () => {
     expect(d).toMatchObject({
       cycle: '2026-10', start: '2026-09-25', end: '2026-10-24',
       incomeJpy: 300000, spentJpy: 2500, sentJpy: 100000, feesJpy: 500, keptJpy: 197500, savingsRatePct: 65.8,
+      expenseCount: 2, largestJpy: 2000, needJpy: 2500, wantJpy: 0,
     })
     expect(d.byCategory).toEqual([
       { categoryId: foodId, name: 'Food', color: '#4caf50', spentJpy: 2000 },

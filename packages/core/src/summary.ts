@@ -1,6 +1,6 @@
 import { cycleOf, type Cycle, type IsoDate } from './cycles'
 
-export type SpendRow = { occurredOn: IsoDate; amountJpy: number; categoryId: string }
+export type SpendRow = { occurredOn: IsoDate; amountJpy: number; categoryId: string; needWant: 'need' | 'want' }
 export type RemitRow = { sentOn: IsoDate; jpySent: number; feeJpy: number }
 export type CycleSummary = {
   incomeJpy: number
@@ -9,6 +9,10 @@ export type CycleSummary = {
   feesJpy: number
   keptJpy: number
   savingsRatePct: number | null
+  expenseCount: number
+  largestJpy: number
+  needJpy: number
+  wantJpy: number
 }
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
@@ -34,6 +38,10 @@ export function summarizeCycle(input: {
     feesJpy: sum(sent.map((r) => r.feeJpy)),
     keptJpy,
     savingsRatePct: salaryJpy > 0 ? Math.round((keptJpy * 1000) / salaryJpy) / 10 : null,
+    expenseCount: spent.length,
+    largestJpy: spent.reduce((m, t) => Math.max(m, t.amountJpy), 0),
+    needJpy: sum(spent.filter((t) => t.needWant === 'need').map((t) => t.amountJpy)),
+    wantJpy: sum(spent.filter((t) => t.needWant === 'want').map((t) => t.amountJpy)),
   }
 }
 

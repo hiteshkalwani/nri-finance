@@ -20,7 +20,7 @@ export const dashboardRoutes = new Hono<{ Variables: AppVars }>().get('/', async
   const { start, end } = cycleBounds(cycle, startDay)
   const historyStart = cycleBounds(cycles[0]!, startDay).start
   const spend = await db
-    .select({ occurredOn: transactions.occurredOn, amountJpy: transactions.amountJpy, categoryId: transactions.categoryId })
+    .select({ occurredOn: transactions.occurredOn, amountJpy: transactions.amountJpy, categoryId: transactions.categoryId, needWant: transactions.needWant })
     .from(transactions)
     .where(and(eq(transactions.userId, userId), between(transactions.occurredOn, historyStart, end)))
   const sent = await db
