@@ -131,7 +131,7 @@ footer{margin-top:48px;color:var(--muted);font-size:13px}
 <header>
   <h1>NRI Finance v2 — implementation plan</h1>
   <p class="lede">Every piece of work from foundation to retiring the v1 app, with what is built and what is pending.
-  Source of truth: <code>docs/checklist.md</code>, <code>docs/prd.md</code>, and the local stack spec. Status as of 5 Oct 2026.</p>
+  Source of truth: <code>docs/checklist.md</code>, <code>docs/prd.md</code>, and the local stack spec. Status as of 5 Oct 2026, after the local stack.</p>
   <nav class="toc" aria-label="Sections">
     <a href="#roadmap">Roadmap</a><a href="#wbs">WBS</a><a href="#outline">WBS outline</a>
     <a href="#map">Module map</a><a href="#stack">Local stack</a><a href="#fixes">Fix queue</a><a href="#next">Next steps</a>
@@ -147,11 +147,11 @@ footer{margin-top:48px;color:var(--muted);font-size:13px}
 
 <section id="roadmap">
   <h2><span class="num">01</span>Roadmap</h2>
-  <p class="sub">Six milestones, each ending in something you can use. M0's code is finished; the local Docker stack is being built before the cloud deploy.</p>
+  <p class="sub">Six milestones, each ending in something you can use. M0's code is finished; the local Docker stack is built; the cloud deploy is next.</p>
   <div class="road">
     <div class="card mile partial"><span class="here">you are here</span><h3>M0 Foundation</h3><span class="chip s-partial">Partly done</span>
       <p class="goal">Sign in on phone and laptop and see imported data.</p>
-      <ul><li>Repo, CI, schema, RLS ✅</li><li>Sign-in, profile, import ✅</li><li>Local stack 🔨</li><li>Cloud deploy ⬜</li></ul></div>
+      <ul><li>Repo, CI, schema, RLS ✅</li><li>Sign-in, profile, import ✅</li><li>Local stack ✅</li><li>Cloud deploy ⬜</li></ul></div>
     <div class="card mile"><h3>M1 Spending</h3><span class="chip s-todo">Pending</span>
       <p class="goal">Stop using v1 for daily logging.</p>
       <ul><li>Ledger + quick-add</li><li>Categories</li><li>Dashboard basics</li></ul></div>
@@ -173,8 +173,8 @@ footer{margin-top:48px;color:var(--muted);font-size:13px}
     <span class="chip s-done">Code (17 tasks)</span><span class="arrow">→</span>
     <span class="chip s-done">Review fixes</span><span class="arrow">→</span>
     <span class="chip s-done">GitHub + CI</span><span class="arrow">→</span>
-    <span class="chip s-wip">Local Docker stack</span><span class="arrow">→</span>
-    <span class="chip s-todo">Cloud deploy</span><span class="arrow">→</span>
+    <span class="chip s-done">Local Docker stack</span><span class="arrow">→</span>
+    <span class="chip s-wip">Cloud deploy</span><span class="arrow">→</span>
     <span class="chip s-todo">Phone check: ¥500,000</span>
   </div>
 </section>
@@ -263,7 +263,7 @@ footer{margin-top:48px;color:var(--muted);font-size:13px}
 </section>
 
 <section id="stack">
-  <h2><span class="num">05</span>Current work: local stack on docker compose</h2>
+  <h2><span class="num">05</span>Local stack on docker compose (built)</h2>
   <p class="sub">Replaces the Supabase CLI with a compose file you own: real Postgres and real Supabase Auth, so sign-in works locally the way it does in production.</p>
   <figure class="card"><div class="scroller">
   <svg viewBox="0 0 1000 380" role="img" aria-label="Local stack: the Mac runs the browser, Vite and the API in dev mode; docker compose runs gateway, auth, Postgres, a one-shot migrate job, and in check mode the built app on port 3000.">
@@ -275,23 +275,21 @@ footer{margin-top:48px;color:var(--muted);font-size:13px}
     <rect class="box" x="40" y="160" width="250" height="60" rx="8"/><text class="t" x="54" y="183">pnpm dev — hot reload</text><text class="s" x="54" y="201">Vite :5173 + API :8787</text>
     <rect class="box" x="40" y="260" width="250" height="60" rx="8"/><text class="t" x="54" y="283">Tests</text><text class="s" x="54" y="301">integration (SQL + API) · Playwright e2e</text>
 
-    <rect class="box wip" x="430" y="70" width="180" height="50" rx="8"/><text class="t" x="444" y="92">gateway (nginx)</text><text class="s" x="444" y="109">:54321 · /auth/v1</text>
-    <rect class="box wip" x="770" y="70" width="190" height="50" rx="8"/><text class="t" x="784" y="92">auth (GoTrue 2.197)</text><text class="s" x="784" y="109">ES256 keys · sign-ups off</text>
-    <rect class="box wip" x="430" y="160" width="180" height="60" rx="8" stroke-dasharray="6 4"/><text class="t" x="444" y="183">app (profile "app")</text><text class="s" x="444" y="201">:3000 · Vercel build output</text>
-    <rect class="box wip" x="770" y="250" width="190" height="60" rx="8"/><text class="t" x="784" y="273">db (Postgres 17)</text><text class="s" x="784" y="291">:54322 · volume db-data</text>
-    <rect class="box wip" x="430" y="280" width="180" height="50" rx="8"/><text class="t" x="444" y="302">migrate (one-shot)</text><text class="s" x="444" y="319">drizzle migrations</text>
+    <rect class="box done" x="430" y="70" width="180" height="50" rx="8"/><text class="t" x="444" y="92">gateway (nginx)</text><text class="s" x="444" y="109">:54321 · /auth/v1</text>
+    <rect class="box done" x="770" y="70" width="190" height="50" rx="8"/><text class="t" x="784" y="92">auth (GoTrue 2.197)</text><text class="s" x="784" y="109">ES256 keys · sign-ups off</text>
+    <rect class="box done" x="430" y="160" width="180" height="60" rx="8" stroke-dasharray="6 4"/><text class="t" x="444" y="183">app (profile "app")</text><text class="s" x="444" y="201">:3000 · Vercel build output</text>
+    <rect class="box done" x="770" y="250" width="190" height="60" rx="8"/><text class="t" x="784" y="273">db (Postgres 17)</text><text class="s" x="784" y="291">:54322 · volume db-data</text>
 
     <path class="e" d="M290 92 H430" marker-end="url(#ar2)"/><text class="el" x="360" y="86" text-anchor="middle">sign-in</text>
     <path class="e" d="M290 112 H340 V190 H430" marker-end="url(#ar2)"/><text class="el" x="334" y="151" text-anchor="middle" transform="rotate(-90 334 151)">check mode</text>
-    <path class="e" d="M290 200 H320 V262 H770" marker-end="url(#ar2)"/><text class="el" x="690" y="256" text-anchor="middle">SQL :54322</text>
+    <path class="e" d="M290 200 H320 V262 H770" marker-end="url(#ar2)"/><text class="el" x="690" y="256" text-anchor="middle">SQL + migrations :54322</text>
     <path class="e" d="M290 290 H320 V262" />
     <path class="e" d="M610 95 H770" marker-end="url(#ar2)"/><text class="el" x="690" y="89" text-anchor="middle">strip /auth/v1 → :9999</text>
     <path class="e" d="M865 120 V250" marker-end="url(#ar2)"/><text class="el" x="872" y="190">auth schema</text>
     <path class="e" d="M520 160 V120" marker-end="url(#ar2)"/><text class="el" x="527" y="145">JWKS (internal URL)</text>
     <path class="e" d="M610 205 H800 V250" marker-end="url(#ar2)"/><text class="el" x="700" y="199" text-anchor="middle">SQL as user</text>
-    <path class="e" d="M610 305 H770" marker-end="url(#ar2)"/><text class="el" x="690" y="322" text-anchor="middle">migrations, after auth</text>
   </svg></div>
-  <figcaption>Daily coding: <code>pnpm stack:up</code> then <code>pnpm dev</code>. Integration check: <code>pnpm stack:check</code> builds the app image, starts it on :3000, and runs the integration and e2e tests against it — the same command CI runs. The dashed app box only starts in check mode.</figcaption>
+  <figcaption>Daily coding: <code>pnpm stack:up</code> (starts the stack, then runs migrations from the Mac) then <code>pnpm dev</code>. Integration check: <code>pnpm stack:check</code> builds the app image, starts it on :3000, and runs the integration and e2e tests against it — the same command CI runs. The dashed app box only starts in check mode.</figcaption>
   </figure>
 </section>
 
@@ -306,9 +304,9 @@ footer{margin-top:48px;color:var(--muted);font-size:13px}
   <div class="two">
     <div class="card"><h3 style="font-size:16px;margin-bottom:8px">Now</h3>
       <ol class="next">
-        <li><span class="who">YOU</span> Review the local stack spec (<code>docs/superpowers/specs/2026-10-05-local-stack-design.md</code>).</li>
-        <li><span class="who">CLAUDE</span> Write the implementation plan (WBS 1.4.2), starting with the spike.</li>
-        <li><span class="who">CLAUDE</span> Build the stack (1.4.3 – 1.4.10); this page and the checklist update after each task.</li>
+        <li><span class="who">CLAUDE</span> Final review of the local-stack branch; fix anything important.</li>
+        <li><span class="who">YOU</span> Approve pushing <code>local-stack</code> and opening a pull request, so CI runs <code>stack:check</code> on GitHub.</li>
+        <li><span class="who">BOTH</span> Short design for S3 file storage (WBS 1.6.1).</li>
       </ol></div>
     <div class="card"><h3 style="font-size:16px;margin-bottom:8px">Then</h3>
       <ol class="next" start="4">
@@ -330,7 +328,7 @@ const WBS = [
    {c:'1.1.1', n:'pnpm monorepo: web, api, core, contracts, db, test-utils', s:'done'},
    {c:'1.1.2', n:'TypeScript, ESLint (v-html, toISOString banned), Prettier', s:'done'},
    {c:'1.1.3', n:'Test harness: unit, integration, Playwright e2e', s:'done', note:'59 unit, 4 script, 25 integration, 1 e2e'},
-   {c:'1.1.4', n:'Private GitHub repo + Actions CI', s:'done', note:'hiteshkalwani/nri-finance, green'}]},
+   {c:'1.1.4', n:'Private GitHub repo + Actions CI', s:'done', note:'CI runs stack:check (integration + e2e)'}]},
   {c:'1.2', n:'Database', ms:'M0', kids:[
    {c:'1.2.1', n:'Schema: 12 tables, integer ¥ / numeric ₹', s:'done'},
    {c:'1.2.2', n:'Migrations 0000–0002', s:'done'},
@@ -343,24 +341,26 @@ const WBS = [
    {c:'1.3.3', n:'Errors: 400 / 401 / 404 / 503 (DB down or paused)', s:'done'},
    {c:'1.3.4', n:'JWKS fetch failure → 503 instead of sign-out', s:'todo', ms:'M1'}]},
   {c:'1.4', n:'Local stack (docker compose)', ms:'M0', kids:[
-   {c:'1.4.1', n:'Design spec', s:'wip', o:'Both', note:'Written; awaiting your review'},
-   {c:'1.4.2', n:'Implementation plan', s:'todo'},
-   {c:'1.4.3', n:'Spike: GoTrue ES256 keys, Postgres image init, CORS', s:'todo', note:'Stop and report if it fails'},
-   {c:'1.4.4', n:'pnpm stack:keys → local keys + .env.local', s:'todo', note:'Replaces test-env.mjs'},
-   {c:'1.4.5', n:'Compose: db, auth, gateway, migrate', s:'todo'},
-   {c:'1.4.6', n:'SUPABASE_AUTH_INTERNAL_URL for JWKS inside Docker', s:'todo', note:'Production unchanged'},
-   {c:'1.4.7', n:'Vercel-output server + app image (:3000)', s:'todo'},
-   {c:'1.4.8', n:'stack:up / check / down / reset; Playwright E2E_BASE_URL', s:'todo'},
-   {c:'1.4.9', n:'CI on stack:check (adds e2e); Supabase CLI removed', s:'todo'},
-   {c:'1.4.10', n:'e2e cleans up its user; test for 401 → ?next=', s:'todo'},
-   {c:'1.4.11', n:'TRD §9.1, §10, §12.2 updated', s:'todo'}]},
+   {c:'1.4.1', n:'Design spec', s:'done', o:'Both', note:'Approved; amended while planning'},
+   {c:'1.4.2', n:'Implementation plan', s:'done'},
+   {c:'1.4.3', n:'Spike: GoTrue ES256 keys, Postgres image init, CORS', s:'done', note:'CORS added in the gateway'},
+   {c:'1.4.4', n:'pnpm stack:keys → local keys + .env.local', s:'done', note:'Replaces test-env.mjs'},
+   {c:'1.4.5', n:'Compose: db, auth, gateway (migrations from the Mac)', s:'done'},
+   {c:'1.4.6', n:'SUPABASE_AUTH_INTERNAL_URL for JWKS inside Docker', s:'done', note:'Production unchanged'},
+   {c:'1.4.7', n:'Vercel-output server + app image (:3000)', s:'done'},
+   {c:'1.4.8', n:'stack:up / check / down / reset; Playwright E2E_BASE_URL', s:'done'},
+   {c:'1.4.9', n:'CI on stack:check (adds e2e); Supabase CLI removed', s:'done'},
+   {c:'1.4.10', n:'e2e cleans up its user; test for 401 → ?next=', s:'done'},
+   {c:'1.4.11', n:'TRD §9.1, §10, §12.2 updated', s:'done'}]},
   {c:'1.5', n:'Cloud deploy', ms:'M0', kids:[
    {c:'1.5.1', n:'Supabase project (Tokyo), sign-ups off, your user', s:'todo', o:'You'},
    {c:'1.5.2', n:'Migrations applied to the cloud database', s:'todo'},
    {c:'1.5.3', n:'Vercel project + env vars', s:'todo', o:'You', note:'No JWT secret, no service key'},
    {c:'1.5.4', n:'Live checks: health, 401, CSP, phone import ¥500,000, 503 when paused', s:'todo', o:'Both'},
    {c:'1.5.5', n:'TRD §9.1 / §9.2 match the Build Output deploy', s:'todo'},
-   {c:'1.5.6', n:'Weekly pg_dump backup (keeps the project awake)', s:'todo'}]}]},
+   {c:'1.5.6', n:'Weekly pg_dump backup (keeps the project awake)', s:'todo'}]},
+  {c:'1.6', n:'File storage (S3)', ms:'M2', kids:[
+   {c:'1.6.1', n:'Design: which files, bucket, presigned uploads, local MinIO, milestone', s:'todo', o:'Both', note:'Decided 5 Oct: S3'}]}]},
  {c:'2', n:'Sign-in and profile', ms:'M0', kids:[
   {c:'2.1', r:'AUTH-1', n:'Email + password sign-in; stay signed in on phone and laptop', s:'partial', note:'Works locally; needs cloud deploy'},
   {c:'2.2', r:'AUTH-2', n:'Sign out; expiry returns to sign-in without losing a form', s:'partial', note:'Form lost; sign-out keeps cached data', ms:'M1'},
