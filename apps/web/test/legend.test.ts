@@ -13,3 +13,10 @@ it('folds the tail into "Everything else" beyond the limit', () => {
   expect(rows).toHaveLength(9)
   expect(rows[8]).toMatchObject({ categoryId: null, name: 'Everything else', spentJpy: 92 + 91 + 90 })
 })
+
+it('returns every category, unfolded, when the limit is Infinity ("Show all categories")', () => {
+  const rows = legendRows(Array.from({ length: 11 }, (_, i) => c(`C${i}`, 100 - i)), Infinity)
+  expect(rows).toHaveLength(11)
+  expect(rows.map((r) => r.categoryId)).not.toContain(null)
+  expect(rows.map((r) => r.name)).not.toContain('Everything else')
+})

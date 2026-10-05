@@ -4,7 +4,8 @@ export type LegendRow = { categoryId: string | null; name: string; color: string
 /**
  * Spending-by-category legend rows with a one-decimal percentage of the total. Beyond `limit`
  * entries, the smallest tail is folded into a single "Everything else" row (keeps the donut/legend
- * readable on the dashboard) rather than listing every category.
+ * readable on the dashboard) rather than listing every category. Pass `limit = Infinity` (e.g. from a
+ * "Show all categories" toggle) to get every category back, unfolded.
  */
 export function legendRows(byCategory: LegendInput[], limit = 9): LegendRow[] {
   const total = byCategory.reduce((sum, c) => sum + c.spentJpy, 0)
