@@ -4,6 +4,7 @@ import type { Config } from './config'
 import { toErrorResponse } from './errors'
 import { authMiddleware } from './middleware/auth'
 import { dbMiddleware, type AppVars } from './middleware/db'
+import { categoryRoutes } from './routes/categories'
 import { importRoutes } from './routes/import'
 import { meRoutes } from './routes/me'
 
@@ -32,6 +33,7 @@ export function createApp(deps: AppDeps) {
 
   app.route('/api/me', meRoutes)
   app.route('/api/import', importRoutes)
+  app.route('/api/categories', categoryRoutes)
 
   return app
 }
