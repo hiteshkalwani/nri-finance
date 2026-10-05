@@ -23,3 +23,16 @@ export function securityHeaders(supabaseUrl) {
     'Strict-Transport-Security': 'max-age=63072000; includeSubDomains',
   }
 }
+
+/** Build Output API v3 config: security headers on everything, /api/* to the function, static files, SPA fallback. */
+export function outputConfig(headers) {
+  return {
+    version: 3,
+    routes: [
+      { src: '/(.*)', headers, continue: true },
+      { src: '/api/(.*)', dest: '/api' },
+      { handle: 'filesystem' },
+      { src: '/(.*)', dest: '/index.html' },
+    ],
+  }
+}
