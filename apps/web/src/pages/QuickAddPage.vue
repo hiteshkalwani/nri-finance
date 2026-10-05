@@ -27,7 +27,18 @@ const description = ref('')
 const error = ref('')
 const saved = ref<string | null>(null)
 
-watch(profile, (p) => { if (p) occurredOn.value = todayIn(p.timezone) }, { immediate: true })
+// Only apply the profile's timezone-based "today" while the user hasn't touched the date themselves,
+// so a cold load (profile query resolving after the user already edited the date) doesn't clobber their edit.
+const dateTouched = ref(false)
+let settingDefaultDate = false
+watch(occurredOn, () => { if (!settingDefaultDate) dateTouched.value = true })
+watch(profile, (p) => {
+  if (p && !dateTouched.value) {
+    settingDefaultDate = true
+    occurredOn.value = todayIn(p.timezone)
+    settingDefaultDate = false
+  }
+}, { immediate: true })
 watch(categoryId, (id) => {
   const d = defaultsFor(active.value.find((c) => c.id === id))
   paymentMethod.value = d.paymentMethod
@@ -78,8 +89,8 @@ function submit() {
         <v-btn value="JPY" aria-label="Yen">¥</v-btn><v-btn value="INR" aria-label="Rupees">₹</v-btn>
       </v-btn-toggle>
     </div>
-    <div id="category-label" class="text-subtitle-2 mt-4 mb-2">Category</div>
-    <v-chip-group v-model="categoryId" column mandatory selected-class="text-primary" role="radiogroup" aria-labelledby="category-label">
+    <div class="text-subtitle-2 mt-4 mb-2">Category</div>
+    <v-chip-group v-model="categoryId" column mandatory selected-class="text-primary" role="radiogroup" aria-label="Category">
       <v-chip v-for="c in active" :key="c.id" :value="c.id" filter variant="outlined" role="radio" :aria-checked="categoryId === c.id">
         <v-icon start :color="c.color">mdi-circle</v-icon>{{ c.name }}
       </v-chip>
@@ -87,14 +98,14 @@ function submit() {
     <v-text-field id="date" v-model="occurredOn" label="Date" type="date" class="mt-4" />
     <div class="d-flex flex-wrap ga-4">
       <div>
-        <div id="payment-label" class="text-subtitle-2 mb-2">Payment method</div>
-        <v-chip-group v-model="paymentMethod" mandatory role="radiogroup" aria-labelledby="payment-label">
+        <div class="text-subtitle-2 mb-2">Payment method</div>
+        <v-chip-group v-model="paymentMethod" mandatory role="radiogroup" aria-label="Payment method">
           <v-chip v-for="(label, key) in PAYMENT_LABELS" :key="key" :value="key" filter role="radio" :aria-checked="paymentMethod === key">{{ label }}</v-chip>
         </v-chip-group>
       </div>
       <div>
-        <div id="need-want-label" class="text-subtitle-2 mb-2">Need or want</div>
-        <v-chip-group v-model="needWant" mandatory role="radiogroup" aria-labelledby="need-want-label">
+        <div class="text-subtitle-2 mb-2">Need or want</div>
+        <v-chip-group v-model="needWant" mandatory role="radiogroup" aria-label="Need or want">
           <v-chip v-for="(label, key) in NEED_LABELS" :key="key" :value="key" filter role="radio" :aria-checked="needWant === key">{{ label }}</v-chip>
         </v-chip-group>
       </div>
