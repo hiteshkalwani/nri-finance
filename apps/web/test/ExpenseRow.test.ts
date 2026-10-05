@@ -17,7 +17,7 @@ const baseCategory: Category = {
   inUse: true, lastPaymentMethod: null, lastNeedWant: null,
 }
 
-async function mountRow(t: Transaction = baseT, category: Category | undefined = baseCategory) {
+async function mountRow(t: Transaction, category: Category | undefined) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -32,20 +32,20 @@ async function mountRow(t: Transaction = baseT, category: Category | undefined =
 
 describe('ExpenseRow', () => {
   it('links to /spend/:id', async () => {
-    const wrapper = await mountRow()
+    const wrapper = await mountRow(baseT, baseCategory)
     expect(wrapper.get('a').attributes('href')).toBe('/spend/abc-123')
   })
 
   it('shows "(no description)" when the description is blank', async () => {
-    const wrapper = await mountRow()
+    const wrapper = await mountRow(baseT, baseCategory)
     expect(wrapper.text()).toContain('(no description)')
   })
 
   it('shows the ₹ line only for INR rows', async () => {
-    const jpyRow = await mountRow()
+    const jpyRow = await mountRow(baseT, baseCategory)
     expect(jpyRow.text()).not.toContain('₹')
 
-    const inrRow = await mountRow({ ...baseT, enteredCurrency: 'INR', amountInrPaise: 100000 })
+    const inrRow = await mountRow({ ...baseT, enteredCurrency: 'INR', amountInrPaise: 100000 }, baseCategory)
     expect(inrRow.text()).toContain('₹')
   })
 
@@ -55,5 +55,11 @@ describe('ExpenseRow', () => {
 
     const withoutIcon = await mountRow(baseT, { ...baseCategory, icon: null })
     expect(withoutIcon.text()).toContain('D')
+  })
+
+  it('shows a consistent "Uncategorised"/"U" fallback when the category is missing', async () => {
+    const wrapper = await mountRow(baseT, undefined)
+    expect(wrapper.text()).toContain('Uncategorised')
+    expect(wrapper.text()).toContain('U')
   })
 })

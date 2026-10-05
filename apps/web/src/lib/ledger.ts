@@ -39,7 +39,11 @@ export const SORT_OPTIONS: { title: string; value: SortValue }[] = [
   { title: 'Description A→Z', value: 'description:asc' },
 ]
 
-export function sortFromValue(v: SortValue | string): { key: SortField; order: 'asc' | 'desc' } {
+const DEFAULT_SORT = { key: 'occurredOn' as SortField, order: 'desc' as const }
+
+/** Falls back to the default sort for anything outside SORT_OPTIONS — this reads URL-controlled values (Task 6). */
+export function sortFromValue(v: string): { key: SortField; order: 'asc' | 'desc' } {
+  if (!SORT_OPTIONS.some((o) => o.value === v)) return { ...DEFAULT_SORT }
   const [key, order] = v.split(':') as [SortField, 'asc' | 'desc']
   return { key, order }
 }

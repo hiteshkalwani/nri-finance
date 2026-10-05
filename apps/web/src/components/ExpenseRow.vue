@@ -11,7 +11,9 @@ const props = defineProps<{ t: Transaction; category: Category | undefined }>()
 const { xs } = useDisplay()
 
 const description = computed(() => props.t.description.trim() || '(no description)')
-const avatarCategory = computed(() => props.category ?? { name: '?', color: '#c9c3ba', icon: null })
+// A single fallback object for both the avatar's initial and the name shown beside it, so they
+// never disagree (an empty colour routes through lib/color's neutral fallback).
+const avatarCategory = computed(() => props.category ?? { name: 'Uncategorised', color: '', icon: null })
 </script>
 
 <template>
@@ -19,7 +21,7 @@ const avatarCategory = computed(() => props.category ?? { name: '?', color: '#c9
     <span class="d">{{ description }}</span>
     <span class="c">
       <CategoryAvatar :category="avatarCategory" :size="24" />
-      <span>{{ category?.name ?? 'Uncategorised' }}</span>
+      <span>{{ avatarCategory.name }}</span>
     </span>
     <template v-if="!xs">
       <span class="chip">{{ PAYMENT_LABELS[t.paymentMethod] }}</span>
