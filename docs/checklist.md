@@ -5,13 +5,13 @@ Requirement IDs come from [prd.md](prd.md); milestones from PRD §7. Updated at 
 
 Legend: ✅ done · 🟡 partly done (see note) · 🔨 in progress · ⬜ pending
 
-Last updated: 2026-10-05
+Last updated: 2026-10-05 (local stack built)
 
 ## Progress by milestone
 
 | Milestone | Scope | Status | Done when (PRD §7) |
 |---|---|---|---|
-| M0 Foundation | Repo, CI, schema + RLS, sign-in, profile, v1 import, deploy | 🟡 code done; local stack 🔨, cloud deploy ⬜ | I can sign in on phone and laptop and see my imported data |
+| M0 Foundation | Repo, CI, schema + RLS, sign-in, profile, v1 import, deploy | 🟡 code + local stack done; cloud deploy ⬜ | I can sign in on phone and laptop and see my imported data |
 | M1 Spending | Ledger, categories, quick-add, basic dashboard | ⬜ | I stop using the v1 app for daily logging |
 | M2 Remittances & balances | Remittances, accounts, snapshots, emergency fund | ⬜ | First real cycle review done in v2 |
 | M3 Loan & SIP | Loan schedule with actuals, SIP plan / actuals / projection | ⬜ | Payoff month reflects real payments |
@@ -30,7 +30,7 @@ Last updated: 2026-10-05
 | TypeScript, ESLint (`v-html` and `toISOString` banned), Prettier | ✅ | |
 | Unit tests (Vitest), integration tests (real Postgres + Auth), e2e (Playwright, phone viewport) | ✅ | 59 unit, 4 script, 25 integration, 1 e2e |
 | Private GitHub repo `hiteshkalwani/nri-finance` | ✅ | |
-| GitHub Actions CI: typecheck, lint, unit, scripts, integration, production build | ✅ | e2e joins CI with the local stack |
+| GitHub Actions CI: typecheck, lint, unit, scripts, production build, `pnpm stack:check` | ✅ | `stack:check` adds e2e; first run on GitHub with the local-stack PR |
 
 ### Database — M0
 
@@ -42,23 +42,23 @@ Last updated: 2026-10-05
 | Same-owner foreign keys (a row can only reference my own category / loan / account) | ⬜ | **Must land before M1** accepts ids from the browser |
 | Revoke Supabase default broad grants (TRUNCATE etc.) from `anon` / `authenticated` | ⬜ | Not reachable today; hardening |
 
-### Local stack (docker compose) — in progress
+### Local stack (docker compose) — done
 
 Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/2026-10-05-local-stack-design.md)
 
 | Item | Status | Notes |
 |---|---|---|
-| Spec written and approved | 🔨 | Awaiting your review |
-| Implementation plan | ⬜ | |
-| Spike: GoTrue ES256 keys + Postgres image init + CORS | ⬜ | Stop-and-report if it fails |
-| `pnpm stack:keys` (local keys, `.env.local`) | ⬜ | Replaces `scripts/test-env.mjs` |
-| `docker-compose.yml`: db, auth, gateway, migrate | ⬜ | |
-| `SUPABASE_AUTH_INTERNAL_URL` (fetch JWKS inside Docker) | ⬜ | Production unchanged |
-| App image + Vercel-output server (`app` profile on :3000) | ⬜ | |
-| `pnpm stack:up / stack:check / stack:down / stack:reset` | ⬜ | |
-| Playwright `E2E_BASE_URL` switch | ⬜ | |
-| CI on `pnpm stack:check` (adds e2e), Supabase CLI removed | ⬜ | |
-| TRD §9.1, §10, §12.2 updated | ⬜ | |
+| Spec written and approved | ✅ | Amended while planning (§13) |
+| Implementation plan | ✅ | `docs/plans/2026-10-05-local-stack.md` |
+| Spike: GoTrue ES256 keys + Postgres image init + CORS | ✅ | CORS added in the gateway (Auth sends none), only the two local origins |
+| `pnpm stack:keys` (local keys, `.env.local`) | ✅ | Replaces `scripts/test-env.mjs` |
+| `docker-compose.yml`: db, auth, gateway | ✅ | Migrations run from the Mac in `stack:up` |
+| `SUPABASE_AUTH_INTERNAL_URL` (fetch JWKS inside Docker) | ✅ | Production unchanged |
+| App image + Vercel-output server (`app` profile on :3000) | ✅ | |
+| `pnpm stack:up / stack:check / stack:down / stack:reset` | ✅ | |
+| Playwright `E2E_BASE_URL` switch | ✅ | e2e also deletes its test user now |
+| CI on `pnpm stack:check` (adds e2e), Supabase CLI removed | ✅ | |
+| TRD §2, §9.1, §10, §12.2 updated | ✅ | |
 
 ### Cloud deploy — M0 Task 17 (after the local stack)
 
@@ -70,6 +70,12 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 | Live checks: `/api/health`, 401 on `/api/me`, CSP header, phone import shows ¥670,000, 503 when paused | ⬜ | |
 | TRD §9.1 / §9.2 match the Build Output API deploy | ⬜ | |
 | Weekly `pg_dump` backup job (also keeps the free project awake) | ⬜ | TRD §9.3 |
+
+### File storage (S3) — decided, not designed
+
+| Item | Status | Notes |
+|---|---|---|
+| Use S3 for file storage | ⬜ | Decided 2026-10-05. Needs a short design: which files (receipts, backups, exports?), bucket and region, upload path (presigned URLs), local equivalent in the compose stack (e.g. MinIO), and which milestone |
 
 ### API cross-cutting
 
@@ -200,7 +206,7 @@ Picked up in the milestone noted; each moves into the module table above when do
 | Keep unsaved form across re-sign-in; clear cached data on sign-out | M1 |
 | "Not found" page for unknown routes and bad `?next=` | M1 |
 | JWKS fetch failure → 503 instead of sign-out | M1 |
-| e2e deletes its test user; unit test for the 401 → `?next=` redirect | Local stack |
+| ~~e2e deletes its test user; unit test for the 401 → `?next=` redirect~~ ✅ | Local stack |
 | Import: warn when the profile already exists instead of silently keeping it | M2 (with EF goal) |
 | Rate decimals: code vs TRD wording | M2 (with remittance rate display) |
 | Long-term cache header for `/assets/*` | M5 (PWA) |
