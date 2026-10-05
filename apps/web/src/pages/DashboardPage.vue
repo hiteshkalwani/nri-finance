@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay, useTheme } from 'vuetify'
 import { keepPreviousData, useQuery } from '@tanstack/vue-query'
@@ -63,11 +63,26 @@ const needPct = computed(() => (d.value && d.value.spentJpy > 0 ? Math.round((d.
 const wantPct = computed(() => (d.value && d.value.spentJpy > 0 ? Math.round((d.value.wantJpy / d.value.spentJpy) * 100) : null))
 const spentPct = computed(() => (d.value && d.value.incomeJpy > 0 ? Math.round((d.value.spentJpy / d.value.incomeJpy) * 1000) / 10 : null))
 
-// Spending-by-category: legend rows (limit/"Everything else"-folded) drive both the legend list and
-// the donut's slices, so a slice's index always matches its legend row for hover/focus highlighting.
-const legend = computed(() => (d.value ? legendRows(d.value.byCategory) : []))
+// Spending-by-category: legend rows (limit/"Everything else"-folded, unless expanded) drive both the
+// legend list and the donut's slices, so a slice's index always matches its legend row for
+// hover/focus highlighting. "Show all categories" expands to every category (limit Infinity); the
+// toggle itself only appears once there's actually a tail to fold (spec §4.1).
+const LEGEND_LIMIT = 9
+const expanded = ref(false)
+const legend = computed(() => (d.value ? legendRows(d.value.byCategory, expanded.value ? Infinity : LEGEND_LIMIT) : []))
+const hasMoreCategories = computed(() => (d.value?.byCategory.length ?? 0) > LEGEND_LIMIT)
+// Collapse back to the folded view on every cycle change, so switching cycles never leaves an
+// expanded legend whose category count no longer matches the new cycle's data.
+watch(() => d.value?.cycle, () => { expanded.value = false })
+
 const donutRef = ref<ChartComponentRef<'doughnut'> | null>(null)
 const hoveredLegend = ref<number | null>(null)
+function clearChartHighlight() {
+  const chart = donutRef.value?.chart
+  if (!chart) return
+  chart.setActiveElements([])
+  chart.update()
+}
 function highlightSlice(i: number) {
   hoveredLegend.value = i
   const chart = donutRef.value?.chart
@@ -77,11 +92,17 @@ function highlightSlice(i: number) {
 }
 function clearSliceHighlight() {
   hoveredLegend.value = null
-  const chart = donutRef.value?.chart
-  if (!chart) return
-  chart.setActiveElements([])
-  chart.update()
+  clearChartHighlight()
 }
+// Defensive reset: whenever the legend's own data changes (a new cycle's figures, or expanding/
+// collapsing — both produce a new `legend` array), any previously-hovered/focused index may no
+// longer mean the same row, or nothing may be hovering it any more at all. Clearing here, rather
+// than relying solely on mouseleave/blur, keeps a cycle switch (or an expand/collapse) from ever
+// leaving a stale highlight on screen.
+watch(legend, () => {
+  hoveredLegend.value = null
+  clearChartHighlight()
+})
 // Charts read colours from the active theme (useTheme()) so dark mode gets its own accent/neutral
 // shades; these are resolved hex values, not CSS variable references, since a canvas fillStyle isn't
 // guaranteed to resolve var() the way a DOM element's style would. Vuetify's `Color` type also allows
@@ -95,6 +116,11 @@ const donutOptions = computed(() => ({
   cutout: '70%',
   plugins: { legend: { display: false } },
   elements: { arc: { hoverOffset: 10 } },
+  // Chart.js already highlights the hovered slice itself (built-in canvas hover interaction); this
+  // just mirrors that index onto the legend list, so hovering a slice highlights its matching row too.
+  onHover: (_e: unknown, active: { index: number }[]) => {
+    hoveredLegend.value = active[0]?.index ?? null
+  },
   onClick: (_e: unknown, els: { index: number }[]) => {
     const row = legend.value[els[0]?.index ?? -1]
     if (row && d.value) void router.push(ledgerLink(d.value.cycle, row.categoryId))
@@ -175,7 +201,8 @@ const barOptions = {
           </div>
           <!-- Text/keyboard equivalent of the donut, and the only way to reach a filtered ledger view
                by keyboard (DASH accessibility note): every slice's figures as a list of real links.
-               Hovering/focusing one highlights its slice via Chart.js's setActiveElements. -->
+               Hovering/focusing a legend item highlights its slice (Chart.js setActiveElements), and
+               hovering a slice highlights its legend item back (Chart.js onHover). -->
           <div class="legend" aria-label="Category totals, each a link to the filtered ledger">
             <router-link
               v-for="(row, i) in legend"
@@ -194,6 +221,9 @@ const barOptions = {
                 <span class="a num">{{ yen(row.spentJpy) }} <span>({{ row.pct.toFixed(1) }}%)</span></span>
               </span>
             </router-link>
+            <button v-if="hasMoreCategories" type="button" class="legend-more" :aria-expanded="expanded" @click="expanded = !expanded">
+              {{ expanded ? 'Show fewer' : 'Show all categories' }} <span aria-hidden="true">{{ expanded ? '⌃' : '⌄' }}</span>
+            </button>
           </div>
         </template>
         <p v-else class="pa-5 mb-0 text-medium-emphasis">No spending recorded in this cycle.</p>
@@ -397,6 +427,22 @@ const barOptions = {
 .lg .a span {
   color: rgb(var(--v-theme-on-surface-variant));
   font-weight: 500;
+}
+.legend-more {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: rgb(var(--v-theme-secondary));
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+.legend-more:hover,
+.legend-more:focus-visible {
+  text-decoration: underline;
 }
 
 .grid2 {
