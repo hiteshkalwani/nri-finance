@@ -9,7 +9,7 @@ import { supabase } from './lib/supabase'
 const route = useRoute()
 const router = useRouter()
 const qc = useQueryClient()
-const { smAndDown } = useDisplay()
+const { xs } = useDisplay()
 const signedInPage = computed(() => !route.meta.public)
 const nav = [
   { title: 'Dashboard', icon: 'mdi-view-dashboard-outline', to: '/' },
@@ -29,11 +29,11 @@ async function signOut() {
     <template v-if="signedInPage">
       <v-app-bar density="comfortable" title="NRI Finance">
         <template #append>
-          <v-btn v-if="!smAndDown" to="/spend/new" color="primary" variant="flat" prepend-icon="mdi-plus">Add expense</v-btn>
+          <v-btn v-if="!xs" to="/spend/new" color="primary" variant="flat" prepend-icon="mdi-plus">Add expense</v-btn>
           <v-btn variant="text" @click="signOut">Sign out</v-btn>
         </template>
       </v-app-bar>
-      <v-navigation-drawer v-if="!smAndDown" permanent width="200">
+      <v-navigation-drawer v-if="!xs" permanent width="200">
         <v-list nav>
           <v-list-item v-for="n in nav" :key="n.to" :to="n.to" :prepend-icon="n.icon" :title="n.title" :exact="n.to === '/'" />
         </v-list>
