@@ -21,6 +21,8 @@ test('sign in, import v1 data, see the profile', async ({ page }) => {
   await expect(page).toHaveURL(/\/settings$/) // returned to where the guard stopped us (AUTH-2)
   await page.locator('#import-file').setInputFiles('legacy/seed-data.json')
   await expect(page.getByText(/Imported \d+ transactions/)).toBeVisible()
+  // The Categories card must refetch after import, not just show whatever it had cached (I3).
+  await expect(page.getByText('Groceries')).toBeVisible()
   await page.getByRole('link', { name: 'Dashboard' }).click()
   await expect(page.getByTestId('income')).toHaveText('￥670,000')
   expect(page.viewportSize()?.width).toBe(412) // still the config's Pixel 7 phone viewport
@@ -66,5 +68,37 @@ test.describe('on a laptop', () => {
     await expect(page.getByTestId('ledger-total')).toContainText('0 expenses')
     await page.getByRole('button', { name: 'Undo' }).click()
     await expect(page.getByTestId('ledger-total')).toContainText('1 expenses')
+  })
+
+  test('a pending Undo does not resurface after navigating away, nor survive sign-out (Minor 1)', async ({ page }) => {
+    await signIn(page, '/spend')
+    // Delete, navigate away (unmounting the ledger) and back — the stale snackbar must not resurface.
+    await page.locator('#search').fill('e2e quick-add')
+    await page.getByText('e2e quick-add').click()
+    await page.getByRole('button', { name: 'Delete' }).click()
+    await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible()
+    await page.getByRole('link', { name: 'Dashboard' }).click()
+    await expect(page).toHaveURL(/\/$/) // wait for the navigation to actually land before coming back,
+    await page.getByRole('link', { name: 'Spend' }).click() // so the ledger truly unmounts and remounts
+    await expect(page).toHaveURL(/\/spend$/)
+    await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(0)
+
+    // Delete another row, sign out immediately (before the 5s timeout), sign back in — still cleared.
+    await page.getByRole('link', { name: 'Add expense' }).first().click()
+    await page.locator('#amount').fill('1')
+    const firstChip = page.locator('.v-chip-group[aria-label="Category"] .v-chip').first()
+    await expect(firstChip).toBeVisible()
+    await firstChip.click()
+    await page.locator('#description').fill('e2e minor1')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByTestId('saved')).toBeVisible()
+    await page.getByRole('link', { name: 'Spend' }).click()
+    await page.getByText('e2e minor1').click()
+    await page.getByRole('button', { name: 'Delete' }).click()
+    await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible()
+    await page.getByRole('button', { name: 'Sign out' }).click()
+    await signIn(page, page.url())
+    await page.getByRole('link', { name: 'Spend' }).click()
+    await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(0)
   })
 })
