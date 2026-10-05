@@ -33,3 +33,27 @@ export function cycleBounds(cycle: Cycle, startDay = 25): { start: IsoDate; end:
 export function todayIn(timeZone: string, now: Date = new Date()): IsoDate {
   return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
 }
+
+export function previousCycle(cycle: Cycle): Cycle {
+  const [y, m] = cycle.split('-').map(Number) as [number, number]
+  return m === 1 ? `${y - 1}-12` : `${y}-${pad(m - 1)}`
+}
+
+export function nextCycle(cycle: Cycle): Cycle {
+  const [y, m] = cycle.split('-').map(Number) as [number, number]
+  return m === 12 ? `${y + 1}-01` : `${y}-${pad(m + 1)}`
+}
+
+/** Inclusive, oldest first; empty when `from` is after `to`. YYYY-MM strings compare correctly as text. */
+export function cycleRange(from: Cycle, to: Cycle): Cycle[] {
+  const out: Cycle[] = []
+  for (let c = from; c <= to; c = nextCycle(c)) out.push(c)
+  return out
+}
+
+export function lastCycles(end: Cycle, n: number): Cycle[] {
+  if (n <= 0) return []
+  let start = end
+  for (let i = 1; i < n; i++) start = previousCycle(start)
+  return cycleRange(start, end)
+}

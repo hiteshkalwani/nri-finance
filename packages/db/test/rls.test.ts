@@ -1,7 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { eq, sql } from 'drizzle-orm'
 import { createTestUser, deleteTestUser, type TestUser } from '@nri/test-utils'
-import { categories, createDb, profiles, withUser } from '../src/index'
+import {
+  accounts, balanceSnapshots, categories, categoryBudgets, createDb, loanPlannedPrepayments, loans, profiles,
+  remittances, sipAllocations, sipPlans, transactions, withUser, type Tx,
+} from '../src/index'
 
 const { db, close } = createDb(process.env.DATABASE_URL!)
 
@@ -77,5 +80,57 @@ describe('withUser + RLS', () => {
         withUser(db, { sub: a.id }, (tx) => tx.insert(categories).values({ userId: a.id, name: 'groceries', color: '#111' })),
       ),
     ).toMatch(/categories_user_name/)
+  })
+})
+
+describe('same-owner foreign keys', () => {
+  // Parents owned by A; B tries to point at them. RLS hides A's rows from B, but only these keys stop the link.
+  let catA: string, accA: string, loanA: string, planA: string, catB: string
+  beforeAll(async () => {
+    await withUser(db, { sub: a.id }, async (tx) => {
+      catA = (await tx.insert(categories).values({ userId: a.id, name: 'Owned by A', color: '#123456' }).returning())[0]!.id
+      accA = (await tx.insert(accounts).values({ userId: a.id, name: 'A bank', country: 'JP', currency: 'JPY', type: 'bank' }).returning())[0]!.id
+      loanA = (await tx.insert(loans).values({
+        userId: a.id, name: 'A loan', principalInr: '1000000.00', annualRatePct: '8.500', emiInr: '10000.00', tenureMonths: 240, startCycle: '2026-10',
+      }).returning())[0]!.id
+      planA = (await tx.insert(sipPlans).values({
+        userId: a.id, startingMonthlyInr: '5000.00', stepUpPct: '10.00', expectedReturnPct: '12.00', startYear: 2027, endYear: 2036,
+      }).returning())[0]!.id
+    })
+    catB = await withUser(db, { sub: b.id }, async (tx) =>
+      (await tx.insert(categories).values({ userId: b.id, name: 'Owned by B', color: '#654321' }).returning())[0]!.id)
+  })
+
+  const txn = (categoryId: string, accountId: string | null = null) => ({
+    userId: b.id, occurredOn: '2026-10-01', categoryId, accountId, amountJpy: 100, paymentMethod: 'cash' as const, needWant: 'need' as const,
+  })
+  const remit = (over: Record<string, string | null>) => ({
+    userId: b.id, sentOn: '2026-10-01', jpySent: 1000, inrReceived: '590.00', purpose: 'family' as const, ...over,
+  })
+
+  it('still lets a user link to their own rows', async () => {
+    const [row] = await withUser(db, { sub: b.id }, (tx) => tx.insert(transactions).values(txn(catB)).returning())
+    expect(row!.categoryId).toBe(catB)
+  })
+
+  it.each([
+    ['transactions → category', 'transactions_category_owner', () => (tx: Tx) => tx.insert(transactions).values(txn(catA))],
+    ['transactions → account', 'transactions_account_owner', () => (tx: Tx) => tx.insert(transactions).values(txn(catB, accA))],
+    ['remittances → from account', 'remittances_from_account_owner', () => (tx: Tx) => tx.insert(remittances).values(remit({ fromAccountId: accA }))],
+    ['remittances → to account', 'remittances_to_account_owner', () => (tx: Tx) => tx.insert(remittances).values(remit({ toAccountId: accA }))],
+    ['remittances → loan', 'remittances_loan_owner', () => (tx: Tx) =>
+      tx.insert(remittances).values({ ...remit({ loanId: loanA }), purpose: 'loan_emi' })],
+    ['balance snapshot → account', 'balance_snapshots_account_owner', () => (tx: Tx) =>
+      tx.insert(balanceSnapshots).values({ userId: b.id, accountId: accA, cycle: '2026-10', balanceJpy: 1, recordedOn: '2026-10-25' })],
+    ['budget → category', 'category_budgets_category_owner', () => (tx: Tx) =>
+      tx.insert(categoryBudgets).values({ userId: b.id, categoryId: catA, amountJpy: 1, effectiveFromCycle: '2026-10' })],
+    ['planned prepayment → loan', 'loan_planned_prepayments_loan_owner', () => (tx: Tx) =>
+      tx.insert(loanPlannedPrepayments).values({ userId: b.id, loanId: loanA, monthIndex: 1, amountInr: '1.00' })],
+    ['SIP allocation → plan', 'sip_allocations_plan_owner', () => (tx: Tx) =>
+      tx.insert(sipAllocations).values({ userId: b.id, planId: planA, fundName: 'x', pct: '100.00' })],
+  ])('refuses %s owned by another user', async (_label, constraint, make) => {
+    expect(await pgError(withUser(db, { sub: b.id }, (tx) => make()(tx)))).toMatch(
+      new RegExp(`violates foreign key constraint "${constraint}"`),
+    )
   })
 })

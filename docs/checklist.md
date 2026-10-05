@@ -5,14 +5,14 @@ Requirement IDs come from [prd.md](prd.md); milestones from PRD §7. Updated at 
 
 Legend: ✅ done · 🟡 partly done (see note) · 🔨 in progress · ⬜ pending
 
-Last updated: 2026-10-05 (local stack built)
+Last updated: 2026-10-05 (M1 spending built locally)
 
 ## Progress by milestone
 
 | Milestone | Scope | Status | Done when (PRD §7) |
 |---|---|---|---|
 | M0 Foundation | Repo, CI, schema + RLS, sign-in, profile, v1 import, deploy | 🟡 code + local stack done; cloud deploy ⬜ | I can sign in on phone and laptop and see my imported data |
-| M1 Spending | Ledger, categories, quick-add, basic dashboard | ⬜ | I stop using the v1 app for daily logging |
+| M1 Spending | Ledger, categories, quick-add, basic dashboard | 🟡 built locally; cut-over (re-import, stop using v1) ⬜ | I stop using the v1 app for daily logging |
 | M2 Remittances & balances | Remittances, accounts, snapshots, emergency fund | ⬜ | First real cycle review done in v2 |
 | M3 Loan & SIP | Loan schedule with actuals, SIP plan / actuals / projection | ⬜ | Payoff month reflects real payments |
 | M4 Budgets & review | Budgets, targets, review flow | ⬜ | A full 25th review takes under 5 minutes |
@@ -39,7 +39,7 @@ Last updated: 2026-10-05 (local stack built)
 | Schema: 12 tables, enums, money as integer ¥ / `numeric(14,2)` ₹ | ✅ | `packages/db/src/schema.ts` |
 | Migrations 0000–0002 (init, RLS, positive rate check) | ✅ | |
 | Row-level security on every owned table, per-request `authenticated` role | ✅ | Tested via API and direct SQL |
-| Same-owner foreign keys (a row can only reference my own category / loan / account) | ⬜ | **Must land before M1** accepts ids from the browser |
+| Same-owner foreign keys (a row can only reference my own category / loan / account) | ✅ | Migration 0003: composite `(user_id, …)` foreign keys on every link between owned tables |
 | Revoke Supabase default broad grants (TRUNCATE etc.) from `anon` / `authenticated` | ⬜ | Not reachable today; hardening |
 
 ### Local stack (docker compose) — done
@@ -83,7 +83,7 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 |---|---|---|
 | Health, JWT check via JWKS (ES256), per-request transaction with rollback on error | ✅ | |
 | Error mapping: 400 validation, 401, 404, 503 when the database is down or paused | ✅ | |
-| JWKS fetch failure → 503 (today it signs you out with 401) | ⬜ | Small fix |
+| JWKS fetch failure → 503 (today it signs you out with 401) | ✅ | A bad/unknown-key token still gets 401; only an unreachable key server is 503 `AUTH_UNAVAILABLE` |
 | Exchange rates returned with 6 decimals as the TRD says (today trailing zeros trimmed) | ⬜ | Decide: fix code or TRD |
 
 ---
@@ -95,7 +95,7 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 | ID | Requirement | Status | Notes |
 |---|---|---|---|
 | AUTH-1 | Sign in with email + password; stay signed in on phone and laptop | 🟡 | Works locally; phone + laptop needs the cloud deploy |
-| AUTH-2 | Sign out; session expiry returns to sign-in without losing an unsaved form | 🟡 | Expiry → sign-in → back to the page works; unsaved form is lost; sign-out keeps cached data in memory. Planned with M1 quick-add |
+| AUTH-2 | Sign out; session expiry returns to sign-in without losing an unsaved form | ✅ | Expired session opens sign-in in a dialog, so the form underneath is kept; cached data is cleared on sign-out |
 | AUTH-3 | Sign-up closed | ✅ | Tested: public sign-up rejected |
 | PROF-1 | Profile: salary ¥, planning rate, cycle start day (25), timezone (Asia/Tokyo) | ✅ | Bad values rejected with 400 |
 
@@ -112,19 +112,20 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 
 | ID | Requirement | Status | Notes |
 |---|---|---|---|
-| TXN-1 | Add / edit / delete transaction (date, category, description, ¥, payment method, need/want, account, notes) | ⬜ | |
-| TXN-2 | Quick-add on phone: amount, category, date (today in JST) | ⬜ | |
-| TXN-3 | Filters (cycle, category, payment, need/want, search), sort, pagination | ⬜ | |
-| TXN-4 | Enter in ₹, converted to ¥ at the planning rate and stored | ⬜ | P1 |
-| CAT-1 | Add, rename, recolor, reorder, archive categories; delete blocked when in use | ⬜ | |
+| TXN-1 | Add / edit / delete transaction (date, category, description, ¥, payment method, need/want, account, notes) | ✅ | Edit page adds delete + undo |
+| TXN-2 | Quick-add on phone: amount, category, date (today in JST) | ✅ | Per-category defaults for payment method / need-want; date defaults to today in JST unless edited |
+| TXN-3 | Filters (cycle, category, payment, need/want, search), sort, pagination | ✅ | URL-backed filters, sort and paging; keyboard-reachable rows |
+| TXN-4 | Enter in ₹, converted to ¥ at the planning rate and stored | ✅ | |
+| CAT-1 | Add, rename, recolor, reorder, archive categories; delete blocked when in use | ✅ | Colour from 12; reorder with up/down buttons; delete blocked (409) while in use |
+| — | Cut-over: re-import the latest v1 `finance-data.json`, then log only in v2 | ⬜ | You |
 
 ### 4. Dashboard — M1 basic, extended M2–M4
 
 | ID | Requirement | Status | Milestone |
 |---|---|---|---|
-| DASH-1 | Cycle picker, default current cycle (JST) | ⬜ | M1 |
-| DASH-2 | Income, spent, kept, savings rate (¥) | ⬜ | M1 |
-| DASH-3 | Spending by category (donut), spend per cycle (bar, 12 cycles) | ⬜ | M1 |
+| DASH-1 | Cycle picker, default current cycle (JST) | ✅ | M1 |
+| DASH-2 | Income, spent, kept, savings rate (¥) | ✅ | M1 |
+| DASH-3 | Spending by category (donut), spend per cycle (bar, 12 cycles) | ✅ | M1 |
 | DASH-4 | Sent home this cycle: ¥ sent, ₹ received, by purpose | ⬜ | M2 |
 | DASH-5 | Net worth: Japan ¥, India ₹, combined, change since last cycle | ⬜ | M2 (P1) |
 | DASH-6 | Emergency fund balance, goal, months covered | ⬜ | M2 |
@@ -202,10 +203,10 @@ Picked up in the milestone noted; each moves into the module table above when do
 
 | Item | When |
 |---|---|
-| Same-owner foreign keys | Before M1 |
-| Keep unsaved form across re-sign-in; clear cached data on sign-out | M1 |
-| "Not found" page for unknown routes and bad `?next=` | M1 |
-| JWKS fetch failure → 503 instead of sign-out | M1 |
+| ~~Same-owner foreign keys~~ ✅ | Before M1 |
+| ~~Keep unsaved form across re-sign-in; clear cached data on sign-out~~ ✅ | M1 |
+| ~~"Not found" page for unknown routes and bad `?next=`~~ ✅ | M1 |
+| ~~JWKS fetch failure → 503 instead of sign-out~~ ✅ | M1 |
 | ~~e2e deletes its test user; unit test for the 401 → `?next=` redirect~~ ✅ | Local stack |
 | Import: warn when the profile already exists instead of silently keeping it | M2 (with EF goal) |
 | Rate decimals: code vs TRD wording | M2 (with remittance rate display) |

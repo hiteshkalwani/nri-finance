@@ -7,8 +7,8 @@ investments, on phone and laptop.
 v2 is a Vue web app with a Node API, backed by Postgres with Supabase Auth. The original single-file app (v1) lives in
 [`legacy/`](legacy/), and its data can be imported into v2.
 
-**Status:** Milestone 0 (foundation) is code-complete and runs locally; the cloud deploy is next. What is built and what
-is pending, module by module: [`docs/checklist.md`](docs/checklist.md), or the visual version
+**Status:** M1 (spending) is built locally. What is built and what is pending, module by module:
+[`docs/checklist.md`](docs/checklist.md), or the visual version
 [`docs/diagrams/nri-plan-overview.html`](docs/diagrams/nri-plan-overview.html) (open it in a browser).
 
 ---
@@ -38,6 +38,22 @@ Open http://localhost:5173, sign in, and go to **Settings → Import from v1** t
 the old app (`legacy/seed-data.json` is a sample). Importing twice does not create duplicates.
 
 When you are done: `pnpm stack:down` (keeps your data) or `pnpm stack:reset` (wipes the local database).
+
+---
+
+## Using the app
+
+- **Dashboard** (`/`) — pick a billing cycle with the arrows (defaults to the current cycle in JST); cards for income,
+  spent, sent home and kept; a donut of spend by category and a 12-cycle bar chart, each with a keyboard-reachable
+  text list alongside it. Click a category or a bar to open the ledger filtered to it.
+- **Spend** (`/spend`) — the ledger, with cycle, category, payment method, need/want and search filters, sort and
+  paging, all kept in the URL so a link or the back button returns to the same view. Click a row to edit it
+  (`/spend/:id`); editing offers delete, with an undo.
+- **Add expense** (`/spend/new`) — quick-add from the phone's bottom nav. Enter the amount in ¥ or ₹ (converted and
+  stored at the planning rate), pick a category (payment method and need/want default from that category's last
+  use), and a date that defaults to today in JST unless you change it.
+- **Settings** — update your profile, manage categories (add, rename, pick one of 12 colours, reorder with the
+  up/down buttons, archive, or delete when unused), and import from v1.
 
 ---
 

@@ -29,8 +29,29 @@ describe('toErrorResponse: database unavailable', () => {
     expect(r.body.error.message).toMatch(/Supabase dashboard/)
   })
 
-  it('keeps ordinary query errors as 500', () => {
-    expect(toErrorResponse(wrapped(pgErr('23505', 'duplicate key'))).status).toBe(500)
+  it('keeps an unrecognized internal error code as 500', () => {
+    // 23505 (unique violation) is deliberately NOT included here: it's now mapped to 409, see "constraint violations" below.
     expect(toErrorResponse(pgErr('XX000', 'some other internal error')).status).toBe(500)
+  })
+})
+
+describe('constraint violations', () => {
+  const wrapped = (code: string, constraint: string) =>
+    Object.assign(new Error('Failed query: insert …'), { cause: Object.assign(new Error('violates'), { code, constraint_name: constraint }) })
+
+  it('turns a foreign-key violation into 400, not 500', () => {
+    const r = toErrorResponse(wrapped('23503', 'transactions_category_owner'))
+    expect(r.status).toBe(400)
+    expect(r.body).toMatchObject({ error: { code: 'VALIDATION_FAILED', message: 'That category does not exist' } })
+  })
+  it('turns a duplicate category name into 409 with a readable message', () => {
+    const r = toErrorResponse(wrapped('23505', 'categories_user_name'))
+    expect(r.status).toBe(409)
+    expect(r.body).toMatchObject({ error: { code: 'CONFLICT', message: 'A category with that name already exists' } })
+  })
+  it('falls back to a generic message for other constraints', () => {
+    expect(toErrorResponse(wrapped('23503', 'something_else')).body).toMatchObject({
+      error: { code: 'VALIDATION_FAILED', message: 'A referenced record does not exist' },
+    })
   })
 })

@@ -37,12 +37,12 @@ const token = () =>
     .setExpirationTime('5m')
     .sign(privateKey)
 
-async function call(config: Config) {
+async function call(config: Config, jwt?: string) {
   const app = new Hono<{ Variables: AuthVars }>()
   app.onError((e, c) => { const r = toErrorResponse(e); return c.json(r.body, r.status) })
   app.use('/api/*', authMiddleware(config))
   app.get('/api/whoami', (c) => c.json({ userId: c.var.userId }))
-  return app.request('/api/whoami', { headers: { authorization: `Bearer ${await token()}` } })
+  return app.request('/api/whoami', { headers: { authorization: `Bearer ${jwt ?? (await token())}` } })
 }
 
 it('fetches keys from the internal URL and still checks the public issuer', async () => {
@@ -54,5 +54,35 @@ it('fetches keys from the internal URL and still checks the public issuer', asyn
 
 it('rejects a token whose issuer is not this project, even though the key verifies', async () => {
   const res = await call({ supabaseUrl: 'http://another.invalid:54321', authInternalUrl: internalUrl, databaseUrl: 'x' })
+  expect(res.status).toBe(401)
+})
+
+it('answers 503 AUTH_UNAVAILABLE, not 401, when the key server is unreachable', async () => {
+  const res = await call({ supabaseUrl: publicUrl, authInternalUrl: 'http://127.0.0.1:9', databaseUrl: 'x' })
+  expect(res.status).toBe(503)
+  expect((await res.json()).error.code).toBe('AUTH_UNAVAILABLE')
+})
+
+it('answers 503 when the key server returns an error page', async () => {
+  const broken = createServer((_req, res) => { res.statusCode = 502; res.end('bad gateway') })
+  await new Promise<void>((resolve) => broken.listen(0, '127.0.0.1', resolve))
+  try {
+    const res = await call({ supabaseUrl: publicUrl, authInternalUrl: `http://127.0.0.1:${(broken.address() as AddressInfo).port}`, databaseUrl: 'x' })
+    expect(res.status).toBe(503)
+  } finally {
+    await new Promise<void>((resolve) => broken.close(() => resolve()))
+  }
+})
+
+it('rejects a token with an unknown/rotated kid as 401, not an AUTH_UNAVAILABLE outage', async () => {
+  const other = await generateKeyPair('ES256')
+  const badToken = await new SignJWT({ role: 'authenticated' })
+    .setProtectedHeader({ alg: 'ES256', kid: 'unknown' })
+    .setSubject('33333333-3333-3333-3333-333333333333')
+    .setIssuer(`${publicUrl}/auth/v1`)
+    .setAudience('authenticated')
+    .setExpirationTime('5m')
+    .sign(other.privateKey)
+  const res = await call({ supabaseUrl: publicUrl, authInternalUrl: internalUrl, databaseUrl: 'x' }, badToken)
   expect(res.status).toBe(401)
 })
