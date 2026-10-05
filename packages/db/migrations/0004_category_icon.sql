@@ -1,0 +1,2 @@
+ALTER TABLE "categories" ADD COLUMN "icon" text;--> statement-breakpoint
+ALTER TABLE "categories" ADD CONSTRAINT "categories_icon_length" CHECK ("categories"."icon" is null or char_length("categories"."icon") between 1 and 8);
