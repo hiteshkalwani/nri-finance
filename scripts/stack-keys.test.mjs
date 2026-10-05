@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHmac, createPrivateKey, createPublicKey, sign, verify } from 'node:crypto'
-import { mkdtempSync, readFileSync, statSync } from 'node:fs'
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { APP_ENV, STACK_ENV, writeStackEnv } from './stack-keys.mjs'
+import { APP_ENV, STACK_ENV, appEnv, readStackEnv, writeAppEnv, writeStackEnv } from './stack-keys.mjs'
 
 const parse = (text) =>
   Object.fromEntries(text.trim().split('\n').map((l) => {
@@ -68,6 +68,17 @@ test('refuses to replace existing keys unless forced, and says how to recover', 
   assert.equal(readFileSync(join(root, STACK_ENV), 'utf8'), before)
   writeStackEnv({ root, force: true })
   assert.notEqual(readFileSync(join(root, STACK_ENV), 'utf8'), before)
+})
+
+test('rebuilds a lost or overwritten .env.local from the existing keys, without touching them', () => {
+  const { root, stack } = fresh()
+  const keysBefore = readFileSync(join(root, STACK_ENV), 'utf8')
+  writeFileSync(join(root, APP_ENV), 'DATABASE_URL=postgres://cloud.example/prod\n') // e.g. `vercel env pull`
+  writeAppEnv({ root })
+  const app = parse(readFileSync(join(root, APP_ENV), 'utf8'))
+  assert.deepEqual(app, appEnv(stack))
+  assert.deepEqual(readStackEnv({ root }), stack)
+  assert.equal(readFileSync(join(root, STACK_ENV), 'utf8'), keysBefore)
 })
 
 test('both generated files are gitignored in this repo', () => {

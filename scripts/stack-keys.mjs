@@ -1,7 +1,7 @@
 // Generates the local-only keys for the docker compose stack, and the .env.local the app and tests read.
 // None of these values are used anywhere but this machine (or a CI runner).
 import { createHmac, generateKeyPairSync, randomBytes, randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -59,8 +59,22 @@ export function writeStackEnv({ root = process.cwd(), force = false } = {}) {
   const keys = makeKeys()
   mkdirSync(dirname(stackPath), { recursive: true })
   writeFileSync(stackPath, dotenv(keys), { mode: 0o600 })
-  writeFileSync(join(root, APP_ENV), dotenv(appEnv(keys)), { mode: 0o600 })
+  writeAppEnv({ root, keys })
   return keys
+}
+
+export function readStackEnv({ root = process.cwd() } = {}) {
+  return Object.fromEntries(
+    readFileSync(join(root, STACK_ENV), 'utf8').trim().split('\n').map((line) => {
+      const i = line.indexOf('=')
+      return [line.slice(0, i), line.slice(i + 1).replace(/^'(.*)'$/, '$1')]
+    }),
+  )
+}
+
+// .env.local is fully derived from the stack keys, so it can always be rebuilt (e.g. after `vercel env pull`).
+export function writeAppEnv({ root = process.cwd(), keys = readStackEnv({ root }) } = {}) {
+  writeFileSync(join(root, APP_ENV), dotenv(appEnv(keys)), { mode: 0o600 })
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

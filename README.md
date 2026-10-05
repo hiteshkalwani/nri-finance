@@ -111,6 +111,10 @@ you, and only ever used on this machine:
 | `docker/.env.stack.local` | Postgres password, Auth signing key, `anon` and `service_role` keys | docker compose |
 | `.env.local` | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | API, tests, migrations, Vite |
 
+`.env.local` is rebuilt from `docker/.env.stack.local` on every `stack:up`, so it is safe to lose or overwrite (for
+example by `vercel env pull`). `stack:up` and `stack:check` also pass these values explicitly to migrations and tests,
+so a `DATABASE_URL` exported in your shell for the cloud project can never redirect them.
+
 Rules that keep it safe:
 - Only `VITE_*` values reach the browser, and both are public by design (the Supabase URL and anon key).
 - The API verifies tokens with Auth's public keys; it never reads a JWT secret.
@@ -162,6 +166,7 @@ docs/                PRD, TRD, specs, plans, checklist, diagrams
 |---|---|
 | `stack:up` fails with "port is already allocated" on 54321/54322 | Something else holds the port, often an old Supabase CLI stack: `docker ps`, then stop it (`npx supabase stop` in the old project, or `docker stop <name>`). |
 | `stack:keys` says the file already exists | Intended: new keys don't match the existing database. Run `pnpm stack:reset`, then `pnpm stack:keys --force`, then `pnpm stack:up`. |
+| `stack:up` says "a local database already exists, but this checkout has no docker/.env.stack.local" | Every checkout of this repo (including git worktrees) shares one local database. Copy `docker/.env.stack.local` from the checkout that created it to keep the data, or `pnpm stack:reset` to start fresh. |
 | Auth container unhealthy after changing keys or the password | The database volume still has the old password. `pnpm stack:reset` and `pnpm stack:up`. |
 | `... missing — run "pnpm stack:up"` from tests | `.env.local` is missing; `pnpm stack:up` creates it. |
 | Sign-in works on :5173 but not on another origin | The gateway only allows `http://localhost:5173` and `http://localhost:3000`; use one of those (not `127.0.0.1:5173`). |
