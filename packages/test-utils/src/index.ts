@@ -33,8 +33,9 @@ export async function createTestUser(prefix = 'test'): Promise<TestUser> {
 }
 
 export async function deleteTestUser(id: string): Promise<void> {
-  await fetch(`${env('SUPABASE_URL')}/auth/v1/admin/users/${id}`, {
+  const res = await fetch(`${env('SUPABASE_URL')}/auth/v1/admin/users/${id}`, {
     method: 'DELETE',
     headers: { apikey: env('SUPABASE_SERVICE_ROLE_KEY'), authorization: `Bearer ${env('SUPABASE_SERVICE_ROLE_KEY')}` },
   })
+  if (!res.ok && res.status !== 404) throw new Error(`delete user failed: ${res.status} ${await res.text()}`)
 }
