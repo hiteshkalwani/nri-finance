@@ -8,11 +8,12 @@ export type AuthVars = { userId: string; email: string | null; claims: Claims }
 
 export function authMiddleware(config: Config) {
   const issuer = `${config.supabaseUrl}/auth/v1`
-  // Supabase Auth (local CLI and hosted) signs ES256 tokens and publishes the keys at the JWKS URL.
+  // Supabase Auth (local stack and hosted) signs ES256 tokens and publishes the keys at the JWKS URL. Inside docker
+  // compose the keys are fetched via the internal address; the issuer check always uses the public URL.
   // A shared HS256 secret is only used by unit tests that mint their own tokens.
   const key: Uint8Array | JWTVerifyGetKey = config.jwtSecret
     ? new TextEncoder().encode(config.jwtSecret)
-    : createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`))
+    : createRemoteJWKSet(new URL(`${config.authInternalUrl ?? config.supabaseUrl}/auth/v1/.well-known/jwks.json`))
 
   return createMiddleware<{ Variables: AuthVars }>(async (c, next) => {
     const match = /^Bearer (.+)$/.exec(c.req.header('authorization') ?? '')
