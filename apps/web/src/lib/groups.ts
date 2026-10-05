@@ -26,3 +26,19 @@ export function groupByDate<T extends { occurredOn: string; amountJpy: number }>
   }
   return groups
 }
+
+/** Total pages for a server-paginated list (at least 1, even with zero rows, so a pager never reads 0 of 0). */
+export function pageCount(total: number, pageSize: number): number {
+  return Math.max(1, Math.ceil(total / pageSize))
+}
+
+/**
+ * Whether a date-group's total on the ledger page should be marked "on this page" rather than
+ * shown as a plain total. A group in the middle of a page is fully contained — every row for that
+ * date is on this page, so its total is already the whole day. Only the first or last group on a
+ * page could have more of the same date sitting on a neighbouring page (ascending or descending
+ * sort, either edge), and only when there's more than one page for it to continue onto.
+ */
+export function isPartialPageGroup(groupIndex: number, groupCount: number, totalPages: number): boolean {
+  return totalPages > 1 && (groupIndex === 0 || groupIndex === groupCount - 1)
+}
