@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { ImportResult, MeResponse, ProfileInput, type V1Document } from '@nri/contracts'
 import { apiFetch } from '../lib/api'
 import { parseV1File } from '../lib/importFile'
+import CategoriesSettings from '../components/CategoriesSettings.vue'
 
 const qc = useQueryClient()
 const me = useQuery({ queryKey: ['me'], queryFn: () => apiFetch('/api/me', {}, MeResponse) })
@@ -65,6 +66,7 @@ async function onFile(files: File | File[] | null) {
       </v-form>
     </v-card-text>
   </v-card>
+  <CategoriesSettings />
   <v-card>
     <v-card-title>Import from v1</v-card-title>
     <v-card-text>
