@@ -7,6 +7,7 @@ export const router = createRouter({
     { path: '/login', component: () => import('./pages/LoginPage.vue'), meta: { public: true } },
     { path: '/', component: () => import('./pages/HomePage.vue') },
     { path: '/settings', component: () => import('./pages/SettingsPage.vue') },
+    { path: '/spend/new', component: () => import('./pages/QuickAddPage.vue') },
     { path: '/:pathMatch(.*)*', component: () => import('./pages/NotFoundPage.vue'), meta: { public: true } },
   ],
 })
