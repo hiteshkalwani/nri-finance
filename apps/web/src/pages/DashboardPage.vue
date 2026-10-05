@@ -27,15 +27,17 @@ const needsProfile = computed(() => dash.error.value instanceof ApiRequestError 
 const d = computed(() => dash.data.value)
 const startDay = computed(() => me.data.value?.profile?.cycleStartDay ?? 25)
 const go = (c: string) => router.replace({ query: { cycle: c } })
-const ledgerLink = (categoryId: string) => ({ path: '/spend', query: { cycle: d.value!.cycle, categoryId } })
+// Both the donut and the bar open the ledger filtered to what was clicked (spec §5.5); only the
+// previous/next arrows change the dashboard's own cycle.
+const ledgerLink = (cycle: string, categoryId?: string) => ({ path: '/spend', query: categoryId ? { cycle, categoryId } : { cycle } })
 
 // Clicking a slice/bar is a mouse-only affordance on its own, so the chart's onClick handlers below
-// are mirrored by real links/buttons in the text lists underneath each chart (DASH accessibility note).
+// are mirrored by real links in the text lists underneath each chart (DASH accessibility note).
 const donutOptions = {
   plugins: { legend: { position: 'bottom' as const } },
   onClick: (_e: unknown, els: { index: number }[]) => {
     const c = d.value?.byCategory[els[0]?.index ?? -1]
-    if (c) void router.push(ledgerLink(c.categoryId))
+    if (c) void router.push(ledgerLink(d.value!.cycle, c.categoryId))
   },
 }
 const barOptions = {
@@ -43,7 +45,7 @@ const barOptions = {
   scales: { y: { ticks: { callback: (v: string | number) => yen(Number(v)) } } },
   onClick: (_e: unknown, els: { index: number }[]) => {
     const c = d.value?.byCycle[els[0]?.index ?? -1]
-    if (c) void go(c.cycle)
+    if (c) void router.push(ledgerLink(c.cycle))
   },
 }
 </script>
@@ -88,7 +90,7 @@ const barOptions = {
                    each reaching the same filtered ledger a slice click would (DASH-3 accessibility note). -->
               <ul class="chart-legend-list" aria-label="Category totals, each a link to the filtered ledger">
                 <li v-for="c in d.byCategory" :key="c.categoryId">
-                  <router-link :to="ledgerLink(c.categoryId)" class="d-flex align-center ga-2">
+                  <router-link :to="ledgerLink(d.cycle, c.categoryId)" class="d-flex align-center ga-2">
                     <v-icon size="x-small" :color="c.color">mdi-circle</v-icon>
                     <span class="mr-auto">{{ c.name }}</span>
                     <span>{{ yen(c.spentJpy) }}</span>
@@ -105,14 +107,14 @@ const barOptions = {
           <v-card-title class="text-subtitle-1">Spend per cycle</v-card-title>
           <v-card-text>
             <Bar :data="barData(d, '#1976d2', '#90caf9')" :options="barOptions" aria-hidden="true" role="presentation" />
-            <!-- Text/keyboard equivalent of the bar chart: every cycle's figure as a button that jumps
-                 the dashboard to it, same as clicking its bar would. -->
-            <ul class="chart-legend-list" aria-label="Cycle totals, each a button to switch to that cycle">
+            <!-- Text/keyboard equivalent of the bar chart: every cycle's figure as a link to the ledger
+                 filtered to it, same as clicking its bar would (spec §5.5). -->
+            <ul class="chart-legend-list" aria-label="Cycle totals, each a link to the ledger filtered to that cycle">
               <li v-for="c in d.byCycle" :key="c.cycle">
-                <button type="button" class="d-flex align-center ga-2 w-100" :class="{ 'font-weight-bold': c.cycle === d.cycle }" @click="go(c.cycle)">
+                <router-link :to="ledgerLink(c.cycle)" class="d-flex align-center ga-2" :class="{ 'font-weight-bold': c.cycle === d.cycle }">
                   <span class="mr-auto">{{ cycleLabel(c.cycle, startDay) }}</span>
                   <span>{{ yen(c.spentJpy) }}</span>
-                </button>
+                </router-link>
               </li>
             </ul>
           </v-card-text>
@@ -132,21 +134,14 @@ const barOptions = {
 .chart-legend-list li + li {
   margin-top: 4px;
 }
-.chart-legend-list a,
-.chart-legend-list button {
+.chart-legend-list a {
   display: flex;
   width: 100%;
   padding: 4px 2px;
   color: inherit;
   text-decoration: none;
-  background: none;
-  border: none;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
 }
-.chart-legend-list a:hover,
-.chart-legend-list button:hover {
+.chart-legend-list a:hover {
   text-decoration: underline;
 }
 </style>
