@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { NeedWant, PaymentMethod } from './categories'
-import { CycleString, IsoDateString, PG_INT_MAX } from './common'
+import { CycleString, IsoDateString, PG_INT_MAX, RateString } from './common'
 
 const Amount = z.number().int().positive().max(PG_INT_MAX)
 const fields = {
@@ -54,7 +54,7 @@ export const TransactionRestore = z
     amountJpy: Amount,
     enteredCurrency: z.enum(['JPY', 'INR']),
     amountInrPaise: Amount.nullable(),
-    rateUsed: z.string().nullable(),
+    rateUsed: RateString.nullable(),
   })
   .refine(
     (o) => (o.enteredCurrency === 'INR' ? o.amountInrPaise !== null && o.rateUsed !== null : o.amountInrPaise === null && o.rateUsed === null),

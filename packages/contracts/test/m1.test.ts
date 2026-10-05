@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CategoryCreate, CategoryOrder, CategoryPatch, ErrorCode, TransactionCreate, TransactionPatch, TransactionQuery } from '../src'
+import { CategoryCreate, CategoryOrder, CategoryPatch, ErrorCode, TransactionCreate, TransactionPatch, TransactionQuery, TransactionRestore } from '../src'
 
 const base = { occurredOn: '2026-10-05', categoryId: '11111111-1111-4111-8111-111111111111', paymentMethod: 'cash', needWant: 'need' }
 
@@ -45,6 +45,20 @@ describe('transactions', () => {
     expect(TransactionQuery.safeParse({ q: 'x'.repeat(101) }).success).toBe(false)
     expect(TransactionQuery.safeParse({ sort: 'userId' }).success).toBe(false)
     expect(TransactionQuery.safeParse({ cycle: '2026-13' }).success).toBe(false)
+  })
+  it('restore: rateUsed must be a positive rate string with up to 6 digits each side, or null for JPY', () => {
+    const restoreBase = {
+      ...base, accountId: null, description: 'x', notes: '', amountJpy: 500,
+      enteredCurrency: 'INR' as const, amountInrPaise: 100,
+    }
+    expect(TransactionRestore.safeParse({ ...restoreBase, rateUsed: '1.694915' }).success).toBe(true)
+    for (const rateUsed of ['0', '-1.5', 'abc', '0.0', '1234567', '1.1234567']) {
+      expect(TransactionRestore.safeParse({ ...restoreBase, rateUsed }).success).toBe(false)
+    }
+    expect(TransactionRestore.safeParse({
+      ...base, accountId: null, description: 'x', notes: '', amountJpy: 500,
+      enteredCurrency: 'JPY' as const, amountInrPaise: null, rateUsed: null,
+    }).success).toBe(true)
   })
 })
 

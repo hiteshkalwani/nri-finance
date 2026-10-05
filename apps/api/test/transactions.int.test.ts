@@ -188,5 +188,16 @@ describe('/api/transactions', () => {
       })
       expect(jpyWithExtraFields.status).toBe(400)
     })
+
+    it('refuses a restore whose rateUsed is zero, negative, or not a number, with 400, never 500', async () => {
+      for (const rateUsed of ['0', '-1.5', 'abc']) {
+        const res = await restore(a, {
+          occurredOn: '2026-10-02', categoryId: food, accountId: null, description: 'x', notes: '',
+          paymentMethod: 'cash', needWant: 'need', amountJpy: 500, enteredCurrency: 'INR', amountInrPaise: 100, rateUsed,
+        })
+        expect(res.status).toBe(400)
+        expect((await res.json()).error.code).toBe('VALIDATION_FAILED')
+      }
+    })
   })
 })
