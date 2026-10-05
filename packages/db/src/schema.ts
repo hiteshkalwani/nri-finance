@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import {
-  boolean, char, check, date, index, integer, numeric, pgEnum, pgTable, smallint, text, timestamp, unique, uuid,
+  boolean, char, check, date, foreignKey, index, integer, numeric, pgEnum, pgTable, smallint, text, timestamp, unique,
+  uuid,
 } from 'drizzle-orm/pg-core'
 
 export const country = pgEnum('country', ['JP', 'IN'])
@@ -49,6 +50,7 @@ export const accounts = pgTable('accounts', {
   legacyId: text('legacy_id'),
 }, (t) => [
   unique('accounts_legacy').on(t.userId, t.legacyId),
+  unique('accounts_user_id').on(t.userId, t.id),
   check('accounts_country_currency', sql`(${t.country} = 'JP') = (${t.currency} = 'JPY')`),
 ])
 
@@ -59,7 +61,7 @@ export const categories = pgTable('categories', {
   sortOrder: integer('sort_order').notNull().default(0),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   legacyId: text('legacy_id'),
-}, (t) => [unique('categories_legacy').on(t.userId, t.legacyId)])
+}, (t) => [unique('categories_legacy').on(t.userId, t.legacyId), unique('categories_user_id').on(t.userId, t.id)])
 
 export const loans = pgTable('loans', {
   ...owned,
@@ -71,13 +73,17 @@ export const loans = pgTable('loans', {
   startCycle: cycle('start_cycle').notNull(),
   closedAt: timestamp('closed_at', { withTimezone: true }),
   legacyId: text('legacy_id'),
-}, (t) => [unique('loans_legacy').on(t.userId, t.legacyId), check('loans_start_cycle', cycleCheck('start_cycle'))])
+}, (t) => [
+  unique('loans_legacy').on(t.userId, t.legacyId),
+  unique('loans_user_id').on(t.userId, t.id),
+  check('loans_start_cycle', cycleCheck('start_cycle')),
+])
 
 export const transactions = pgTable('transactions', {
   ...owned,
   occurredOn: date('occurred_on').notNull(),
-  categoryId: uuid('category_id').notNull().references(() => categories.id),
-  accountId: uuid('account_id').references(() => accounts.id),
+  categoryId: uuid('category_id').notNull(),
+  accountId: uuid('account_id'),
   description: text('description').notNull().default(''),
   amountJpy: integer('amount_jpy').notNull(),
   enteredCurrency: currency('entered_currency').notNull().default('JPY'),
@@ -92,6 +98,9 @@ export const transactions = pgTable('transactions', {
   check('transactions_amount_positive', sql`${t.amountJpy} > 0`),
   index('transactions_user_date').on(t.userId, t.occurredOn.desc()),
   index('transactions_user_category').on(t.userId, t.categoryId),
+  // Composite keys: a row can only point at a parent owned by the same user (RLS hides other users' rows but a plain FK only checks existence).
+  foreignKey({ name: 'transactions_category_owner', columns: [t.userId, t.categoryId], foreignColumns: [categories.userId, categories.id] }),
+  foreignKey({ name: 'transactions_account_owner', columns: [t.userId, t.accountId], foreignColumns: [accounts.userId, accounts.id] }),
 ])
 
 export const remittances = pgTable('remittances', {
@@ -101,10 +110,10 @@ export const remittances = pgTable('remittances', {
   inrReceived: inr('inr_received').notNull(),
   feeJpy: integer('fee_jpy').notNull().default(0),
   service: text('service').notNull().default(''),
-  fromAccountId: uuid('from_account_id').references(() => accounts.id),
-  toAccountId: uuid('to_account_id').references(() => accounts.id),
+  fromAccountId: uuid('from_account_id'),
+  toAccountId: uuid('to_account_id'),
   purpose: remittancePurpose('purpose').notNull(),
-  loanId: uuid('loan_id').references(() => loans.id),
+  loanId: uuid('loan_id'),
   notes: text('notes').notNull().default(''),
   legacyId: text('legacy_id'),
 }, (t) => [
@@ -112,11 +121,14 @@ export const remittances = pgTable('remittances', {
   check('remittances_amounts', sql`${t.jpySent} > 0 and ${t.inrReceived} > 0 and ${t.feeJpy} >= 0`),
   check('remittances_loan_link', sql`(${t.purpose} in ('loan_emi','loan_prepayment')) = (${t.loanId} is not null)`),
   index('remittances_user_date').on(t.userId, t.sentOn.desc()),
+  foreignKey({ name: 'remittances_from_account_owner', columns: [t.userId, t.fromAccountId], foreignColumns: [accounts.userId, accounts.id] }),
+  foreignKey({ name: 'remittances_to_account_owner', columns: [t.userId, t.toAccountId], foreignColumns: [accounts.userId, accounts.id] }),
+  foreignKey({ name: 'remittances_loan_owner', columns: [t.userId, t.loanId], foreignColumns: [loans.userId, loans.id] }),
 ])
 
 export const balanceSnapshots = pgTable('balance_snapshots', {
   ...owned,
-  accountId: uuid('account_id').notNull().references(() => accounts.id),
+  accountId: uuid('account_id').notNull(),
   cycle: cycle('cycle').notNull(),
   balanceJpy: integer('balance_jpy'),
   balanceInr: inr('balance_inr'),
@@ -125,17 +137,19 @@ export const balanceSnapshots = pgTable('balance_snapshots', {
   unique('balance_snapshots_account_cycle').on(t.accountId, t.cycle),
   check('balance_snapshots_one_amount', sql`(${t.balanceJpy} is null) <> (${t.balanceInr} is null)`),
   check('balance_snapshots_cycle', cycleCheck('cycle')),
+  foreignKey({ name: 'balance_snapshots_account_owner', columns: [t.userId, t.accountId], foreignColumns: [accounts.userId, accounts.id] }),
 ])
 
 export const categoryBudgets = pgTable('category_budgets', {
   ...owned,
-  categoryId: uuid('category_id').notNull().references(() => categories.id),
+  categoryId: uuid('category_id').notNull(),
   amountJpy: integer('amount_jpy').notNull(),
   effectiveFromCycle: cycle('effective_from_cycle').notNull(),
 }, (t) => [
   unique('category_budgets_from').on(t.categoryId, t.effectiveFromCycle),
   check('category_budgets_amount', sql`${t.amountJpy} >= 0`),
   check('category_budgets_cycle', cycleCheck('effective_from_cycle')),
+  foreignKey({ name: 'category_budgets_category_owner', columns: [t.userId, t.categoryId], foreignColumns: [categories.userId, categories.id] }),
 ])
 
 export const cycleTargets = pgTable('cycle_targets', {
@@ -149,12 +163,13 @@ export const cycleTargets = pgTable('cycle_targets', {
 
 export const loanPlannedPrepayments = pgTable('loan_planned_prepayments', {
   ...owned,
-  loanId: uuid('loan_id').notNull().references(() => loans.id, { onDelete: 'cascade' }),
+  loanId: uuid('loan_id').notNull(),
   monthIndex: smallint('month_index').notNull(),
   amountInr: inr('amount_inr').notNull(),
 }, (t) => [
   unique('loan_planned_prepayments_month').on(t.loanId, t.monthIndex),
   check('loan_planned_prepayments_values', sql`${t.monthIndex} >= 1 and ${t.amountInr} > 0`),
+  foreignKey({ name: 'loan_planned_prepayments_loan_owner', columns: [t.userId, t.loanId], foreignColumns: [loans.userId, loans.id] }).onDelete('cascade'),
 ])
 
 export const sipPlans = pgTable('sip_plans', {
@@ -165,14 +180,17 @@ export const sipPlans = pgTable('sip_plans', {
   startYear: smallint('start_year').notNull(),
   endYear: smallint('end_year').notNull(),
   redirectEmiAfterPayoff: boolean('redirect_emi_after_payoff').notNull().default(true),
-}, (t) => [unique('sip_plans_user').on(t.userId)])
+}, (t) => [unique('sip_plans_user').on(t.userId), unique('sip_plans_user_id').on(t.userId, t.id)])
 
 export const sipAllocations = pgTable('sip_allocations', {
   ...owned,
-  planId: uuid('plan_id').notNull().references(() => sipPlans.id, { onDelete: 'cascade' }),
+  planId: uuid('plan_id').notNull(),
   fundName: text('fund_name').notNull(),
   pct: numeric('pct', { precision: 5, scale: 2 }).notNull(),
-}, (t) => [check('sip_allocations_pct', sql`${t.pct} > 0 and ${t.pct} <= 100`)])
+}, (t) => [
+  check('sip_allocations_pct', sql`${t.pct} > 0 and ${t.pct} <= 100`),
+  foreignKey({ name: 'sip_allocations_plan_owner', columns: [t.userId, t.planId], foreignColumns: [sipPlans.userId, sipPlans.id] }).onDelete('cascade'),
+])
 
 export const OWNED_TABLES = [
   'profiles', 'accounts', 'categories', 'loans', 'transactions', 'remittances', 'balance_snapshots',
