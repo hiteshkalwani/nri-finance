@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { safeColor, tint } from '../src/lib/color'
+import { contrastRatio, flattenOver, safeColor, tint } from '../src/lib/color'
 
 describe('safeColor', () => {
   it('passes through a valid 6-digit hex colour', () => {
@@ -29,5 +29,29 @@ describe('tint', () => {
   })
   it('falls back to a neutral low-alpha tint for an empty string', () => {
     expect(tint('')).toBe('rgba(var(--v-theme-on-surface-variant), 0.13)')
+  })
+})
+
+// Fix round 2: a real WCAG contrast check for the "Want" chip (spec §7), not an eyeballed guess.
+describe('contrastRatio', () => {
+  it('is 21 for black on white, 1 for a colour against itself, and symmetric', () => {
+    expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 1)
+    expect(contrastRatio('#ffffff', '#000000')).toBeCloseTo(21, 1)
+    expect(contrastRatio('#f0682e', '#f0682e')).toBeCloseTo(1, 5)
+  })
+  it('treats invalid colours as black rather than throwing', () => {
+    expect(contrastRatio('not-a-colour', '#ffffff')).toBeCloseTo(21, 1)
+  })
+})
+
+describe('flattenOver', () => {
+  it('flattens a low-alpha foreground onto its background as a solid colour', () => {
+    // The orange accent at 12% over white/near-white, and over the slightly darker hover surface —
+    // the exact tints `.chip.want` actually renders onto in light theme.
+    expect(flattenOver('#f0682e', '#ffffff', 0.12)).toBe('#fdede6')
+    expect(flattenOver('#f0682e', '#efece7', 0.12)).toBe('#efdcd1')
+  })
+  it('returns the background unchanged for an invalid foreground or background', () => {
+    expect(flattenOver('not-a-colour', '#ffffff', 0.12)).toBe('#ffffff')
   })
 })

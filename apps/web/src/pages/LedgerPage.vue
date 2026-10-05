@@ -7,7 +7,7 @@ import { Transaction, TransactionPage, type NeedWant, type PaymentMethod } from 
 import { cycleOf, lastCycles, todayIn } from '@nri/core'
 import ExpenseRow from '../components/ExpenseRow.vue'
 import PageHeader from '../components/PageHeader.vue'
-import { apiFetch, ApiRequestError } from '../lib/api'
+import { apiFetch, ApiRequestError, retryUnlessClientError } from '../lib/api'
 import { useCategories } from '../lib/categories'
 import { NEED_LABELS, PAYMENT_LABELS } from '../lib/expenseForm'
 import { cycleLabel, yen } from '../lib/format'
@@ -53,6 +53,9 @@ const page = useQuery({
   queryKey: ['transactions', apiQuery],
   queryFn: () => apiFetch(`/api/transactions?${apiQuery.value}`, {}, TransactionPage),
   placeholderData: keepPreviousData,
+  // Explicit here too (main.ts sets the same as the app-wide default): a 4xx filter/sort/page
+  // combination will never succeed by retrying it, so don't make the error message wait on it.
+  retry: retryUnlessClientError,
 })
 
 const items = computed(() => page.data.value?.items ?? [])
