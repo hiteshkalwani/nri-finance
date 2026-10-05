@@ -1,0 +1,951 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NRI Finance UI Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Static design mockup for the v2 UI refresh (not app code). Style: warm off-white canvas, white cards, orange accent. */
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --bg:#f6f4f1;--surface:#fff;--line:#ebe7e1;--line-2:#f2efea;--fg:#1d1d1f;--muted:#6e6a64;--faint:#9a958d;
+  --accent:#f0682e;--accent-t:#fdeee6;--link:#1683b8;--good:#2f9a58;--bad:#d64545;--pill:#efece7;--tip:#26241f;
+  --font:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141413;--surface:#1d1c1a;--line:#2e2c29;--line-2:#262421;--fg:#efece6;--muted:#a8a29a;--faint:#7c776f;
+  --accent:#f58450;--accent-t:#3a2418;--link:#5fb6e0;--good:#5cc787;--bad:#f07070;--pill:#2a2825;--tip:#000;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141413;--surface:#1d1c1a;--line:#2e2c29;--line-2:#262421;--fg:#efece6;--muted:#a8a29a;--faint:#7c776f;
+  --accent:#f58450;--accent-t:#3a2418;--link:#5fb6e0;--good:#5cc787;--bad:#f07070;--pill:#2a2825;--tip:#000;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:var(--link);text-decoration:none}
+.note{max-width:1280px;margin:16px auto 0;padding:0 16px;color:var(--muted);font-size:13px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.note b{color:var(--fg)}
+.views{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+.views button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 12px;font-weight:500}
+.views button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-t)}
+
+/* app frame */
+.app{max-width:1280px;margin:12px auto 32px;display:grid;grid-template-columns:232px 1fr;min-height:820px;background:var(--bg);
+  border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.side{background:var(--bg);border-right:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;gap:4px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;padding:4px 8px 18px}
+.mark{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700;letter-spacing:-.5px}
+.nav a{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:10px;color:var(--fg);font-weight:500}
+.nav a:hover{background:var(--pill)}
+.nav a.on{background:var(--pill)}
+.nav svg{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.nav a.on svg{color:var(--fg)}
+.nav .soon{margin-left:auto;font-size:11px;color:var(--faint);font-weight:500}
+.side .bottom{margin-top:auto}
+.main{padding:18px 24px 28px;overflow:hidden}
+.top{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:18px}
+.top h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.2px}
+.tabs{display:flex;gap:22px}
+.tabs a{color:var(--muted);font-weight:500;padding:6px 0;border-bottom:2px solid transparent}
+.tabs a.on{color:var(--accent);border-bottom-color:var(--accent)}
+.top .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 13px;font-weight:600;display:inline-flex;align-items:center;gap:8px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.cycle{display:inline-flex;align-items:center;border:1px solid var(--line);background:var(--surface);border-radius:10px;overflow:hidden}
+.cycle button{border:0;background:none;padding:8px 10px;color:var(--muted)}
+.cycle span{padding:8px 4px;font-weight:600;min-width:170px;text-align:center}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.card .hd{display:flex;align-items:center;gap:10px;padding:18px 22px 6px;flex-wrap:wrap}
+.eyebrow{font-size:11.5px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);font-weight:600}
+.range{font-size:18px;font-weight:700;margin-top:2px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-left:auto}
+.seg button{border:0;background:var(--surface);padding:7px 12px;font-weight:500;color:var(--muted)}
+.seg button.on{background:var(--pill);color:var(--fg);font-weight:600}
+
+/* KPI tiles */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+.kpi{padding:16px 18px}
+.kpi .l{font-size:12.5px;color:var(--muted);font-weight:500}
+.kpi .v{font-size:22px;font-weight:700;letter-spacing:-.3px;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12.5px;color:var(--muted);margin-top:2px}
+.kpi .good{color:var(--good);font-weight:600}
+.bar-mini{height:6px;border-radius:99px;background:var(--line-2);margin-top:10px;overflow:hidden}
+.bar-mini i{display:block;height:100%;border-radius:99px}
+
+/* donut + legend */
+.spend{display:grid;grid-template-columns:300px 1fr;gap:12px;align-items:center;padding:6px 22px 18px}
+.donut{position:relative;width:260px;height:260px;margin:4px auto}
+.donut svg{width:100%;height:100%;transform:rotate(-90deg)}
+.donut circle{fill:none;stroke-width:34;cursor:pointer;transition:opacity .15s}
+.donut.hover circle{opacity:.35}.donut.hover circle.hl{opacity:1}
+.donut .ctr{position:absolute;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none}
+.donut .ctr b{font-size:24px;letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+.donut .ctr span{color:var(--muted);font-size:13px}
+.tip{position:absolute;background:var(--tip);color:#fff;border-radius:8px;padding:8px 11px;font-size:12.5px;pointer-events:none;white-space:nowrap;display:none;z-index:2}
+.tip i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:0}
+.legend{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 10px}
+.lg{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border-radius:10px;cursor:pointer;text-align:left;border:0;background:none}
+.lg:hover,.lg.hl{background:var(--pill)}
+.dot{width:11px;height:11px;border-radius:50%;flex:none;margin-top:5px}
+.lg .n{font-weight:500}
+.lg .a{font-weight:600;font-variant-numeric:tabular-nums}
+.lg .a span{color:var(--muted);font-weight:500}
+.more{grid-column:1/-1;justify-self:center;margin-top:6px;color:var(--link);font-weight:600}
+
+.grid2{display:grid;grid-template-columns:1fr 340px;gap:16px;margin-top:16px}
+
+/* cycle bars */
+.bars{display:flex;align-items:flex-end;gap:6px;height:170px;padding:10px 18px 14px}
+.bars .b{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end;border:0;background:none;padding:0}
+.bars .b i{display:block;width:100%;max-width:34px;border-radius:7px 7px 3px 3px;background:#f6c8b1}
+.bars .b.on i{background:var(--accent)}
+.bars .b span{font-size:11.5px;color:var(--muted)}
+.bars .b.on span{color:var(--fg);font-weight:600}
+
+/* transaction list */
+.tx-hd{display:flex;align-items:center;gap:8px;padding:16px 20px}
+.tx-hd h2{font-size:16px;margin:0;font-weight:700}
+.tx-hd .right{margin-left:auto;display:flex;gap:8px}
+.day{display:flex;justify-content:space-between;background:var(--line-2);padding:8px 20px;color:var(--muted);font-weight:500;font-size:13px;border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1.1fr) minmax(0,.9fr) 70px 110px 18px;gap:12px;align-items:center;padding:12px 20px;border-top:1px solid var(--line)}
+.row:hover{background:var(--line-2);cursor:pointer}
+.row .d{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .c{display:flex;gap:8px;align-items:center;overflow:hidden;white-space:nowrap}
+.row .c .dot{margin-top:0}
+.chip{font-size:12px;border:1px solid var(--line);border-radius:99px;padding:2px 9px;color:var(--muted);justify-self:start;white-space:nowrap}
+.chip.want{border-color:#f3d3c4;color:#b5532a;background:var(--accent-t)}
+.row .amt{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.row .amt small{display:block;color:var(--muted);font-weight:500;font-size:11.5px}
+.row .chev{color:var(--faint)}
+.summary .kv{display:flex;justify-content:space-between;padding:11px 22px;border-top:1px solid var(--line-2)}
+.summary .kv span{color:var(--muted)}
+.summary .kv b{font-variant-numeric:tabular-nums}
+.summary .ft{text-align:center;padding:14px;border-top:1px solid var(--line)}
+
+/* ledger filters */
+.filters{display:flex;flex-wrap:wrap;gap:8px;padding:14px 20px;border-bottom:1px solid var(--line)}
+.sel{border:1px solid var(--line);border-radius:10px;padding:7px 12px;background:var(--surface);display:inline-flex;gap:8px;align-items:center;color:var(--fg);font-weight:500}
+.sel svg{width:14px;height:14px;stroke:var(--muted);fill:none;stroke-width:2}
+.search{flex:1;min-width:200px;border:1px solid var(--line);border-radius:10px;padding:7px 12px;background:var(--surface);color:var(--muted)}
+.totbar{display:flex;gap:18px;padding:10px 20px;color:var(--muted);font-size:13px}
+.totbar b{color:var(--fg)}
+
+/* phone */
+.phone-wrap{display:flex;gap:32px;justify-content:center;flex-wrap:wrap;padding:24px 0}
+.phone{width:360px;border:10px solid #1d1d1f;border-radius:38px;background:var(--bg);overflow:hidden;position:relative;height:740px;display:flex;flex-direction:column}
+.phone .bar{height:26px}
+.phone .ph-hd{display:flex;align-items:center;padding:6px 18px 10px;gap:10px}
+.phone .ph-hd h1{font-size:18px;margin:0}
+.ph-body{padding:0 16px;flex:1;overflow:hidden}
+.amount{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+.amount .row1{display:flex;align-items:center;gap:8px}
+.amount .big{font-size:38px;font-weight:700;letter-spacing:-.8px;flex:1;font-variant-numeric:tabular-nums}
+.cur{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.cur button{border:0;background:var(--surface);padding:6px 12px;font-weight:600;color:var(--muted)}
+.cur button.on{background:var(--accent);color:#fff}
+.amount .hint{color:var(--muted);font-size:12.5px;margin-top:4px}
+.lbl{font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);font-weight:600;margin:4px 2px 8px}
+.cats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.cat{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12.5px;font-weight:500}
+.cat .ic{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:15px}
+.cat.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-t)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chips .c2{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 12px;font-weight:500;font-size:13px}
+.chips .c2.on{background:var(--fg);border-color:var(--fg);color:var(--bg)}
+.save{display:block;width:100%;border:0;background:var(--accent);color:#fff;border-radius:14px;padding:14px;font-weight:700;font-size:15px;margin-top:6px}
+.bnav{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--surface);padding:8px 4px 14px}
+.bnav a{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:11.5px;font-weight:500}
+.bnav a.on{color:var(--accent)}
+.bnav svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.bnav .plus{width:42px;height:42px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;margin-top:-14px;box-shadow:0 4px 12px rgba(240,104,46,.35)}
+.toast{position:absolute;left:16px;right:16px;bottom:86px;background:var(--tip);color:#fff;border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:center;font-size:13px}
+.toast a{color:#ffb38f;font-weight:600;margin-left:auto}
+.mini-kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.mini-kpi .card{padding:12px 14px}
+.mini-kpi .l{font-size:12px;color:var(--muted)}
+.mini-kpi .v{font-size:18px;font-weight:700}
+/* accounts */
+.nw{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:4px}
+.nw b{font-size:28px;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.up{color:var(--good);font-weight:600}
+.down{color:var(--bad);font-weight:600}
+.muted{color:var(--muted)}
+.nwchart{padding:0 18px 14px}
+.nwchart svg{width:100%;height:auto;display:block}
+.nwchart .grid{stroke:var(--line-2);stroke-width:1}
+.nwchart text{fill:var(--muted);font-size:12px;font-family:var(--font)}
+.grp-hd{display:flex;align-items:center;gap:10px;padding:16px 20px;border:0;background:none;width:100%;text-align:left}
+.grp-hd .chev2{color:var(--muted);transition:transform .15s}
+.grp-hd[aria-expanded="true"] .chev2{transform:rotate(90deg)}
+.grp-hd h3{margin:0;font-size:16px}
+.grp-hd .tot{margin-left:auto;font-weight:700;font-size:16px;font-variant-numeric:tabular-nums}
+.acct{display:grid;grid-template-columns:42px minmax(0,1fr) 120px 200px;gap:14px;align-items:center;padding:12px 20px;border-top:1px solid var(--line)}
+.acct:hover{background:var(--line-2);cursor:pointer}
+.av{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px}
+.acct .nm{font-weight:600;font-size:15px}
+.acct .sub{color:var(--muted);font-size:12.5px}
+.acct .val{text-align:right;font-weight:600;font-size:15px;font-variant-numeric:tabular-nums}
+.acct .val small{display:block;color:var(--muted);font-weight:500;font-size:12px}
+.tag{font-size:11px;font-weight:600;border-radius:99px;padding:1px 7px;background:#e3f4ea;color:#23784a;margin-left:6px;vertical-align:1px}
+.spark{width:120px;height:34px}
+.spark polyline{fill:none;stroke:var(--muted);stroke-width:1.6}
+.spark line{stroke:var(--line);stroke-dasharray:3 3}
+.sumblk{padding:14px 22px 16px;border-top:1px solid var(--line)}
+.sumblk .h{display:flex;justify-content:space-between;font-weight:600;margin-bottom:10px}
+.sumblk .h b{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:500}
+.stack{display:flex;height:10px;border-radius:99px;overflow:hidden;gap:2px;margin-bottom:12px}
+.stack i{display:block;height:100%}
+.sumblk .kv2{display:flex;align-items:center;gap:8px;padding:5px 0}
+.sumblk .kv2 b{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:500}
+.ef{padding:14px 22px 18px;border-top:1px solid var(--line)}
+.efv{display:flex;align-items:baseline;gap:8px;margin:4px 0 8px}
+.efv b{font-size:18px}
+.efv span,.efm{color:var(--muted);font-size:13px}
+.efm{margin-top:8px}
+.efm b{color:var(--fg)}
+@media (max-width:760px){.acct{grid-template-columns:38px minmax(0,1fr) auto}.acct .spark{display:none}}
+
+/* extra screens */
+.form .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;padding:0 22px}
+.form label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--muted);font-weight:500}
+.in{border:1px solid var(--line);border-radius:10px;padding:9px 12px;color:var(--fg);font-size:14px;background:var(--surface)}
+.in.strong{font-weight:700;font-size:16px;font-variant-numeric:tabular-nums}
+.seg.mini{margin:0}.seg.mini button{padding:8px 10px}
+.rate{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 22px;padding:12px 14px;border-radius:12px;background:var(--line-2)}
+.rate b{font-size:16px}
+.legend2{display:flex;gap:14px;margin-left:auto;color:var(--muted);font-size:12.5px;flex-wrap:wrap}
+.legend2 i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.prow{display:grid;grid-template-columns:150px 1fr 110px 90px;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--line-2)}
+.prow:first-of-type{border-top:0}
+.prow .track{height:10px;border-radius:99px;background:var(--line-2);overflow:hidden}
+.prow .track i{display:block;height:100%;border-radius:99px}
+.prow b,.prow span.r{text-align:right;font-variant-numeric:tabular-nums}
+.prow span.r{color:var(--muted)}
+.rrow{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 110px 110px 90px;gap:12px;align-items:center;padding:12px 20px;border-top:1px solid var(--line)}
+.rrow .sub{color:var(--muted);font-size:12.5px}
+.rrow b,.rrow .r{text-align:right;font-variant-numeric:tabular-nums}
+.rrow .r{color:var(--muted);font-size:13px}
+.hint-row{padding:14px 22px;color:var(--muted);border-bottom:1px solid var(--line)}
+.btable .bh,.btable .br{display:grid;grid-template-columns:minmax(0,1.4fr) 150px 190px 130px;gap:14px;align-items:center;padding:11px 22px}
+.btable .bh{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.4px;text-transform:uppercase;background:var(--line-2)}
+.btable .br{border-top:1px solid var(--line)}
+.btable .br .last,.btable .br .chg{text-align:right;font-variant-numeric:tabular-nums}
+.btable .br .last{color:var(--muted)}
+.btable .grp{padding:12px 22px 4px;font-weight:700;border-top:1px solid var(--line)}
+.btable .in{text-align:right}
+.baltot{display:flex;gap:14px;align-items:baseline;justify-content:flex-end;padding:16px 22px;border-top:1px solid var(--line)}
+.baltot b{font-size:20px}
+.stable .sh,.stable .sr{display:grid;grid-template-columns:110px repeat(5,1fr);gap:10px;padding:10px 20px;font-variant-numeric:tabular-nums}
+.stable .sh{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;background:var(--line-2)}
+.stable .sr{border-top:1px solid var(--line)}
+.stable .sr span:not(:first-child),.stable .sh span:not(:first-child){text-align:right}
+.stable .sr.actual{background:#eef7f1}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .stable .sr.actual{background:#16261c}}
+.stable .tagp{font-size:11px;font-weight:600;color:var(--good);margin-left:6px}
+.sipbars i.redir{background:#f0682e!important}
+.sipbars .b{position:relative}
+.sipbars .stk{display:flex;flex-direction:column-reverse;width:100%;max-width:34px;border-radius:7px 7px 3px 3px;overflow:hidden}
+.sipbars .stk i{border-radius:0;max-width:none;background:#8a5cd0}
+.bars.stacked{height:240px}
+.bars.stacked .stk{display:flex;flex-direction:column-reverse;width:100%;max-width:40px;border-radius:7px 7px 3px 3px;overflow:hidden}
+.bars.stacked .stk i{border-radius:0;max-width:none}
+.brow{padding:11px 0;border-top:1px solid var(--line-2)}
+.brow:first-child{border-top:0}
+.brow .t{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+.brow .t b{font-variant-numeric:tabular-nums}
+.brow .t span.st{font-size:12px;font-weight:600;margin-left:8px}
+.brow .track{height:10px;border-radius:99px;background:var(--line-2);overflow:hidden;position:relative}
+.brow .track i{display:block;height:100%;border-radius:99px}
+.trow{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:13px 22px;border-top:1px solid var(--line-2)}
+.trow .n{font-weight:600}
+.trow .v{text-align:right;font-variant-numeric:tabular-nums}
+.trow .st{grid-column:1/-1;font-size:12.5px}
+.stepper{display:flex;gap:10px;list-style:none;padding:0;margin:0 0 16px;flex-wrap:wrap}
+.stepper li{display:flex;align-items:center;gap:10px;padding:9px 16px 9px 10px;border:1px solid var(--line);border-radius:99px;background:var(--surface);color:var(--muted);font-weight:500}
+.stepper li b{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--line-2);font-size:12px}
+.stepper li.on{color:var(--fg);border-color:var(--accent)}
+.stepper li.on b{background:var(--accent);color:#fff}
+.highlights{padding:14px 22px 18px;border-top:1px solid var(--line)}
+.hl{padding:9px 12px;border-radius:10px;margin-top:6px;font-weight:500}
+.hl.bad{background:#fdecec;color:#a23232}.hl.warn{background:#fff5df;color:#8a6200}.hl.good{background:#e7f5ec;color:#1f6f43}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .hl.bad{background:#3a1d1d;color:#f3a3a3}:root:not([data-theme="light"]) .hl.warn{background:#3a2f12;color:#f0d08a}:root:not([data-theme="light"]) .hl.good{background:#16301f;color:#8fdcae}}
+.exp{display:grid;grid-template-columns:1fr auto auto;gap:4px 8px;align-items:center;padding:13px 22px;border-top:1px solid var(--line-2)}
+.exp span{grid-area:2/1;color:var(--muted);font-size:12.5px}
+.exp b{grid-area:1/1}
+.exp .btn{grid-row:1/3}
+.exp .btn:nth-of-type(1){grid-column:2}.exp .btn:nth-of-type(2){grid-column:3}
+.drop{margin:0 22px 18px;border:1.5px dashed var(--line);border-radius:12px;padding:26px;text-align:center;color:var(--fg)}
+.drop span{color:var(--muted);font-size:12.5px}
+.crow{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 22px;border-top:1px solid var(--line-2)}
+.crow .ic{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:15px}
+.crow .acts{display:flex;gap:4px;color:var(--muted)}
+.crow .acts span{border:1px solid var(--line);border-radius:8px;padding:2px 8px;font-size:12px}
+@media (max-width:760px){.form .fgrid,.rate{grid-template-columns:1fr}.prow{grid-template-columns:110px 1fr 90px}.prow span.r{display:none}
+  .rrow{grid-template-columns:1fr auto}.rrow>*:nth-child(2),.rrow>*:nth-child(5){display:none}
+  .btable .bh{display:none}.btable .br{grid-template-columns:1fr 120px}.btable .br .last,.btable .br .chg{display:none}
+  .stable .sh,.stable .sr{grid-template-columns:90px repeat(3,1fr)}.stable .sh span:nth-child(n+5),.stable .sr span:nth-child(n+5){display:none}}
+[hidden]{display:none!important}
+
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.spend{grid-template-columns:1fr}.legend{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){.app{grid-template-columns:1fr}.side{display:none}.legend{grid-template-columns:1fr}.row{grid-template-columns:1fr auto;}.row .c,.row .chip,.row .chev{display:none}.row .amt{grid-column:2}}
+</style></head><body>
+
+<div class="note">
+  <span><b>NRI Finance — UI refresh mockup.</b> Static design for review, with sample data (not the live app). Hover the donut or legend.</span>
+  <div class="views" role="group" aria-label="Screen">
+    <button data-v="dash" aria-pressed="true">Dashboard</button>
+    <button data-v="spend" aria-pressed="false">Spend</button>
+    <button data-v="remit" aria-pressed="false">Remittances</button>
+    <button data-v="balances" aria-pressed="false">Balances</button>
+    <button data-v="accounts" aria-pressed="false">Accounts</button>
+    <button data-v="loan" aria-pressed="false">Home loan</button>
+    <button data-v="sip" aria-pressed="false">SIP</button>
+    <button data-v="budgets" aria-pressed="false">Budgets</button>
+    <button data-v="review" aria-pressed="false">Review</button>
+    <button data-v="reports" aria-pressed="false">Reports</button>
+    <button data-v="settings" aria-pressed="false">Settings</button>
+    <button data-v="phone" aria-pressed="false">Phone</button>
+  </div>
+</div>
+
+<div class="app" id="desktop">
+  <aside class="side">
+    <div class="brand"><span class="mark">¥₹</span>NRI Finance</div>
+    <nav class="nav" aria-label="Main">
+      <a href="#" data-nav="dash" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Dashboard</a>
+      <a href="#" data-nav="spend"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>Spend</a>
+      <a href="#" data-nav="remit"><svg viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg>Remittances<span class="soon">M2</span></a>
+      <a href="#" data-nav="balances"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>Update balances<span class="soon">M2</span></a>
+      <a href="#" data-nav="accounts"><svg viewBox="0 0 24 24"><path d="M4 7h16v12H4z"/><path d="M8 7V5h8v2"/></svg>Accounts<span class="soon">M2</span></a>
+      <a href="#" data-nav="loan"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V10l7-5 7 5v11"/></svg>Home loan<span class="soon">M3</span></a>
+      <a href="#" data-nav="sip"><svg viewBox="0 0 24 24"><path d="M4 19l5-6 4 3 7-9"/></svg>SIP<span class="soon">M3</span></a>
+      <a href="#" data-nav="budgets"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6"/></svg>Budgets<span class="soon">M4</span></a>
+      <a href="#" data-nav="review"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>Cycle review<span class="soon">M4</span></a>
+      <a href="#" data-nav="reports"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Reports<span class="soon">M5</span></a>
+      <a href="#" data-nav="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Settings</a>
+    </nav>
+    <nav class="nav bottom" aria-label="Account"><a href="#"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Sign out</a></nav>
+  </aside>
+
+  <main class="main">
+    <!-- DASHBOARD -->
+    <section id="v-dash">
+      <div class="top">
+        <h1>Dashboard</h1>
+        <div class="right">
+          <div class="cycle"><button aria-label="Previous cycle">‹</button><span>25 Sep – 24 Oct 2026</span><button aria-label="Next cycle">›</button></div>
+          <button class="btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add expense</button>
+        </div>
+      </div>
+
+      <div class="kpis">
+        <div class="card kpi"><div class="l">Income</div><div class="v">￥670,000</div><div class="s">Salary this cycle</div></div>
+        <div class="card kpi"><div class="l">Spent</div><div class="v">￥182,340</div><div class="s">27.2% of income</div><div class="bar-mini"><i style="width:27.2%;background:var(--accent)"></i></div></div>
+        <div class="card kpi"><div class="l">Sent home</div><div class="v">￥150,000</div><div class="s">₹88,500 received · fees ￥1,200</div></div>
+        <div class="card kpi"><div class="l">Kept</div><div class="v">￥337,660</div><div class="s"><span class="good">50.4%</span> savings rate</div><div class="bar-mini"><i style="width:50.4%;background:var(--good)"></i></div></div>
+      </div>
+
+      <div class="card">
+        <div class="hd">
+          <div><div class="eyebrow">Spending by category</div><div class="range">25 Sep – 24 Oct 2026</div></div>
+          <div class="seg" role="group" aria-label="View"><button class="on">Total amounts</button><button>Change vs last cycle</button></div>
+        </div>
+        <div class="spend">
+          <div class="donut" id="donut"><svg viewBox="0 0 260 260" aria-hidden="true"></svg>
+            <div class="ctr"><b id="total"></b><span>Spent</span></div><div class="tip" id="tip"></div></div>
+          <div class="legend" id="legend"></div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="tx-hd"><h2>Recent expenses</h2><div class="right"><a class="btn" href="#" data-nav="spend">View all</a></div></div>
+          <div id="recent"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card summary">
+            <div class="tx-hd"><h2>Summary</h2></div>
+            <div class="kv"><span>Expenses this cycle</span><b>46</b></div>
+            <div class="kv"><span>Largest expense</span><b>￥85,000</b></div>
+            <div class="kv"><span>Average expense</span><b>￥3,964</b></div>
+            <div class="kv"><span>Needs / wants</span><b>78% / 22%</b></div>
+            <div class="ft"><a href="#">Export CSV</a> <span style="color:var(--faint);font-size:12px">· M5</span></div>
+          </div>
+          <div class="card">
+            <div class="hd"><div><div class="eyebrow">Spend per cycle</div><div class="range" style="font-size:15px">Last 12 cycles</div></div></div>
+            <div class="bars" id="bars"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SPEND / LEDGER -->
+    <section id="v-spend" hidden>
+      <div class="top">
+        <h1>Spend</h1>
+        <nav class="tabs" aria-label="Spend views"><a href="#" class="on">Expenses</a><a href="#">Categories</a></nav>
+        <div class="right">
+          <div class="cycle"><button aria-label="Previous cycle">‹</button><span>25 Sep – 24 Oct 2026</span><button aria-label="Next cycle">›</button></div>
+          <button class="btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add expense</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="filters">
+          <button class="sel">All categories<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+          <button class="sel">Any payment<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+          <button class="sel">Needs &amp; wants<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="search">Search description or notes…</div>
+          <button class="sel">Sort: Newest<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+        </div>
+        <div class="totbar"><span><b>46</b> expenses</span><span>Total <b>￥182,340</b></span><span>Needs <b>￥142,600</b></span><span>Wants <b>￥39,740</b></span></div>
+        <div id="ledger"></div>
+      </div>
+    </section>
+
+    <!-- ACCOUNTS (M2) -->
+    <section id="v-accounts" hidden>
+      <div class="top">
+        <h1>Accounts</h1>
+        <div class="right">
+          <div class="seg" role="group" aria-label="Show amounts in"><button class="on">In ¥</button><button>In ₹</button></div>
+          <button class="btn"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>Update balances</button>
+          <button class="btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add account</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd" style="align-items:flex-start">
+          <div>
+            <div class="eyebrow">Net worth · Japan + India at ¥1.694915 per ₹1</div>
+            <div class="nw"><b>￥1,429,069</b><span class="up">↑ ￥212,300 (17.4%)</span><span class="muted">since last cycle</span></div>
+          </div>
+          <div class="seg" role="group" aria-label="Period" style="margin-top:4px"><button>6 cycles</button><button class="on">12 cycles</button><button>All</button></div>
+        </div>
+        <div class="nwchart"><svg id="nwchart" viewBox="0 0 900 260" role="img" aria-label="Net worth over the last 12 cycles, rising from ¥620,000 in November to ¥1,429,069 in October"></svg></div>
+      </div>
+
+      <div class="grid2">
+        <div style="display:flex;flex-direction:column;gap:14px" id="groups"></div>
+        <div class="card summary" style="align-self:start">
+          <div class="tx-hd"><h2>Summary</h2><div class="right"><div class="seg" style="margin:0"><button class="on">Totals</button><button>Percent</button></div></div></div>
+          <div class="sumblk" id="assets"></div>
+          <div class="sumblk" id="liabs"></div>
+          <div class="ef">
+            <div class="eyebrow">Emergency fund</div>
+            <div class="efv"><b>￥2,000,000</b><span>of ￥2,400,000 goal</span></div>
+            <div class="bar-mini" style="height:8px"><i style="width:83%;background:var(--good)"></i></div>
+            <div class="efm">Covers <b>6.1 months</b> of spending (3-cycle average ￥327,000)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- REMITTANCES (M2) -->
+    <section id="v-remit" hidden>
+      <div class="top"><h1>Remittances</h1><div class="right"><div class="cycle"><button aria-label="Previous cycle">‹</button><span>25 Sep – 24 Oct 2026</span><button aria-label="Next cycle">›</button></div><button class="btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Record transfer</button></div></div>
+      <div class="kpis">
+        <div class="card kpi"><div class="l">Sent this cycle</div><div class="v">￥150,000</div><div class="s">4 transfers</div></div>
+        <div class="card kpi"><div class="l">Received in India</div><div class="v">₹88,500</div><div class="s">across 3 accounts</div></div>
+        <div class="card kpi"><div class="l">Average rate</div><div class="v">￥1.6949</div><div class="s">per ₹1 · planning ￥1.6949 · <span class="good">at plan</span></div></div>
+        <div class="card kpi"><div class="l">Fees</div><div class="v">￥1,200</div><div class="s">0.8% of sent · not counted as spending</div></div>
+      </div>
+      <div class="grid2">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="hd"><div><div class="eyebrow">Sent by purpose</div><div class="range" style="font-size:15px">25 Sep – 24 Oct 2026</div></div></div>
+            <div style="padding:8px 22px 18px" id="purpose"></div>
+          </div>
+          <div class="card"><div class="tx-hd"><h2>Transfers</h2></div><div id="remitlist"></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card form">
+            <div class="tx-hd"><h2>Record transfer</h2></div>
+            <div class="fgrid">
+              <label>Date<span class="in">25 Oct 2026</span></label>
+              <label>Service<span class="seg mini"><button class="on">Wise</button><button>Bank</button><button>Other</button></span></label>
+              <label>￥ sent<span class="in strong">80,000</span></label>
+              <label>₹ received<span class="in strong">47,200.00</span></label>
+              <label>Fee (￥)<span class="in">600</span></label>
+              <label>From → To<span class="in">MUFG savings → HDFC savings</span></label>
+            </div>
+            <div class="lbl" style="margin:12px 22px 6px">Purpose</div>
+            <div class="chips" style="padding:0 22px"><span class="c2 on">Family</span><span class="c2">India savings</span><span class="c2">SIP</span><span class="c2">Loan EMI</span><span class="c2">Loan prepayment</span><span class="c2">Other</span></div>
+            <div class="rate">
+              <div><div class="eyebrow">Effective rate</div><b>￥1.6949 per ₹1</b></div>
+              <div><div class="eyebrow">vs planning rate</div><b class="good">±0.00% · ₹0</b></div>
+            </div>
+            <div style="padding:0 22px 18px"><button class="save" style="margin:0">Save transfer</button></div>
+          </div>
+          <div class="card">
+            <div class="hd"><div><div class="eyebrow">Rate history</div><div class="range" style="font-size:15px">Your last 12 transfers</div></div></div>
+            <div class="nwchart"><svg id="ratechart" viewBox="0 0 520 200" role="img" aria-label="Effective rate of the last 12 transfers, between ¥1.66 and ¥1.72 per rupee"></svg></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- UPDATE BALANCES (M2, BAL-1) -->
+    <section id="v-balances" hidden>
+      <div class="top"><h1>Update balances</h1><span class="muted">Review day · cycle Oct 2026 (25 Sep – 24 Oct)</span>
+        <div class="right"><button class="btn">Copy last cycle</button><button class="btn primary">Save balances</button></div></div>
+      <div class="card">
+        <div class="hint-row">Prefilled with last cycle's balances. Change only what moved; ₹ accounts show the ￥ value at the planning rate.</div>
+        <div class="btable" id="baltable"></div>
+        <div class="baltot"><span>Net worth after saving</span><b>￥1,429,069</b><span class="up">↑ ￥212,300 since last cycle</span></div>
+      </div>
+    </section>
+
+    <!-- HOME LOAN (M3) -->
+    <section id="v-loan" hidden>
+      <div class="top"><h1>Home loan</h1><nav class="tabs" aria-label="Loans"><a href="#" class="on">SBI home loan</a><a href="#">+ Add loan</a></nav>
+        <div class="right"><button class="btn">Plan a prepayment</button></div></div>
+      <div class="kpis">
+        <div class="card kpi"><div class="l">Outstanding</div><div class="v">₹32,00,000</div><div class="s">≈ ￥5,423,728 · 8.5% p.a.</div></div>
+        <div class="card kpi"><div class="l">EMI</div><div class="v">₹28,000</div><div class="s">paid via Loan EMI transfers</div></div>
+        <div class="card kpi"><div class="l">Payoff</div><div class="v">Mar 2034</div><div class="s"><span class="good">7 yrs 7 mo earlier</span> than plan (Oct 2041)</div></div>
+        <div class="card kpi"><div class="l">Interest saved</div><div class="v">₹9,80,000</div><div class="s">by prepayments so far</div></div>
+      </div>
+      <div class="card">
+        <div class="hd"><div><div class="eyebrow">Balance · plan vs actual</div><div class="range">Oct 2021 – Mar 2034</div></div>
+          <div class="legend2"><span><i style="background:#9a958d"></i>Original plan</span><span><i style="background:#3a9fc9"></i>Actual + plan</span></div></div>
+        <div class="nwchart"><svg id="loanchart" viewBox="0 0 900 240" role="img" aria-label="Loan balance: the original plan reaches zero in 2041; with prepayments it reaches zero in March 2034"></svg></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="tx-hd"><h2>Schedule</h2><div class="right"><div class="seg" style="margin:0"><button class="on">Upcoming</button><button>Past</button><button>All</button></div></div></div>
+        <div class="stable" id="loantable"></div>
+      </div>
+    </section>
+
+    <!-- SIP (M3) -->
+    <section id="v-sip" hidden>
+      <div class="top"><h1>SIP</h1><div class="right"><button class="btn">Edit plan</button></div></div>
+      <div class="kpis">
+        <div class="card kpi"><div class="l">Paid this cycle</div><div class="v">₹11,800</div><div class="s">plan ₹12,000 · <span style="color:var(--bad);font-weight:600">₹200 short</span></div><div class="bar-mini"><i style="width:98%;background:var(--accent)"></i></div></div>
+        <div class="card kpi"><div class="l">Monthly plan 2026</div><div class="v">₹12,000</div><div class="s">+10% step-up each year</div></div>
+        <div class="card kpi"><div class="l">Expected return</div><div class="v">12% p.a.</div><div class="s">redirect EMI after payoff: on</div></div>
+        <div class="card kpi"><div class="l">Projected corpus 2036</div><div class="v" id="sipcorpus"></div><div class="s">incl. EMI redirected from Apr 2034</div></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="hd"><div><div class="eyebrow">Projection to 2036</div><div class="range" style="font-size:15px">Year-end corpus</div></div>
+            <div class="legend2"><span><i style="background:#8a5cd0"></i>SIP</span><span><i style="background:#f0682e"></i>EMI redirected</span></div></div>
+          <div class="bars sipbars" id="sipbars"></div>
+        </div>
+        <div class="card">
+          <div class="tx-hd"><h2>Allocation</h2><span class="chip" style="margin-left:auto">Total 100%</span></div>
+          <div id="alloc" style="padding:0 22px 18px"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BUDGETS & TARGETS (M4) -->
+    <section id="v-budgets" hidden>
+      <div class="top"><h1>Budgets &amp; targets</h1><div class="right"><div class="cycle"><button aria-label="Previous cycle">‹</button><span>25 Sep – 24 Oct 2026</span><button aria-label="Next cycle">›</button></div><button class="btn">Copy last cycle</button></div></div>
+      <div class="grid2">
+        <div class="card">
+          <div class="hd"><div><div class="eyebrow">Category budgets</div><div class="range" style="font-size:15px">￥182,340 of ￥185,000 · 98.6%</div></div></div>
+          <div id="budgetlist" style="padding:4px 22px 18px"></div>
+        </div>
+        <div class="card">
+          <div class="tx-hd"><h2>Cycle targets</h2></div>
+          <div id="targets"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CYCLE REVIEW (M4) -->
+    <section id="v-review" hidden>
+      <div class="top"><h1>Cycle review</h1><span class="muted">25 Oct 2026 · closing 25 Sep – 24 Oct</span></div>
+      <ol class="stepper"><li class="on"><b>1</b>Summary</li><li><b>2</b>Balances</li><li><b>3</b>Next cycle's targets</li></ol>
+      <div class="grid2">
+        <div class="card">
+          <div class="tx-hd"><h2>How the cycle went</h2></div>
+          <div id="reviewrows"></div>
+          <div class="highlights">
+            <div class="eyebrow" style="margin-bottom:8px">Worth a look</div>
+            <div class="hl bad">Dining out went over budget by ￥3,900 (126%).</div>
+            <div class="hl warn">Emergency fund contribution ￥10,000 short of target.</div>
+            <div class="hl good">Kept ￥337,660 — ￥37,660 above the savings target.</div>
+          </div>
+        </div>
+        <div class="card" style="align-self:start">
+          <div class="tx-hd"><h2>Next</h2></div>
+          <p style="margin:0 22px 14px;color:var(--muted)">Enter this cycle's account balances (about 2 minutes), then set next cycle's targets. You can stop at any step and come back.</p>
+          <div style="padding:0 22px 18px;display:flex;gap:8px"><button class="btn primary" style="flex:1;justify-content:center">Continue to balances</button><button class="btn">Later</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REPORTS (M5) -->
+    <section id="v-reports" hidden>
+      <div class="top"><h1>Reports</h1><nav class="tabs" aria-label="Report"><a href="#" class="on">Spending</a><a href="#">Japan vs India</a><a href="#">Rates</a></nav>
+        <div class="right"><button class="btn">Nov 2025 – Oct 2026</button><button class="btn">Export</button></div></div>
+      <div class="card">
+        <div class="hd"><div><div class="eyebrow">Spend per cycle by category</div><div class="range">Last 12 cycles · ￥2,151,000 total</div></div>
+          <div class="legend2" id="replegend"></div></div>
+        <div class="bars stacked" id="repbars"></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="tx-hd"><h2>Japan vs India, per cycle (average)</h2></div>
+          <div id="flow" style="padding:0 22px 18px"></div>
+        </div>
+        <div class="card">
+          <div class="tx-hd"><h2>Export</h2></div>
+          <div class="exp"><b>Everything (JSON)</b><span>Re-importable backup of all data</span><button class="btn">Download</button></div>
+          <div class="exp"><b>Expenses (CSV / XLSX)</b><span>Ledger with categories, ¥ and ₹</span><button class="btn">CSV</button><button class="btn">XLSX</button></div>
+          <div class="exp"><b>Remittances (CSV / XLSX)</b><span>Transfers with rates and purposes</span><button class="btn">CSV</button><button class="btn">XLSX</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="v-settings" hidden>
+      <div class="top"><h1>Settings</h1><nav class="tabs" aria-label="Settings"><a href="#" class="on">General</a><a href="#">Categories</a><a href="#">Data</a></nav></div>
+      <div class="grid2">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card form">
+            <div class="tx-hd"><h2>Profile</h2></div>
+            <div class="fgrid">
+              <label>Monthly salary (￥)<span class="in strong">670,000</span></label>
+              <label>Planning rate (￥ per ₹1)<span class="in strong">1.694915</span></label>
+              <label>Cycle starts on day<span class="in">25</span></label>
+              <label>Time zone<span class="in">Asia/Tokyo</span></label>
+            </div>
+            <div style="padding:4px 22px 18px"><button class="btn primary">Save profile</button></div>
+          </div>
+          <div class="card">
+            <div class="tx-hd"><h2>Categories</h2><div class="right"><button class="btn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New category</button></div></div>
+            <div id="catset"></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="tx-hd"><h2>Import from v1</h2></div>
+            <div class="drop">Drop <b>finance-data.json</b> here, or <a href="#">choose a file</a><br><span>Importing twice never creates duplicates.</span></div>
+          </div>
+          <div class="card">
+            <div class="tx-hd"><h2>Account</h2></div>
+            <div class="kv" style="display:flex;justify-content:space-between;padding:11px 22px;border-top:1px solid var(--line-2)"><span class="muted">Signed in as</span><b>me@example.com</b></div>
+            <div style="padding:12px 22px 18px"><button class="btn">Sign out</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- PHONE -->
+<div class="phone-wrap" id="phone" hidden>
+  <div class="phone" aria-label="Quick-add on a phone">
+    <div class="bar"></div>
+    <div class="ph-hd"><h1>Add expense</h1></div>
+    <div class="ph-body">
+      <div class="amount">
+        <div class="row1"><div class="big">￥1,280</div><div class="cur"><button class="on">¥</button><button>₹</button></div></div>
+        <div class="hint">Today · Mon 5 Oct</div>
+      </div>
+      <div class="lbl">Category</div>
+      <div class="cats" id="phcats"></div>
+      <div class="lbl">Paid with <span style="text-transform:none;letter-spacing:0;font-weight:500">· last used for Groceries</span></div>
+      <div class="chips"><span class="c2">Bank</span><span class="c2">Cash</span><span class="c2">Credit card</span><span class="c2 on">IC card</span></div>
+      <div class="chips"><span class="c2 on">Need</span><span class="c2">Want</span></div>
+      <button class="save">Save</button>
+    </div>
+    <div class="toast">✓ Saved ￥1,280 · Groceries<a href="#">Add another</a></div>
+    <nav class="bnav" aria-label="Phone navigation">
+      <a href="#"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Dashboard</a>
+      <a href="#"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>Spend</a>
+      <a href="#" class="on"><span class="plus"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span></a>
+      <a href="#"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>More</a>
+    </nav>
+  </div>
+  <div class="phone" aria-label="Dashboard on a phone">
+    <div class="bar"></div>
+    <div class="ph-hd"><h1>Dashboard</h1><span style="margin-left:auto;color:var(--muted);font-weight:500;font-size:13px">25 Sep – 24 Oct</span></div>
+    <div class="ph-body">
+      <div class="mini-kpi">
+        <div class="card"><div class="l">Spent</div><div class="v">￥182,340</div></div>
+        <div class="card"><div class="l">Kept</div><div class="v" style="color:var(--good)">￥337,660</div></div>
+        <div class="card"><div class="l">Sent home</div><div class="v">￥150,000</div></div>
+        <div class="card"><div class="l">Savings rate</div><div class="v">50.4%</div></div>
+      </div>
+      <div class="card" style="padding:12px 4px 4px">
+        <div class="eyebrow" style="padding:0 12px">Spending by category</div>
+        <div class="donut" id="donut2" style="width:200px;height:200px"><svg viewBox="0 0 260 260" aria-hidden="true"></svg><div class="ctr"><b style="font-size:20px">￥182,340</b><span>Spent</span></div></div>
+        <div id="phlegend" style="padding:0 6px 8px"></div>
+      </div>
+    </div>
+    <nav class="bnav" aria-label="Phone navigation">
+      <a href="#" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Dashboard</a>
+      <a href="#"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>Spend</a>
+      <a href="#"><span class="plus"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span></a>
+      <a href="#"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>More</a>
+    </nav>
+  </div>
+</div>
+
+<script>
+const CATS = [
+  ['Rent', 85000, '#3a9fc9', '🏠'], ['Groceries', 32400, '#56a865', '🛒'], ['Dining out', 18900, '#f2c24b', '🍜'],
+  ['Transport', 12600, '#f0682e', '🚃'], ['Utilities', 11800, '#8a5cd0', '💡'], ['Phone & internet', 7600, '#5bc0e8', '📱'],
+  ['Shopping', 6240, '#d24f9a', '🛍️'], ['Health', 4800, '#4361d8', '💊'], ['Everything else', 3000, '#b6d34a', '•'],
+]
+const total = CATS.reduce((a, c) => a + c[1], 0)
+const yen = (n) => new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(n)
+const pct = (n) => (Math.round((n / total) * 1000) / 10) + '%'
+document.getElementById('total').textContent = yen(total)
+
+function drawDonut(el, withTip) {
+  const svg = el.querySelector('svg'); const r = 100, C = 2 * Math.PI * r; let off = 0
+  svg.innerHTML = CATS.map(([n, v, col], i) => {
+    const len = (v / total) * C - 2
+    const s = `<circle data-i="${i}" cx="130" cy="130" r="${r}" stroke="${col}" stroke-dasharray="${Math.max(len, 0)} ${C}" stroke-dashoffset="${-off}"/>`
+    off += (v / total) * C; return s
+  }).join('')
+  if (!withTip) return
+  const tip = document.getElementById('tip')
+  const hl = (i, e) => {
+    el.classList.toggle('hover', i !== null)
+    svg.querySelectorAll('circle').forEach((c) => c.classList.toggle('hl', Number(c.dataset.i) === i))
+    document.querySelectorAll('.lg').forEach((b) => b.classList.toggle('hl', Number(b.dataset.i) === i))
+    if (i === null) { tip.style.display = 'none'; return }
+    const [n, v, col] = CATS[i]
+    tip.innerHTML = `<i style="background:${col}"></i><b>${n}</b><br>${yen(v)} (${pct(v)})`
+    tip.style.display = 'block'
+    if (e) { const b = el.getBoundingClientRect(); tip.style.left = (e.clientX - b.left + 12) + 'px'; tip.style.top = (e.clientY - b.top + 12) + 'px' }
+    else { tip.style.left = '20px'; tip.style.top = '180px' }
+  }
+  svg.addEventListener('mousemove', (e) => { const i = e.target.dataset?.i; hl(i === undefined ? null : Number(i), e) })
+  svg.addEventListener('mouseleave', () => hl(null))
+  document.querySelectorAll('.lg').forEach((b) => {
+    b.addEventListener('mouseenter', () => hl(Number(b.dataset.i)))
+    b.addEventListener('focus', () => hl(Number(b.dataset.i)))
+    b.addEventListener('mouseleave', () => hl(null))
+    b.addEventListener('blur', () => hl(null))
+  })
+}
+
+document.getElementById('legend').innerHTML = CATS.map(([n, v, col], i) =>
+  `<button class="lg" data-i="${i}"><span class="dot" style="background:${col}"></span><span><span class="n">${n}</span><br><span class="a">${yen(v)} <span>(${pct(v)})</span></span></span></button>`).join('') +
+  '<a class="more" href="#">Show all categories ⌄</a>'
+drawDonut(document.getElementById('donut'), true)
+drawDonut(document.getElementById('donut2'), false)
+document.getElementById('phlegend').innerHTML = CATS.slice(0, 5).map(([n, v, col]) =>
+  `<div style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-top:1px solid var(--line-2)"><span class="dot" style="background:${col};margin:0"></span><span style="flex:1">${n}</span><b style="font-variant-numeric:tabular-nums">${yen(v)}</b></div>`).join('')
+
+const cycles = ['Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct']
+const spend = [168, 214, 175, 160, 171, 190, 166, 158, 201, 177, 169, 182]
+const max = Math.max(...spend)
+document.getElementById('bars').innerHTML = cycles.map((m, i) =>
+  `<button class="b${i === 11 ? ' on' : ''}" aria-label="${m}: ¥${spend[i]},000"><i style="height:${(spend[i] / max) * 120}px"></i><span>${m}</span></button>`).join('')
+
+const TX = [
+  ['5 Oct 2026', [['Lunch at Ichiran', 'Dining out', 'IC card', 'want', 1280], ['FamilyMart', 'Groceries', 'IC card', 'need', 643], ['Suica top-up', 'Transport', 'Credit card', 'need', 3000]]],
+  ['4 Oct 2026', [['Life supermarket', 'Groceries', 'Credit card', 'need', 6820], ['Uniqlo', 'Shopping', 'Credit card', 'want', 3990], ['Chai & samosa in Delhi', 'Dining out', 'Cash', 'want', 1695, '₹1,000.00']]],
+  ['1 Oct 2026', [['October rent', 'Rent', 'Bank', 'need', 85000], ['au Hikari', 'Phone & internet', 'Bank', 'need', 5280]]],
+]
+const color = Object.fromEntries(CATS.map((c) => [c[0], c[2]]))
+const payLabel = { 'IC card': 'IC card', 'Credit card': 'Credit card', Bank: 'Bank', Cash: 'Cash' }
+function list(days, limit) {
+  let n = 0
+  return days.map(([d, rows]) => {
+    const shown = limit ? rows.filter(() => n++ < limit) : rows
+    if (!shown.length) return ''
+    const sum = rows.reduce((a, r) => a + r[4], 0)
+    return `<div class="day"><span>${d}</span><span>${yen(sum)}</span></div>` + shown.map(([desc, cat, pay, nw, amt, inr]) =>
+      `<div class="row" tabindex="0"><span class="d">${desc}</span><span class="c"><span class="dot" style="background:${color[cat]}"></span>${cat}</span>` +
+      `<span class="chip">${payLabel[pay]}</span><span class="chip ${nw === 'want' ? 'want' : ''}">${nw === 'want' ? 'Want' : 'Need'}</span>` +
+      `<span class="amt">${yen(amt)}${inr ? `<small>${inr}</small>` : ''}</span><span class="chev">›</span></div>`).join('')
+  }).join('')
+}
+document.getElementById('recent').innerHTML = list(TX, 5)
+document.getElementById('ledger').innerHTML = list(TX)
+document.getElementById('phcats').innerHTML = CATS.slice(0, 6).map(([n, , col, ic]) =>
+  `<div class="cat${n === 'Groceries' ? ' on' : ''}"><span class="ic" style="background:${col}22">${ic}</span>${n.split(' ')[0]}</div>`).join('')
+
+// ---- Accounts (M2): balances are per-cycle snapshots; ₹ shown with ¥ at the planning rate ----
+const RATE = 1.694915
+const inr = (p) => '₹' + new Intl.NumberFormat('en-IN').format(p)
+const cyc = ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct']
+const nwSeries = [620000, 664000, 701000, 752000, 818000, 867000, 925000, 990000, 1052000, 1121000, 1216769, 1429069]
+;(function drawNw() {
+  const svg = document.getElementById('nwchart'); const W = 900, H = 260, L = 70, R = 10, T = 14, B = 34
+  const lo = 500000, hi = 1500000, x = (i) => L + (i * (W - L - R)) / (nwSeries.length - 1), y = (v) => T + ((hi - v) * (H - T - B)) / (hi - lo)
+  let s = ''
+  for (let v = lo; v <= hi; v += 250000) s += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 10}" y="${y(v) + 4}" text-anchor="end">¥${v / 1000}K</text>`
+  const pts = nwSeries.map((v, i) => `${x(i)},${y(v)}`).join(' ')
+  s += `<defs><linearGradient id="nwg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#3a9fc9" stop-opacity=".28"/><stop offset="1" stop-color="#3a9fc9" stop-opacity=".02"/></linearGradient></defs>`
+  s += `<polygon points="${x(0)},${y(lo)} ${pts} ${x(nwSeries.length - 1)},${y(lo)}" fill="url(#nwg)"/>`
+  s += `<polyline points="${pts}" fill="none" stroke="#3a9fc9" stroke-width="3" stroke-linejoin="round"/>`
+  s += `<circle cx="${x(11)}" cy="${y(nwSeries[11])}" r="5" fill="#3a9fc9" stroke="var(--surface)" stroke-width="2"/>`
+  s += cyc.map((m, i) => `<text x="${x(i)}" y="${H - 10}" text-anchor="middle">${m}</text>`).join('')
+  svg.innerHTML = s
+})()
+
+const spark = (vals) => {
+  const mn = Math.min(...vals), mx = Math.max(...vals), w = 120, h = 34
+  const pts = vals.map((v, i) => `${(i * w) / (vals.length - 1)},${h - 4 - ((v - mn) * (h - 8)) / (mx - mn || 1)}`).join(' ')
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true"><line x1="0" x2="${w}" y1="${h - 4}" y2="${h - 4}"/><polyline points="${pts}"/></svg>`
+}
+const GROUPS = [
+  { name: 'Japan', cur: 'JPY', change: '￥118,400 (3.7%)', up: true, accounts: [
+    ['MUFG savings', 'Bank · ¥', 1240000, '#1f6fb2', 'MU', [1.02, 1.05, 1.1, 1.08, 1.13, 1.18, 1.2, 1.17, 1.22, 1.2, 1.21, 1.24]],
+    ['Emergency fund (Shinsei)', 'Bank · ¥', 2000000, '#2f9a58', 'EF', [1.4, 1.48, 1.55, 1.6, 1.66, 1.72, 1.78, 1.84, 1.88, 1.93, 1.96, 2.0], 'Emergency fund'],
+    ['Cash & IC card', 'Cash · ¥', 45000, '#8a8378', '¥', [52, 48, 40, 61, 44, 39, 50, 47, 42, 55, 41, 45]],
+  ] },
+  { name: 'India', cur: 'INR', change: '₹78,000 (3.8%)', up: true, accounts: [
+    ['HDFC savings', 'Bank · ₹', 420000, '#c0392b', 'HD', [3.1, 3.4, 3.2, 3.6, 3.5, 3.9, 3.7, 4.0, 3.8, 4.1, 4.0, 4.2]],
+    ['SBI fixed deposit', 'FD · ₹', 1000000, '#2a5ba8', 'SB', [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]],
+    ['Mutual funds (SIP)', 'Investment · ₹', 685000, '#8a5cd0', 'MF', [4.1, 4.3, 4.6, 4.7, 5.0, 5.3, 5.5, 5.8, 6.0, 6.3, 6.6, 6.85]],
+  ] },
+  { name: 'Loans', cur: 'INR', change: '₹5,330 principal', up: true, arrow: '↓', liability: true, accounts: [
+    ['Home loan (SBI)', 'Liability · ₹ · payoff Mar 2034', 3200000, '#d4a017', 'HL', [45, 44, 43, 42, 40.5, 39.5, 38, 37, 36, 34.5, 33.2, 32]],
+  ] },
+]
+const toJpy = (cur, v) => (cur === 'JPY' ? v : Math.round(v * RATE))
+document.getElementById('groups').innerHTML = GROUPS.map((g, gi) => {
+  const totalJ = g.accounts.reduce((a, ac) => a + toJpy(g.cur, ac[2]), 0)
+  const totalNative = g.accounts.reduce((a, ac) => a + ac[2], 0)
+  const tot = g.cur === 'JPY' ? yen(totalJ) : `${inr(totalNative)}<small style="display:block;color:var(--muted);font-weight:500;font-size:12px;text-align:right">≈ ${yen(totalJ)}</small>`
+  return `<div class="card"><button class="grp-hd" aria-expanded="${gi < 2}" data-g="${gi}"><span class="chev2">›</span><h3>${g.name}</h3>` +
+    `<span class="${g.up ? 'up' : 'down'}" style="font-size:13.5px">${g.arrow ?? '↑'} ${g.change}</span><span class="muted" style="font-size:13.5px">this cycle</span><span class="tot">${g.liability ? '−' : ''}${tot}</span></button>` +
+    `<div data-gb="${gi}" ${gi < 2 ? '' : 'hidden'}>` + g.accounts.map(([n, sub, v, col, ini, hist, tag]) =>
+      `<div class="acct" tabindex="0"><span class="av" style="background:${col}">${ini}</span><div><div class="nm">${n}${tag ? `<span class="tag">${tag}</span>` : ''}</div><div class="sub">${sub}</div></div>` +
+      `${spark(hist)}<div class="val">${g.cur === 'JPY' ? yen(v) : inr(v)}<small>${g.cur === 'INR' ? '≈ ' + yen(toJpy('INR', v)) : 'recorded 25 Sep'}</small></div></div>`).join('') + '</div></div>'
+}).join('')
+document.querySelectorAll('.grp-hd').forEach((b) => b.addEventListener('click', () => {
+  const open = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', String(open))
+  document.querySelector(`[data-gb="${b.dataset.g}"]`).hidden = !open
+}))
+const ASSETS = [['Japan bank & cash', 1285000, '#1f6fb2'], ['Emergency fund', 2000000, '#2f9a58'], ['India bank & FD', toJpy('INR', 1420000), '#c0392b'], ['Investments', toJpy('INR', 685000), '#8a5cd0']]
+const assetsTotal = ASSETS.reduce((a, x) => a + x[1], 0)
+const blk = (title, rows, tot) => `<div class="h">${title}<b>${yen(tot)}</b></div><div class="stack">${rows.map(([, v, c]) => `<i style="width:${(v / tot) * 100}%;background:${c}"></i>`).join('')}</div>` +
+  rows.map(([n, v, c]) => `<div class="kv2"><span class="dot" style="background:${c};margin:0"></span>${n}<b>${yen(v)}</b></div>`).join('')
+document.getElementById('assets').innerHTML = blk('Assets', ASSETS, assetsTotal)
+const loanJ = toJpy('INR', 3200000)
+document.getElementById('liabs').innerHTML = blk('Liabilities', [['Home loan (₹32,00,000)', loanJ, '#d4a017']], loanJ)
+
+function show(v) {
+  document.querySelectorAll('.views button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)))
+  document.getElementById('desktop').hidden = v === 'phone'
+  document.getElementById('phone').hidden = v !== 'phone'
+  document.querySelectorAll('main section[id^="v-"]').forEach((sec) => { sec.hidden = sec.id !== 'v-' + v })
+  document.querySelectorAll('.side .nav a[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === v))
+}
+document.querySelectorAll('.views button').forEach((b) => b.addEventListener('click', () => show(b.dataset.v)))
+document.querySelectorAll('[data-nav]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); show(a.dataset.nav) }))
+</script>
+
+<script>
+// ---- extra screens (sample data; consistent with Dashboard / Accounts) ----
+const fmtY = (n) => new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(n)
+const fmtR = (n) => '₹' + new Intl.NumberFormat('en-IN').format(n)
+function lineChart(id, series, labels, lo, hi, step, fmt) {
+  const svg = document.getElementById(id); const [, , W, H] = svg.getAttribute('viewBox').split(' ').map(Number)
+  const L = 64, R = 26, T = 12, B = 30, n = labels.length
+  const x = (i) => L + (i * (W - L - R)) / (n - 1), y = (v) => T + ((hi - v) * (H - T - B)) / (hi - lo)
+  let out = ''
+  for (let v = lo; v <= hi + 1e-9; v += step) out += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${fmt(v)}</text>`
+  series.forEach((s2) => {
+    const pts = s2.vals.map((v, i) => (v === null ? null : `${x(i)},${y(v)}`)).filter(Boolean).join(' ')
+    out += `<polyline points="${pts}" fill="none" stroke="${s2.color}" stroke-width="${s2.w ?? 2.6}" ${s2.dash ? `stroke-dasharray="${s2.dash}"` : ''} stroke-linejoin="round"/>`
+  })
+  out += labels.map((m, i) => (m ? `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${m}</text>` : '')).join('')
+  svg.innerHTML = out
+}
+
+// Remittances
+const PURPOSES = [['Family', 60000, 35400, '#f0682e'], ['Loan EMI → Home loan', 47458, 28000, '#d4a017'], ['India savings', 22542, 13300, '#3a9fc9'], ['SIP', 20000, 11800, '#8a5cd0']]
+document.getElementById('purpose').innerHTML =
+  `<div class="stack" style="height:14px;margin:6px 0 14px">${PURPOSES.map(([, j, , c]) => `<i style="width:${(j / 150000) * 100}%;background:${c}"></i>`).join('')}</div>` +
+  PURPOSES.map(([n, j, r, c]) => `<div class="prow"><span><span class="dot" style="background:${c};display:inline-block;margin:0 8px 0 0;vertical-align:0"></span>${n}</span><span class="track"><i style="width:${(j / 150000) * 100}%;background:${c}"></i></span><b>${fmtY(j)}</b><span class="r">${fmtR(r)}</span></div>`).join('')
+const TRANSFERS = [
+  ['20 Oct 2026', [['Wise', 'MUFG → HDFC savings', 'Family', 60000, 35400, 600]]],
+  ['10 Oct 2026', [['Wise', 'MUFG → SBI loan account', 'Loan EMI', 47458, 28000, 300], ['Wise', 'MUFG → HDFC savings', 'India savings', 22542, 13300, 200]]],
+  ['1 Oct 2026', [['Bank', 'MUFG → Mutual funds', 'SIP', 20000, 11800, 100]]],
+]
+const pc = Object.fromEntries(PURPOSES.map((p) => [p[0].split(' ')[0] === 'Loan' ? 'Loan EMI' : p[0], p[3]]))
+document.getElementById('remitlist').innerHTML = TRANSFERS.map(([d, rows]) =>
+  `<div class="day"><span>${d}</span><span>${fmtY(rows.reduce((a, r) => a + r[3], 0))}</span></div>` + rows.map(([svc, route, pur, j, r, fee]) =>
+    `<div class="rrow" tabindex="0"><div><b style="text-align:left;display:block">${svc}</b><span class="sub">${route}</span></div>` +
+    `<span class="c" style="display:flex;gap:8px;align-items:center"><span class="dot" style="background:${pc[pur]};margin:0"></span>${pur}</span>` +
+    `<b>${fmtY(j)}</b><span class="r">${fmtR(r)}<br>fee ${fmtY(fee)}</span><span class="r">￥${(j / r).toFixed(4)}</span></div>`).join('')).join('')
+lineChart('ratechart', [{ vals: [1.672, 1.681, 1.668, 1.689, 1.702, 1.695, 1.711, 1.698, 1.688, 1.693, 1.701, 1.6949], color: '#3a9fc9' },
+  { vals: Array(12).fill(1.694915), color: '#9a958d', dash: '5 4', w: 1.6 }], ['', 'May', '', 'Jun', '', 'Jul', '', 'Aug', '', 'Sep', '', 'Oct'], 1.66, 1.72, 0.02, (v) => '￥' + v.toFixed(2))
+
+// Update balances
+const BAL = [['Japan', [['MUFG savings', 'JPY', 1180000, 1240000], ['Emergency fund (Shinsei)', 'JPY', 1960000, 2000000], ['Cash & IC card', 'JPY', 41000, 45000]]],
+  ['India', [['HDFC savings', 'INR', 406700, 420000], ['SBI fixed deposit', 'INR', 1000000, 1000000], ['Mutual funds (SIP)', 'INR', 673200, 685000]]]]
+const fm = (cur, v) => (cur === 'JPY' ? fmtY(v) : fmtR(v))
+document.getElementById('baltable').innerHTML = '<div class="bh"><span>Account</span><span style="text-align:right">Last cycle (25 Sep)</span><span style="text-align:right">This cycle</span><span style="text-align:right">Change</span></div>' +
+  BAL.map(([g, rows]) => `<div class="grp">${g}</div>` + rows.map(([n, cur, last, now]) => {
+    const d = now - last
+    return `<div class="br"><span>${n}<br><span class="muted" style="font-size:12.5px">${cur === 'JPY' ? '¥ account' : '₹ account · ≈ ' + fmtY(Math.round(now * 1.694915))}</span></span><span class="last">${fm(cur, last)}</span>` +
+      `<span class="in strong" aria-label="${n} balance">${fm(cur, now)}</span><span class="chg ${d > 0 ? 'up' : ''}">${d === 0 ? '—' : (d > 0 ? '+' : '−') + fm(cur, Math.abs(d))}</span></div>`
+  }).join('')).join('')
+
+// Home loan: original plan vs actual (prepayments) — yearly points
+const yrs = ['2021', '', '2023', '', '2025', '', '2027', '', '2029', '', '2031', '', '2033', '', '2035', '', '2037', '', '2039', '', '2041']
+const plan = [50, 48.6, 47.1, 45.4, 43.6, 41.6, 39.4, 37, 34.4, 31.6, 28.5, 25.1, 21.4, 17.4, 13.1, 10.6, 8, 5.6, 3.4, 1.4, 0]
+const actual = [50, 47.4, 44.3, 40.1, 36.3, 32, 27.4, 22.4, 17.1, 12.2, 7.4, 3.6, 1.1, 0, null, null, null, null, null, null, null]
+lineChart('loanchart', [{ vals: plan, color: '#9a958d', dash: '6 5', w: 2 }, { vals: actual, color: '#3a9fc9', w: 3 }], yrs, 0, 50, 10, (v) => '₹' + v + 'L')
+const SCHED = [['Nov 2026', 3200000, 22667, 28000, 0, 3194667], ['Dec 2026', 3194667, 22629, 28000, 200000, 2989296, 'planned extra'], ['Jan 2027', 2989296, 21174, 28000, 0, 2982470], ['Feb 2027', 2982470, 21126, 28000, 0, 2975596], ['Mar 2027', 2975596, 21077, 28000, 0, 2968673]]
+const PAST = [['Sep 2026', 3319780, 23515, 28000, 110000, 3205295, 'paid + prepaid'], ['Oct 2026', 3205295, 22705, 28000, 0, 3200000, 'paid 10 Oct']]
+document.getElementById('loantable').innerHTML = '<div class="sh"><span>Month</span><span>Opening</span><span>Interest</span><span>EMI</span><span>Extra</span><span>Closing</span></div>' +
+  [...PAST.map((r) => [...r, true]), ...SCHED].map(([m, o, i, e, x, c, note, act]) =>
+    `<div class="sr${act ? ' actual' : ''}"><span>${m}${note ? `<span class="tagp">${note}</span>` : ''}</span><span>${fmtR(o)}</span><span>${fmtR(i)}</span><span>${fmtR(e)}</span><span>${x ? fmtR(x) : '—'}</span><span>${fmtR(c)}</span></div>`).join('')
+
+// SIP projection: monthly SIP stepping up 10%/yr at 12%; from Apr 2034 the ₹28,000 EMI is redirected
+let corp = 0, red = 0, monthly = 12000
+const SIPY = []
+for (let y = 2026; y <= 2036; y++) {
+  for (let m = 0; m < 12; m++) {
+    corp = corp * (1 + 0.12 / 12) + monthly
+    red = red * (1 + 0.12 / 12) + ((y > 2034 || (y === 2034 && m >= 3)) ? 28000 : 0)
+  }
+  SIPY.push([String(y), Math.round(corp), Math.round(red)]); monthly = Math.round(monthly * 1.1)
+}
+const top2036 = SIPY[SIPY.length - 1][1] + SIPY[SIPY.length - 1][2]
+document.getElementById('sipcorpus').textContent = '₹' + (top2036 / 100000).toFixed(1) + 'L'
+const mx2 = Math.max(...SIPY.map((r) => r[1] + r[2]))
+document.getElementById('sipbars').innerHTML = SIPY.map(([y, a, r]) =>
+  `<div class="b" aria-label="${y}: ₹${((a + r) / 100000).toFixed(1)} lakh"><div class="stk" style="height:${((a + r) / mx2) * 150}px"><i style="height:${(a / (a + r)) * 100}%"></i><i class="redir" style="height:${(r / (a + r)) * 100}%"></i></div><span>'${y.slice(2)}</span></div>`).join('')
+const ALLOC = [['Nifty 50 index fund', 40, '#8a5cd0'], ['Flexi cap fund', 30, '#3a9fc9'], ['Mid cap fund', 20, '#f0682e'], ['Short-term debt fund', 10, '#56a865']]
+document.getElementById('alloc').innerHTML = `<div class="stack" style="height:14px;margin:4px 0 14px">${ALLOC.map(([, p, c]) => `<i style="width:${p}%;background:${c}"></i>`).join('')}</div>` +
+  ALLOC.map(([n, p, c]) => `<div class="kv2" style="display:flex;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line-2)"><span class="dot" style="background:${c};margin:0"></span>${n}<b style="margin-left:auto">${p}%</b><span class="muted" style="width:80px;text-align:right">${fmtR(Math.round(11800 * p / 100))}</span></div>`).join('')
+
+// Budgets & targets
+const BUD = [['Rent', 85000, 85000], ['Groceries', 32400, 35000], ['Dining out', 18900, 15000], ['Transport', 12600, 15000], ['Utilities', 11800, 12000], ['Phone & internet', 7600, 8000], ['Shopping', 6240, 10000], ['Health', 4800, 5000]]
+const cc = Object.fromEntries(CATS.map((c) => [c[0], c[2]]))
+document.getElementById('budgetlist').innerHTML = BUD.map(([n, spent, b]) => {
+  const p = spent / b, over = spent > b
+  const st = over ? `<span class="st" style="color:var(--bad)">Over by ${fmtY(spent - b)}</span>` : p >= 1 ? `<span class="st" style="color:#a56a00">100% · used up</span>` : p >= 0.9 ? `<span class="st" style="color:#a56a00">${Math.round(p * 100)}% · near</span>` : `<span class="st muted">${fmtY(b - spent)} left</span>`
+  return `<div class="brow"><div class="t"><span><span class="dot" style="background:${cc[n]};display:inline-block;margin:0 8px 0 0;vertical-align:0"></span>${n}${st}</span><b>${fmtY(spent)} <span class="muted" style="font-weight:500">/ ${fmtY(b)}</span></b></div>` +
+    `<div class="track"><i style="width:${Math.min(p, 1) * 100}%;background:${over ? 'var(--bad)' : p >= 0.9 ? '#e0a100' : cc[n]}"></i></div></div>`
+}).join('')
+const TGT = [['Savings (kept)', 300000, 337660, 'JPY'], ['Emergency fund contribution', 50000, 40000, 'JPY'], ['Remittance', 150000, 150000, 'JPY'], ['Loan prepayment', 50000, 0, 'INR']]
+document.getElementById('targets').innerHTML = TGT.map(([n, t, a, cur]) => {
+  const ok = a >= t
+  return `<div class="trow"><span class="n">${n}</span><span class="v"><b>${fm(cur, a)}</b> <span class="muted">/ ${fm(cur, t)}</span></span><span class="st" style="color:${ok ? 'var(--good)' : 'var(--bad)'}">${ok ? '✓ Met' + (a > t ? ' · +' + fm(cur, a - t) : '') : '✗ ' + fm(cur, t - a) + ' short'}</span></div>`
+}).join('')
+
+// Cycle review step 1
+document.getElementById('reviewrows').innerHTML = [['Income', '￥670,000', ''], ['Spent', '￥182,340', '98.6% of budgets'], ['Sent home', '￥150,000', '₹88,500 received'], ['Kept', '￥337,660', '50.4% savings rate · target ￥300,000 ✓']]
+  .map(([n, v, s3]) => `<div class="trow"><span class="n">${n}</span><span class="v"><b>${v}</b></span>${s3 ? `<span class="st muted">${s3}</span>` : ''}</div>`).join('')
+
+// Reports: stacked spend per cycle
+const RC = [['Rent', '#3a9fc9'], ['Groceries', '#56a865'], ['Dining out', '#f2c24b'], ['Everything else', '#c9c3ba']]
+const RS = [[85, 30, 19, 34], [85, 41, 31, 57], [85, 33, 17, 40], [85, 29, 15, 31], [85, 31, 18, 37], [85, 34, 22, 49], [85, 30, 16, 35], [85, 28, 14, 31], [85, 36, 24, 56], [85, 32, 18, 42], [85, 31, 16, 37], [85, 32, 19, 46]]
+document.getElementById('replegend').innerHTML = RC.map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')
+const rmax = Math.max(...RS.map((r) => r.reduce((a, b) => a + b, 0)))
+document.getElementById('repbars').innerHTML = RS.map((r, i) => {
+  const t = r.reduce((a, b) => a + b, 0)
+  return `<div class="b${i === 11 ? ' on' : ''}" aria-label="${cyc[i]}: ¥${t},000"><div class="stk" style="height:${(t / rmax) * 190}px">${r.map((v, k) => `<i style="height:${(v / t) * 100}%;background:${RC[k][1]}"></i>`).join('')}</div><span>${cyc[i]}</span></div>`
+}).join('')
+const FLOW = [['Spent in Japan', 179250, '#f0682e'], ['Sent to India', 145000, '#3a9fc9'], ['Kept', 345750, '#2f9a58']]
+document.getElementById('flow').innerHTML = `<div class="stack" style="height:16px;margin:4px 0 14px">${FLOW.map(([, v, c]) => `<i style="width:${(v / 670000) * 100}%;background:${c}"></i>`).join('')}</div>` +
+  FLOW.map(([n, v, c]) => `<div class="kv2" style="display:flex;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line-2)"><span class="dot" style="background:${c};margin:0"></span>${n}<b style="margin-left:auto">${fmtY(v)}</b><span class="muted" style="width:56px;text-align:right">${Math.round((v / 670000) * 100)}%</span></div>`).join('')
+
+// Settings: categories with icons
+document.getElementById('catset').innerHTML = CATS.map(([n, , c, ic]) =>
+  `<div class="crow"><span class="ic" style="background:${c}22">${ic}</span><span><b>${n}</b> <span class="dot" style="background:${c};display:inline-block;margin:0 0 0 6px;vertical-align:0"></span></span><span class="acts"><span>↑</span><span>↓</span><span>Rename</span><span>Archive</span></span></div>`).join('')
+</script>
+</body></html>
