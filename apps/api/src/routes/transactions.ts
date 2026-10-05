@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
-import { Transaction, TransactionCreate, TransactionPage, TransactionPatch, TransactionQuery } from '@nri/contracts'
+import { Transaction, TransactionCreate, TransactionPage, TransactionPatch, TransactionQuery, TransactionRestore } from '@nri/contracts'
 import { ApiError, parseJson } from '../errors'
 import type { AppVars } from '../middleware/db'
 import { assertId } from '../services/categories'
-import { createTransaction, deleteTransaction, getTransaction, listTransactions, updateTransaction } from '../services/transactions'
+import { createTransaction, deleteTransaction, getTransaction, listTransactions, restoreTransaction, updateTransaction } from '../services/transactions'
 
 export const transactionRoutes = new Hono<{ Variables: AppVars }>()
   .get('/', async (c) => {
@@ -17,6 +17,11 @@ export const transactionRoutes = new Hono<{ Variables: AppVars }>()
   .post('/', async (c) => {
     const input = await parseJson(c, TransactionCreate)
     return c.json(Transaction.parse(await createTransaction(c.var.db, c.var.userId, input)), 201)
+  })
+  // Undo after delete: restores a row with its original ¥/₹/rate, no re-conversion (see services/transactions.ts).
+  .post('/restore', async (c) => {
+    const input = await parseJson(c, TransactionRestore)
+    return c.json(Transaction.parse(await restoreTransaction(c.var.db, c.var.userId, input)), 201)
   })
   .patch('/:id', async (c) => {
     const id = assertId(c.req.param('id'), 'expense')

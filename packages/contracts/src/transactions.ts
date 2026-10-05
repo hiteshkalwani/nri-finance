@@ -37,6 +37,31 @@ export const TransactionPatch = z
   .refine((o) => Object.keys(o).length > 0, 'Nothing to change')
 export type TransactionPatch = z.infer<typeof TransactionPatch>
 
+/**
+ * Undo after delete: re-create a row exactly as it was. Unlike TransactionCreate, this takes the
+ * already-derived amount fields verbatim (no ¥/₹ conversion at today's rate) and allows an archived
+ * category, since the row may have been the last one keeping that category "in use".
+ */
+export const TransactionRestore = z
+  .strictObject({
+    occurredOn: IsoDateString,
+    categoryId: z.uuid(),
+    accountId: z.uuid().nullable(),
+    description: z.string().trim().max(200),
+    notes: z.string().max(2000),
+    paymentMethod: PaymentMethod,
+    needWant: NeedWant,
+    amountJpy: Amount,
+    enteredCurrency: z.enum(['JPY', 'INR']),
+    amountInrPaise: Amount.nullable(),
+    rateUsed: z.string().nullable(),
+  })
+  .refine(
+    (o) => (o.enteredCurrency === 'INR' ? o.amountInrPaise !== null && o.rateUsed !== null : o.amountInrPaise === null && o.rateUsed === null),
+    { message: 'enteredCurrency must be consistent with amountInrPaise and rateUsed', path: ['enteredCurrency'] },
+  )
+export type TransactionRestore = z.infer<typeof TransactionRestore>
+
 export const Transaction = z.object({
   id: z.uuid(),
   occurredOn: z.string(),

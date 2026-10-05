@@ -1,5 +1,5 @@
 import { and, asc, between, desc, eq, ilike, isNull, or, sql, type SQL } from 'drizzle-orm'
-import type { Transaction, TransactionCreate, TransactionPatch, TransactionQuery } from '@nri/contracts'
+import type { Transaction, TransactionCreate, TransactionPatch, TransactionQuery, TransactionRestore } from '@nri/contracts'
 import { cycleBounds, cycleOf, decimalFromPaise, jpyFromInrPaise, paiseFromDecimal } from '@nri/core'
 import { accounts, categories, transactions, type Tx } from '@nri/db'
 import { ApiError } from '../errors'
@@ -72,6 +72,34 @@ export async function createTransaction(tx: Tx, userId: string, input: Transacti
   const rest = omitAmounts(input)
   const [row] = await tx.insert(transactions)
     .values({ userId, ...rest, accountId: input.accountId ?? null, ...(await amountFields(tx, userId, input)) } as typeof transactions.$inferInsert)
+    .returning()
+  return toTransaction(row!, await startDayFor(tx, userId))
+}
+
+/**
+ * Undo after delete: re-create the row exactly as it was. No currency conversion (the ¥/₹/rate are
+ * taken verbatim from the deleted copy) and an archived category is allowed, unlike create.
+ * Note: the restored row gets a fresh id and no `legacyId`, so a later v1 re-import could duplicate
+ * it (see spec §8) — that duplicate is deletable like any other row.
+ */
+export async function restoreTransaction(tx: Tx, userId: string, input: TransactionRestore): Promise<Transaction> {
+  await checkCategory(tx, userId, input.categoryId, false)
+  await checkAccount(tx, userId, input.accountId)
+  const [row] = await tx.insert(transactions)
+    .values({
+      userId,
+      occurredOn: input.occurredOn,
+      categoryId: input.categoryId,
+      accountId: input.accountId,
+      description: input.description,
+      notes: input.notes,
+      paymentMethod: input.paymentMethod,
+      needWant: input.needWant,
+      amountJpy: input.amountJpy,
+      enteredCurrency: input.enteredCurrency,
+      amountInr: input.amountInrPaise === null ? null : decimalFromPaise(input.amountInrPaise),
+      rateUsed: input.rateUsed,
+    } as typeof transactions.$inferInsert)
     .returning()
   return toTransaction(row!, await startDayFor(tx, userId))
 }
