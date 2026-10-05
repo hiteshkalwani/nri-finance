@@ -175,8 +175,9 @@ from the profile), then chips for payment method and need/want pre-filled from t
   entered in ₹), payment, need/want. Sortable columns map to `sort`/`dir`; pages of 50.
 - Filters and sort live in the URL query, so back/forward and reload keep them.
 - Row click → edit form (`/spend/:id`, same fields as quick-add plus account and notes). Delete from the form →
-  back to the ledger with a snackbar "Deleted · Undo" (5 s); Undo re-creates the row from the copy kept client-side
-  (new id).
+  back to the ledger with a snackbar "Deleted · Undo" (5 s); Undo calls `POST /api/transactions/restore` with the
+  copy kept client-side, which re-creates the row with its original ¥/₹/rate verbatim (no re-conversion at today's
+  planning rate) and allows an archived category (new id; see §8 for the `legacyId` trade-off).
 
 ### 5.4 Categories (CAT-1) — Settings
 
@@ -234,4 +235,4 @@ All run in `pnpm stack:check` (CI).
 |---|---|
 | Migration 0003 fails on existing imported rows | All imported rows belong to one user; the migration is tested against an M0-imported database before merge |
 | Dashboard load time grows with history | 12 cycles × ~100 rows; narrow column selects; revisit with SQL aggregation only if > 300 ms |
-| Undo re-create loses `legacyId` | Acceptable: only matters for rows imported from v1 and deleted by mistake; re-import restores them |
+| Undo re-create loses `legacyId` | Undo uses `POST /api/transactions/restore`, which keeps the original ¥/₹/rate verbatim (no re-conversion, archived category allowed) but gives the restored row a fresh id — not the original `legacyId`. A later v1 re-import of the same source row could then duplicate it. Acceptable: the duplicate is just another row the user can delete. |
