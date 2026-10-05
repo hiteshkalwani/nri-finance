@@ -58,10 +58,15 @@ export const categories = pgTable('categories', {
   ...owned,
   name: text('name').notNull(),
   color: text('color').notNull(),
+  icon: text('icon'),
   sortOrder: integer('sort_order').notNull().default(0),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   legacyId: text('legacy_id'),
-}, (t) => [unique('categories_legacy').on(t.userId, t.legacyId), unique('categories_user_id').on(t.userId, t.id)])
+}, (t) => [
+  unique('categories_legacy').on(t.userId, t.legacyId),
+  unique('categories_user_id').on(t.userId, t.id),
+  check('categories_icon_length', sql`${t.icon} is null or char_length(${t.icon}) between 1 and 8`),
+])
 
 export const loans = pgTable('loans', {
   ...owned,

@@ -15,6 +15,7 @@ export const categoryRoutes = new Hono<{ Variables: AppVars }>()
       .insert(categories)
       .values({
         userId, ...input,
+        icon: input.icon ?? null,
         sortOrder: sql`(select coalesce(max(sort_order) + 1, 0) from categories where user_id = ${userId})`,
       })
       .returning({ id: categories.id })
