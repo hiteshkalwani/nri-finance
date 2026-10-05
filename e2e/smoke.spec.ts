@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import { devices, expect, test, type Page } from '@playwright/test'
 
 const user = JSON.parse(readFileSync('.e2e-user.json', 'utf8')) as { email: string; password: string }
+// The three tests share the one e2e user and the data the earlier tests create, so they must run
+// together, in order, in one worker.
 test.describe.configure({ mode: 'serial' })
 
 async function signIn(page: Page, path: string) {
@@ -21,10 +23,12 @@ test('sign in, import v1 data, see the profile', async ({ page }) => {
   await expect(page.getByText(/Imported \d+ transactions/)).toBeVisible()
   await page.getByRole('link', { name: 'Dashboard' }).click()
   await expect(page.getByTestId('income')).toHaveText('￥500,000')
+  expect(page.viewportSize()?.width).toBe(412) // still the config's Pixel 7 phone viewport
 })
 
 test('quick-add an expense on the phone and see it on the dashboard and in the ledger (TXN-2, DASH-2)', async ({ page }) => {
   await signIn(page, '/')
+  expect(page.viewportSize()?.width).toBe(412) // still the config's Pixel 7 phone viewport
   const before = yen(await page.getByTestId('spent').textContent())
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.locator('#amount').fill('1234')
@@ -38,14 +42,17 @@ test('quick-add an expense on the phone and see it on the dashboard and in the l
   await expect(page.getByText('e2e quick-add')).toBeVisible()
 })
 
-// Playwright 1.63 forbids test.use() of worker-scoped fixtures (channel, defaultBrowserType from
-// `devices[...]`) inside a describe group — "forces a new worker" — so it's set at file scope here
-// and only the trailing test picks it up.
-test.use({ ...devices['Desktop Chrome'], channel: 'chrome' })
-
 test.describe('on a laptop', () => {
+  // Playwright 1.63 forbids test.use() of worker-scoped fixtures (e.g. defaultBrowserType, which
+  // `devices['Desktop Chrome']` sets) inside a describe group — "forces a new worker" — so that
+  // field is explicitly left out here; only the test-scoped viewport/UA/etc. apply.
+  // `channel: 'chrome'` is already set for every test by the config, so it's not repeated.
+  const { userAgent, viewport, screen, deviceScaleFactor, isMobile, hasTouch } = devices['Desktop Chrome']
+  test.use({ userAgent, viewport, screen, deviceScaleFactor, isMobile, hasTouch })
+
   test('find an expense, edit its amount, delete it and undo (TXN-1, TXN-3)', async ({ page }) => {
     await signIn(page, '/spend')
+    expect(page.viewportSize()?.width).toBe(1280) // now the Desktop Chrome viewport, not Pixel 7
     await page.locator('#search').fill('e2e quick-add')
     await expect(page.getByTestId('ledger-total')).toContainText('1 expenses')
     await page.getByText('e2e quick-add').click()
