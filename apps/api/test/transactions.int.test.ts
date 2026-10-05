@@ -7,11 +7,12 @@ const { app, close } = testApp()
 const { db, close: closeDb } = createDb(process.env.DATABASE_URL!)
 let a: TestUser
 let b: TestUser
-let food: string, rent: string, old: string, bCat: string, accountA: string
+let food: string, rent: string, old: string, bCat: string, accountA: string, accountB: string
 const call = (u: TestUser, method: string, path: string, body?: unknown) => app.request(path, json(u.accessToken, method, body))
 const profile = { salaryJpy: 300000, planningRateJpyPerInr: '1.694915', cycleStartDay: 25, timezone: 'Asia/Tokyo' }
 const base = (over: Record<string, unknown> = {}) => ({ occurredOn: '2026-10-01', categoryId: food, paymentMethod: 'cash', needWant: 'need', ...over })
 const post = async (u: TestUser, body: unknown) => call(u, 'POST', '/api/transactions', body)
+const restore = async (u: TestUser, body: unknown) => call(u, 'POST', '/api/transactions/restore', body)
 const list = async (u: TestUser, qs = '') => (await (await call(u, 'GET', `/api/transactions${qs}`)).json())
 
 beforeAll(async () => {
@@ -23,6 +24,8 @@ beforeAll(async () => {
   await call(a, 'PATCH', `/api/categories/${old}`, { archived: true })
   accountA = await withUser(db, { sub: a.id }, async (tx) =>
     (await tx.insert(accounts).values({ userId: a.id, name: 'JP bank', country: 'JP', currency: 'JPY', type: 'bank' }).returning())[0]!.id)
+  accountB = await withUser(db, { sub: b.id }, async (tx) =>
+    (await tx.insert(accounts).values({ userId: b.id, name: 'B bank', country: 'JP', currency: 'JPY', type: 'bank' }).returning())[0]!.id)
 })
 afterAll(async () => { await deleteTestUser(a.id); await deleteTestUser(b.id); await close(); await closeDb() })
 
@@ -88,8 +91,11 @@ describe('/api/transactions', () => {
     await post(a, base({ amountJpy: 1, description: '50 percent off' }))
     await post(a, base({ amountJpy: 1, description: 'a_b' }))
     await post(a, base({ amountJpy: 1, description: 'axb' }))
+    await post(a, base({ amountJpy: 1, description: 'back\\slash' }))
+    await post(a, base({ amountJpy: 1, description: 'backslash, no literal char here' }))
     expect((await list(a, `?q=${encodeURIComponent('50%')}`)).items.map((t: { description: string }) => t.description)).toEqual(['50% off'])
     expect((await list(a, '?q=a_b')).items.map((t: { description: string }) => t.description)).toEqual(['a_b'])
+    expect((await list(a, `?q=${encodeURIComponent('back\\slash')}`)).items.map((t: { description: string }) => t.description)).toEqual(['back\\slash'])
   })
 
   it('sorts by amount ascending and by category name', async () => {
@@ -116,5 +122,71 @@ describe('/api/transactions', () => {
     expect((await call(a, 'DELETE', `/api/transactions/${t.id}`)).status).toBe(204)
     expect((await call(a, 'DELETE', `/api/transactions/${t.id}`)).status).toBe(404)
     expect((await call(a, 'PATCH', '/api/transactions/not-a-uuid', { amountJpy: 1 })).status).toBe(404)
+  })
+
+  it('refuses a PATCH with another user’s category id or account id, with 400, never 500', async () => {
+    const t = await (await post(a, base({ amountJpy: 999, description: 'cross-user-patch' }))).json()
+    const resCat = await call(a, 'PATCH', `/api/transactions/${t.id}`, { categoryId: bCat })
+    expect(resCat.status).toBe(400)
+    expect((await resCat.json()).error.code).toBe('VALIDATION_FAILED')
+    const resAcc = await call(a, 'PATCH', `/api/transactions/${t.id}`, { accountId: accountB })
+    expect(resAcc.status).toBe(400)
+    expect((await resAcc.json()).error.code).toBe('VALIDATION_FAILED')
+  })
+
+  describe('POST /api/transactions/restore (I2: Undo after delete)', () => {
+    it('restores a deleted ₹ row with its original ¥ and rate, even after the planning rate has since changed', async () => {
+      const created = await (await post(a, base({ amountInrPaise: 200000, description: 'restore-inr' }))).json()
+      expect(created).toMatchObject({ amountJpy: 3390, enteredCurrency: 'INR', amountInrPaise: 200000, rateUsed: '1.694915' })
+      expect((await call(a, 'DELETE', `/api/transactions/${created.id}`)).status).toBe(204)
+      await call(a, 'PUT', '/api/me', { ...profile, planningRateJpyPerInr: '5.0' })
+      const res = await restore(a, {
+        occurredOn: created.occurredOn, categoryId: created.categoryId, accountId: created.accountId,
+        description: created.description, notes: created.notes, paymentMethod: created.paymentMethod, needWant: created.needWant,
+        amountJpy: created.amountJpy, enteredCurrency: created.enteredCurrency, amountInrPaise: created.amountInrPaise, rateUsed: created.rateUsed,
+      })
+      expect(res.status).toBe(201)
+      expect(await res.json()).toMatchObject({ amountJpy: 3390, enteredCurrency: 'INR', amountInrPaise: 200000, rateUsed: '1.694915' })
+      await call(a, 'PUT', '/api/me', profile)
+    })
+
+    it('restores into an archived category, unlike create', async () => {
+      const res = await restore(a, {
+        occurredOn: '2026-10-02', categoryId: old, accountId: null, description: 'restore-archived', notes: '',
+        paymentMethod: 'cash', needWant: 'need', amountJpy: 500, enteredCurrency: 'JPY', amountInrPaise: null, rateUsed: null,
+      })
+      expect(res.status).toBe(201)
+      expect(await res.json()).toMatchObject({ categoryId: old, amountJpy: 500, enteredCurrency: 'JPY' })
+    })
+
+    it('refuses a restore into another user’s category id, with 400, never 500', async () => {
+      const res = await restore(a, {
+        occurredOn: '2026-10-02', categoryId: bCat, accountId: null, description: 'x', notes: '',
+        paymentMethod: 'cash', needWant: 'need', amountJpy: 500, enteredCurrency: 'JPY', amountInrPaise: null, rateUsed: null,
+      })
+      expect(res.status).toBe(400)
+      expect((await res.json()).error.code).toBe('VALIDATION_FAILED')
+    })
+
+    it('refuses a restore with another user’s account id, with 400, never 500', async () => {
+      const res = await restore(a, {
+        occurredOn: '2026-10-02', categoryId: food, accountId: accountB, description: 'x', notes: '',
+        paymentMethod: 'cash', needWant: 'need', amountJpy: 500, enteredCurrency: 'JPY', amountInrPaise: null, rateUsed: null,
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('refuses a restore whose enteredCurrency is inconsistent with amountInrPaise/rateUsed, with 400', async () => {
+      const inrMissingFields = await restore(a, {
+        occurredOn: '2026-10-02', categoryId: food, accountId: null, description: 'x', notes: '',
+        paymentMethod: 'cash', needWant: 'need', amountJpy: 500, enteredCurrency: 'INR', amountInrPaise: null, rateUsed: null,
+      })
+      expect(inrMissingFields.status).toBe(400)
+      const jpyWithExtraFields = await restore(a, {
+        occurredOn: '2026-10-02', categoryId: food, accountId: null, description: 'x', notes: '',
+        paymentMethod: 'cash', needWant: 'need', amountJpy: 500, enteredCurrency: 'JPY', amountInrPaise: 100, rateUsed: null,
+      })
+      expect(jpyWithExtraFields.status).toBe(400)
+    })
   })
 })
