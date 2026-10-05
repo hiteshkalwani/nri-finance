@@ -6,6 +6,7 @@ const external = process.env.E2E_BASE_URL
 export default defineConfig({
   testDir: './e2e',
   globalSetup: './e2e/global-setup.ts',
+  globalTeardown: './e2e/global-teardown.ts',
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: { baseURL: external ?? 'http://localhost:5173', ...devices['Pixel 7'], channel: 'chrome', trace: 'retain-on-failure' },
   webServer: external
