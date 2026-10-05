@@ -1,0 +1,524 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NRI Finance Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Plan overview: header stats, roadmap, WBS (tree + outline with filters), module map, local stack, fixes, next steps.
+   Status colours: done = green, partial = amber, in progress = indigo, pending = grey. */
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --bg:#f5f6f9;--surface:#fff;--fg:#1a1f2e;--muted:#5a6276;--line:#d6dae4;--soft:#eef0f5;
+  --done:#1f7a4d;--done-t:#e2f3ea;--part:#a85f07;--part-t:#fbf0df;--wip:#3b4c9e;--wip-t:#e9ecf8;--todo:#6b7285;--todo-t:#eceef2;
+  --accent:#0b7a6b;
+  --font-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11141c;--surface:#191e29;--fg:#e5e8ef;--muted:#9aa2b4;--line:#2d3443;--soft:#202634;
+  --done:#5fd39a;--done-t:#14301f;--part:#e7a650;--part-t:#382a15;--wip:#93a2ee;--wip-t:#222a46;--todo:#9aa2b4;--todo-t:#232937;
+  --accent:#52c4b3;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11141c;--surface:#191e29;--fg:#e5e8ef;--muted:#9aa2b4;--line:#2d3443;--soft:#202634;
+  --done:#5fd39a;--done-t:#14301f;--part:#e7a650;--part-t:#382a15;--wip:#93a2ee;--wip-t:#222a46;--todo:#9aa2b4;--todo-t:#232937;
+  --accent:#52c4b3;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 var(--font-body)}
+main{max-width:1100px;margin:0 auto;padding:32px 16px 64px}
+h1,h2,h3{font-family:var(--font-display);line-height:1.2;margin:0}
+h1{font-size:clamp(26px,4vw,36px)}
+h2{font-size:22px;margin:48px 0 6px}
+h2 .num{color:var(--muted);font-family:var(--font-mono);font-size:14px;font-weight:500;margin-right:8px}
+.lede{color:var(--muted);margin:6px 0 0;max-width:70ch}
+.sub{color:var(--muted);margin:0 0 16px;max-width:75ch}
+code,.mono{font-family:var(--font-mono);font-size:.9em}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 0}
+nav.toc a{font-size:13px;color:var(--fg);text-decoration:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px}
+nav.toc a:hover{border-color:var(--accent)}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:24px}
+.stat .v{font-family:var(--font-display);font-size:30px;font-weight:700}
+.stat .l{color:var(--muted);font-size:13px}
+.bar{height:10px;border-radius:999px;background:var(--soft);overflow:hidden;display:flex}
+.bar span{display:block;height:100%}
+.bar .d{background:var(--done)}.bar .p{background:var(--part)}.bar .w{background:var(--wip)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+
+/* chips */
+.chip{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:1px 9px;white-space:nowrap}
+.s-done{color:var(--done);background:var(--done-t)}.s-partial{color:var(--part);background:var(--part-t)}
+.s-wip{color:var(--wip);background:var(--wip-t)}.s-todo{color:var(--todo);background:var(--todo-t)}
+.ms{font-family:var(--font-mono);font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 6px;white-space:nowrap}
+
+/* roadmap */
+.road{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px}
+.mile{position:relative;border-top:4px solid var(--todo)}
+.mile.done{border-top-color:var(--done)}.mile.partial{border-top-color:var(--part)}
+.mile h3{font-size:16px;margin-bottom:4px}
+.mile .goal{font-size:13px;color:var(--muted);margin:6px 0 10px}
+.mile ul{margin:0;padding-left:18px;font-size:13px}
+.here{position:absolute;top:-14px;right:10px;background:var(--wip);color:var(--surface);font-size:11px;font-weight:600;border-radius:999px;padding:1px 8px}
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;align-items:center;font-size:13px}
+.steps .arrow{color:var(--muted)}
+
+/* WBS tree */
+.tree-root{text-align:center;margin:0 auto 18px;max-width:340px;border:2px solid var(--fg)}
+.tree-root .code{font-family:var(--font-mono);color:var(--muted);font-size:12px}
+.tree{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;position:relative}
+.node{display:flex;flex-direction:column;gap:6px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.node:hover{border-color:var(--accent)}
+.node .top{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.node .code{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.node .name{font-weight:600}
+.node .meta{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.node .kids{font-size:12px;color:var(--muted);line-height:1.45}
+
+/* WBS outline */
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:20px 0 10px}
+.filters .lab{font-size:13px;color:var(--muted);margin-right:2px}
+.filters button{font:13px var(--font-body);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 11px;cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.filters .sp{width:12px}
+.outline{padding:0;overflow-x:auto}
+table.wbs{width:100%;border-collapse:collapse;font-size:14px;min-width:720px}
+table.wbs th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface)}
+table.wbs td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+table.wbs tr:last-child td{border-bottom:0}
+table.wbs tr.l1 td{background:var(--soft);font-weight:600}
+table.wbs tr.l1 td:first-child{border-left:3px solid var(--accent)}
+table.wbs .c{font-family:var(--font-mono);font-size:12.5px;white-space:nowrap;color:var(--muted)}
+table.wbs tr.l1 .c{color:var(--fg)}
+table.wbs .nm{min-width:240px}
+table.wbs .nt{color:var(--muted);font-size:13px}
+table.wbs .pg{min-width:110px}
+table.wbs .pg .bar{height:7px;margin-top:6px}
+.toggle{background:none;border:0;color:var(--fg);font:inherit;cursor:pointer;padding:0 4px 0 0}
+.indent2{padding-left:22px}
+.empty{padding:20px;color:var(--muted);text-align:center}
+
+/* diagrams */
+.scroller{overflow-x:auto}
+figure{margin:0}
+figcaption{color:var(--muted);font-size:13px;margin-top:10px;max-width:80ch}
+svg{display:block;width:100%;height:auto;min-width:760px;color:var(--fg);font-family:var(--font-body)}
+svg .box{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+svg .grp{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-dasharray:5 4}
+svg .t{font-size:13px;font-weight:600;fill:currentColor}
+svg .s{font-size:11px;fill:var(--muted)}
+svg .e{fill:none;stroke:currentColor;stroke-width:1.4;opacity:.7}
+svg .e.hot{stroke:var(--accent);opacity:1;stroke-width:1.8}
+svg .el{font-size:11px;fill:var(--muted)}
+svg .done{stroke:var(--done);stroke-width:2}
+svg .partial{stroke:var(--part);stroke-width:2}
+svg .wip{stroke:var(--wip);stroke-width:2}
+svg .todo{stroke:var(--todo);stroke-dasharray:4 3}
+svg .band{fill:var(--soft);stroke:var(--line)}
+
+/* fixes + next */
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.list{margin:0;padding:0;list-style:none}
+.list li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.list li:last-child{border-bottom:0}
+ol.next{margin:0;padding-left:20px}
+ol.next li{margin:6px 0}
+.who{font-size:12px;font-weight:600;color:var(--accent)}
+footer{margin-top:48px;color:var(--muted);font-size:13px}
+@media (max-width:600px){h2{margin-top:36px}.road{grid-template-columns:repeat(6,200px)}}
+</style></head><body><main>
+
+<header>
+  <h1>NRI Finance v2 — implementation plan</h1>
+  <p class="lede">Every piece of work from foundation to retiring the v1 app, with what is built and what is pending.
+  Source of truth: <code>docs/checklist.md</code>, <code>docs/prd.md</code>, and the local stack spec. Status as of 5 Oct 2026.</p>
+  <nav class="toc" aria-label="Sections">
+    <a href="#roadmap">Roadmap</a><a href="#wbs">WBS</a><a href="#outline">WBS outline</a>
+    <a href="#map">Module map</a><a href="#stack">Local stack</a><a href="#fixes">Fix queue</a><a href="#next">Next steps</a>
+  </nav>
+  <div class="stats" id="stats"></div>
+  <div class="card" style="margin-top:12px">
+    <div class="bar" id="overallBar" role="img"></div>
+    <div class="legend"><span><i style="background:var(--done)"></i>Done</span><span><i style="background:var(--part)"></i>Partly done</span>
+      <span><i style="background:var(--wip)"></i>In progress</span><span><i style="background:var(--soft);border:1px solid var(--line)"></i>Pending</span>
+      <span>· Progress counts done as 1, partly done or in progress as ½, over all leaf work packages.</span></div>
+  </div>
+</header>
+
+<section id="roadmap">
+  <h2><span class="num">01</span>Roadmap</h2>
+  <p class="sub">Six milestones, each ending in something you can use. M0's code is finished; the local Docker stack is being built before the cloud deploy.</p>
+  <div class="road">
+    <div class="card mile partial"><span class="here">you are here</span><h3>M0 Foundation</h3><span class="chip s-partial">Partly done</span>
+      <p class="goal">Sign in on phone and laptop and see imported data.</p>
+      <ul><li>Repo, CI, schema, RLS ✅</li><li>Sign-in, profile, import ✅</li><li>Local stack 🔨</li><li>Cloud deploy ⬜</li></ul></div>
+    <div class="card mile"><h3>M1 Spending</h3><span class="chip s-todo">Pending</span>
+      <p class="goal">Stop using v1 for daily logging.</p>
+      <ul><li>Ledger + quick-add</li><li>Categories</li><li>Dashboard basics</li></ul></div>
+    <div class="card mile"><h3>M2 Remittances</h3><span class="chip s-todo">Pending</span>
+      <p class="goal">First real cycle review in v2.</p>
+      <ul><li>Remittances</li><li>Accounts, balances</li><li>Emergency fund</li></ul></div>
+    <div class="card mile"><h3>M3 Loan &amp; SIP</h3><span class="chip s-todo">Pending</span>
+      <p class="goal">Payoff month reflects real payments.</p>
+      <ul><li>Loan schedule + actuals</li><li>SIP plan + projection</li></ul></div>
+    <div class="card mile"><h3>M4 Budgets</h3><span class="chip s-todo">Pending</span>
+      <p class="goal">A full 25th review in under 5 minutes.</p>
+      <ul><li>Budgets, targets</li><li>Guided review</li></ul></div>
+    <div class="card mile"><h3>M5 Polish</h3><span class="chip s-todo">Pending</span>
+      <p class="goal">v1 retired to <code>legacy/</code>.</p>
+      <ul><li>Reports, export</li><li>PWA, offline shell</li></ul></div>
+  </div>
+  <div class="steps card" style="margin-top:12px" aria-label="M0 steps">
+    <strong style="margin-right:6px">M0 path:</strong>
+    <span class="chip s-done">Code (17 tasks)</span><span class="arrow">→</span>
+    <span class="chip s-done">Review fixes</span><span class="arrow">→</span>
+    <span class="chip s-done">GitHub + CI</span><span class="arrow">→</span>
+    <span class="chip s-wip">Local Docker stack</span><span class="arrow">→</span>
+    <span class="chip s-todo">Cloud deploy</span><span class="arrow">→</span>
+    <span class="chip s-todo">Phone check: ¥670,000</span>
+  </div>
+</section>
+
+<section id="wbs">
+  <h2><span class="num">02</span>Work breakdown structure</h2>
+  <p class="sub">Level 1 of the WBS: one platform branch and eleven product modules. Each card rolls up the progress of its work packages; click a card to open it in the outline.</p>
+  <div class="card tree-root"><div class="code">0</div><strong>NRI Finance v2</strong><div class="bar" id="rootBar" style="margin-top:8px"></div></div>
+  <div class="tree" id="tree"></div>
+</section>
+
+<section id="outline">
+  <h2><span class="num">03</span>WBS outline</h2>
+  <p class="sub">Every work package with its WBS code, requirement ID, milestone, owner and status. Filter to see what is left.</p>
+  <div class="filters" role="group" aria-label="Filters">
+    <span class="lab">Status</span>
+    <button data-f="status" data-v="all" aria-pressed="true">All</button>
+    <button data-f="status" data-v="done" aria-pressed="false">Done</button>
+    <button data-f="status" data-v="open" aria-pressed="false">Not done</button>
+    <button data-f="status" data-v="partial" aria-pressed="false">Partly done</button>
+    <button data-f="status" data-v="wip" aria-pressed="false">In progress</button>
+    <span class="sp"></span><span class="lab">Milestone</span>
+    <button data-f="ms" data-v="all" aria-pressed="true">All</button>
+    <button data-f="ms" data-v="M0" aria-pressed="false">M0</button>
+    <button data-f="ms" data-v="M1" aria-pressed="false">M1</button>
+    <button data-f="ms" data-v="M2" aria-pressed="false">M2</button>
+    <button data-f="ms" data-v="M3" aria-pressed="false">M3</button>
+    <button data-f="ms" data-v="M4" aria-pressed="false">M4</button>
+    <button data-f="ms" data-v="M5" aria-pressed="false">M5</button>
+    <span class="sp"></span>
+    <button id="expandAll">Expand all</button><button id="collapseAll">Collapse all</button>
+  </div>
+  <div class="card outline">
+    <table class="wbs"><thead><tr><th>WBS</th><th>Work package</th><th>Req</th><th>Milestone</th><th>Owner</th><th>Status</th><th>Notes</th></tr></thead>
+    <tbody id="rows"></tbody></table>
+  </div>
+</section>
+
+<section id="map">
+  <h2><span class="num">04</span>How the modules connect</h2>
+  <p class="sub">Data flows left to right: the v1 import seeds the ledgers, ledgers feed planning, and everything ends on the dashboard, the 25th review and reports.</p>
+  <figure class="card"><div class="scroller">
+  <svg viewBox="0 0 1000 540" role="img" aria-label="Module dependency map: import feeds spending, remittances and accounts; remittances drive loan and SIP actuals; all modules feed the dashboard, review and reports; profile and the billing cycle underpin everything.">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+    <marker id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--accent)"/></marker></defs>
+    <text class="s" x="105" y="22" text-anchor="middle">SOURCES</text><text class="s" x="355" y="22" text-anchor="middle">LEDGERS</text>
+    <text class="s" x="605" y="22" text-anchor="middle">PLANNING</text><text class="s" x="875" y="22" text-anchor="middle">VIEWS</text>
+
+    <!-- edges -->
+    <path class="e" d="M190 215 H206 V67 H270" marker-end="url(#ar)"/><text class="el" x="200" y="140" transform="rotate(-90 200 140)" text-anchor="middle">transactions</text>
+    <path class="e" d="M190 226 H270" marker-end="url(#ar)"/><text class="el" x="239" y="219" text-anchor="middle">family rows</text>
+    <path class="e" d="M190 240 H214 V387 H270" marker-end="url(#ar)"/><text class="el" x="226" y="320" transform="rotate(-90 226 320)" text-anchor="middle">starter accounts</text>
+    <path class="e" d="M105 252 V500 M105 500" stroke-dasharray="3 3"/>
+    <path class="e" d="M440 54 H520" marker-end="url(#ar)"/><text class="el" x="480" y="47" text-anchor="middle">spend vs budget</text>
+    <path class="e" d="M440 80 H500 V100 H790" marker-end="url(#ar)"/><text class="el" x="640" y="95" text-anchor="middle">spent, by category</text>
+    <path class="e hot" d="M440 220 H520" marker-end="url(#arh)"/><text class="el" x="480" y="213" text-anchor="middle">EMI, prepay</text>
+    <path class="e hot" d="M440 240 H480 V317 H520" marker-end="url(#arh)"/><text class="el" x="472" y="290" text-anchor="middle" transform="rotate(-90 472 290)">SIP paid</text>
+    <path class="e hot" d="M355 200 V160 H710 V115 H790" marker-end="url(#arh)"/><text class="el" x="600" y="154" text-anchor="middle">sent home (¥ / ₹)</text>
+    <path class="e" d="M605 251 V290" marker-end="url(#ar)"/><text class="el" x="612" y="275">payoff year</text>
+    <path class="e" d="M690 230 H765 V128 H790" marker-end="url(#ar)"/><text class="el" x="694" y="222">payoff month</text>
+    <path class="e" d="M690 54 H790" marker-end="url(#ar)"/><text class="el" x="740" y="47" text-anchor="middle">budget status</text>
+    <path class="e" d="M440 395 H778 V250 H790" marker-end="url(#ar)"/><text class="el" x="560" y="388" text-anchor="middle">balances, EF, net worth</text>
+
+    <!-- nodes: status class on border -->
+    <g><rect class="box partial" x="20" y="200" width="170" height="52" rx="8"/><text class="t" x="34" y="222">Import v1</text><text class="s" x="34" y="240">M0 · IMP-1..4 · partly done</text></g>
+    <g><rect class="box todo" x="270" y="40" width="170" height="52" rx="8"/><text class="t" x="284" y="62">Spending ledger</text><text class="s" x="284" y="80">M1 · TXN, CAT</text></g>
+    <g><rect class="box todo" x="270" y="200" width="170" height="52" rx="8"/><text class="t" x="284" y="222">Remittances</text><text class="s" x="284" y="240">M2 · REM-1..5</text></g>
+    <g><rect class="box todo" x="270" y="360" width="170" height="52" rx="8"/><text class="t" x="284" y="382">Accounts &amp; balances</text><text class="s" x="284" y="400">M2 · ACC, BAL, EF</text></g>
+    <g><rect class="box todo" x="520" y="30" width="170" height="52" rx="8"/><text class="t" x="534" y="52">Budgets &amp; targets</text><text class="s" x="534" y="70">M4 · BUD, TGT</text></g>
+    <g><rect class="box todo" x="520" y="200" width="170" height="52" rx="8"/><text class="t" x="534" y="222">Home loan</text><text class="s" x="534" y="240">M3 · LOAN-1..4</text></g>
+    <g><rect class="box todo" x="520" y="292" width="170" height="52" rx="8"/><text class="t" x="534" y="314">SIP</text><text class="s" x="534" y="332">M3 · SIP-1..4</text></g>
+    <g><rect class="box todo" x="790" y="30" width="190" height="110" rx="8"/><text class="t" x="804" y="52">Dashboard</text><text class="s" x="804" y="70">M1 → M4 · DASH-1..9</text>
+      <text class="s" x="804" y="92">income, spent, kept</text><text class="s" x="804" y="108">sent home, EF, net worth</text><text class="s" x="804" y="124">loan payoff, SIP, budgets</text></g>
+    <g><rect class="box todo" x="790" y="210" width="190" height="52" rx="8"/><text class="t" x="804" y="232">Cycle review (25th)</text><text class="s" x="804" y="250">M4 · REV-1 · targets vs actual</text></g>
+    <g><rect class="box todo" x="790" y="350" width="190" height="52" rx="8"/><text class="t" x="804" y="372">Reports &amp; export</text><text class="s" x="804" y="390">M5 · REP, EXP, PWA</text></g>
+    <text class="s" x="980" y="440" text-anchor="end">Review also reads targets; reports read every ledger and the SIP corpus (lines omitted).</text>
+
+    <!-- foundation band -->
+    <rect class="band" x="20" y="470" width="960" height="56" rx="8"/>
+    <rect class="box done" x="34" y="480" width="142" height="36" rx="6"/><text class="t" x="105" y="503" text-anchor="middle">Sign-in · profile</text>
+    <text class="t" x="196" y="494">Foundation (M0): salary, planning rate ¥/₹, cycle 25th→24th in JST, RLS per user</text>
+    <text class="s" x="196" y="512">Every module above reads the profile and computes cycles with packages/core; every row is owned by your user.</text>
+  </svg></div>
+  <figcaption>Border colour is status (green done, amber partly done, grey dashed pending). Teal arrows are the remittance bridge: one transfer in Japan becomes "sent home" on the dashboard and an actual payment on the loan or SIP in India.</figcaption>
+  </figure>
+</section>
+
+<section id="stack">
+  <h2><span class="num">05</span>Current work: local stack on docker compose</h2>
+  <p class="sub">Replaces the Supabase CLI with a compose file you own: real Postgres and real Supabase Auth, so sign-in works locally the way it does in production.</p>
+  <figure class="card"><div class="scroller">
+  <svg viewBox="0 0 1000 380" role="img" aria-label="Local stack: the Mac runs the browser, Vite and the API in dev mode; docker compose runs gateway, auth, Postgres, a one-shot migrate job, and in check mode the built app on port 3000.">
+    <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+    <rect class="grp" x="20" y="30" width="290" height="320" rx="12"/><text class="t" x="36" y="54">Your Mac</text>
+    <rect class="grp" x="390" y="30" width="590" height="320" rx="12"/><text class="t" x="406" y="54">docker compose</text>
+
+    <rect class="box" x="40" y="72" width="250" height="50" rx="8"/><text class="t" x="54" y="94">Browser (Chrome)</text><text class="s" x="54" y="111">:5173 dev · :3000 check</text>
+    <rect class="box" x="40" y="160" width="250" height="60" rx="8"/><text class="t" x="54" y="183">pnpm dev — hot reload</text><text class="s" x="54" y="201">Vite :5173 + API :8787</text>
+    <rect class="box" x="40" y="260" width="250" height="60" rx="8"/><text class="t" x="54" y="283">Tests</text><text class="s" x="54" y="301">integration (SQL + API) · Playwright e2e</text>
+
+    <rect class="box wip" x="430" y="70" width="180" height="50" rx="8"/><text class="t" x="444" y="92">gateway (nginx)</text><text class="s" x="444" y="109">:54321 · /auth/v1</text>
+    <rect class="box wip" x="770" y="70" width="190" height="50" rx="8"/><text class="t" x="784" y="92">auth (GoTrue 2.197)</text><text class="s" x="784" y="109">ES256 keys · sign-ups off</text>
+    <rect class="box wip" x="430" y="160" width="180" height="60" rx="8" stroke-dasharray="6 4"/><text class="t" x="444" y="183">app (profile "app")</text><text class="s" x="444" y="201">:3000 · Vercel build output</text>
+    <rect class="box wip" x="770" y="250" width="190" height="60" rx="8"/><text class="t" x="784" y="273">db (Postgres 17)</text><text class="s" x="784" y="291">:54322 · volume db-data</text>
+    <rect class="box wip" x="430" y="280" width="180" height="50" rx="8"/><text class="t" x="444" y="302">migrate (one-shot)</text><text class="s" x="444" y="319">drizzle migrations</text>
+
+    <path class="e" d="M290 92 H430" marker-end="url(#ar2)"/><text class="el" x="360" y="86" text-anchor="middle">sign-in</text>
+    <path class="e" d="M290 112 H340 V190 H430" marker-end="url(#ar2)"/><text class="el" x="334" y="151" text-anchor="middle" transform="rotate(-90 334 151)">check mode</text>
+    <path class="e" d="M290 200 H320 V262 H770" marker-end="url(#ar2)"/><text class="el" x="690" y="256" text-anchor="middle">SQL :54322</text>
+    <path class="e" d="M290 290 H320 V262" />
+    <path class="e" d="M610 95 H770" marker-end="url(#ar2)"/><text class="el" x="690" y="89" text-anchor="middle">strip /auth/v1 → :9999</text>
+    <path class="e" d="M865 120 V250" marker-end="url(#ar2)"/><text class="el" x="872" y="190">auth schema</text>
+    <path class="e" d="M520 160 V120" marker-end="url(#ar2)"/><text class="el" x="527" y="145">JWKS (internal URL)</text>
+    <path class="e" d="M610 205 H800 V250" marker-end="url(#ar2)"/><text class="el" x="700" y="199" text-anchor="middle">SQL as user</text>
+    <path class="e" d="M610 305 H770" marker-end="url(#ar2)"/><text class="el" x="690" y="322" text-anchor="middle">migrations, after auth</text>
+  </svg></div>
+  <figcaption>Daily coding: <code>pnpm stack:up</code> then <code>pnpm dev</code>. Integration check: <code>pnpm stack:check</code> builds the app image, starts it on :3000, and runs the integration and e2e tests against it — the same command CI runs. The dashed app box only starts in check mode.</figcaption>
+  </figure>
+</section>
+
+<section id="fixes">
+  <h2><span class="num">06</span>Fix queue from the M0 review</h2>
+  <p class="sub">Small items the reviewer found, each scheduled into the milestone where it fits. They also appear in the WBS outline.</p>
+  <div class="card"><ul class="list" id="fixList"></ul></div>
+</section>
+
+<section id="next">
+  <h2><span class="num">07</span>Next steps</h2>
+  <div class="two">
+    <div class="card"><h3 style="font-size:16px;margin-bottom:8px">Now</h3>
+      <ol class="next">
+        <li><span class="who">YOU</span> Review the local stack spec (<code>docs/superpowers/specs/2026-10-05-local-stack-design.md</code>).</li>
+        <li><span class="who">CLAUDE</span> Write the implementation plan (WBS 1.4.2), starting with the spike.</li>
+        <li><span class="who">CLAUDE</span> Build the stack (1.4.3 – 1.4.10); this page and the checklist update after each task.</li>
+      </ol></div>
+    <div class="card"><h3 style="font-size:16px;margin-bottom:8px">Then</h3>
+      <ol class="next" start="4">
+        <li><span class="who">YOU</span> Create the Supabase (Tokyo) and Vercel projects (1.5.1, 1.5.3).</li>
+        <li><span class="who">CLAUDE</span> Apply migrations, run live checks, import on your phone (1.5.2, 1.5.4).</li>
+        <li><span class="who">BOTH</span> Close M0; plan M1, starting with same-owner foreign keys (1.2.4).</li>
+      </ol></div>
+  </div>
+</section>
+
+<footer>Generated from <code>docs/checklist.md</code> on 5 Oct 2026. Branch <code>local-stack</code>.</footer>
+</main>
+
+<script>
+// WBS data. status: done | partial | wip | todo. owner: Claude | You | Both. Leaves carry status; parents roll up.
+const WBS = [
+ {c:'1', n:'Platform', ms:'M0', kids:[
+  {c:'1.1', n:'Repo, tooling, CI', ms:'M0', kids:[
+   {c:'1.1.1', n:'pnpm monorepo: web, api, core, contracts, db, test-utils', s:'done'},
+   {c:'1.1.2', n:'TypeScript, ESLint (v-html, toISOString banned), Prettier', s:'done'},
+   {c:'1.1.3', n:'Test harness: unit, integration, Playwright e2e', s:'done', note:'59 unit, 4 script, 25 integration, 1 e2e'},
+   {c:'1.1.4', n:'Private GitHub repo + Actions CI', s:'done', note:'hiteshkalwani/nri-finance, green'}]},
+  {c:'1.2', n:'Database', ms:'M0', kids:[
+   {c:'1.2.1', n:'Schema: 12 tables, integer ¥ / numeric ₹', s:'done'},
+   {c:'1.2.2', n:'Migrations 0000–0002', s:'done'},
+   {c:'1.2.3', n:'Row-level security per user', s:'done', note:'Tested via API and direct SQL'},
+   {c:'1.2.4', n:'Same-owner foreign keys', s:'todo', ms:'M1', note:'Must land before M1 accepts ids from the browser'},
+   {c:'1.2.5', n:'Revoke broad default grants', s:'todo', note:'Before cloud deploy'}]},
+  {c:'1.3', n:'API core', ms:'M0', kids:[
+   {c:'1.3.1', n:'Health, JWT check via JWKS (ES256)', s:'done'},
+   {c:'1.3.2', n:'Per-request transaction, rollback on error', s:'done'},
+   {c:'1.3.3', n:'Errors: 400 / 401 / 404 / 503 (DB down or paused)', s:'done'},
+   {c:'1.3.4', n:'JWKS fetch failure → 503 instead of sign-out', s:'todo', ms:'M1'}]},
+  {c:'1.4', n:'Local stack (docker compose)', ms:'M0', kids:[
+   {c:'1.4.1', n:'Design spec', s:'wip', o:'Both', note:'Written; awaiting your review'},
+   {c:'1.4.2', n:'Implementation plan', s:'todo'},
+   {c:'1.4.3', n:'Spike: GoTrue ES256 keys, Postgres image init, CORS', s:'todo', note:'Stop and report if it fails'},
+   {c:'1.4.4', n:'pnpm stack:keys → local keys + .env.local', s:'todo', note:'Replaces test-env.mjs'},
+   {c:'1.4.5', n:'Compose: db, auth, gateway, migrate', s:'todo'},
+   {c:'1.4.6', n:'SUPABASE_AUTH_INTERNAL_URL for JWKS inside Docker', s:'todo', note:'Production unchanged'},
+   {c:'1.4.7', n:'Vercel-output server + app image (:3000)', s:'todo'},
+   {c:'1.4.8', n:'stack:up / check / down / reset; Playwright E2E_BASE_URL', s:'todo'},
+   {c:'1.4.9', n:'CI on stack:check (adds e2e); Supabase CLI removed', s:'todo'},
+   {c:'1.4.10', n:'e2e cleans up its user; test for 401 → ?next=', s:'todo'},
+   {c:'1.4.11', n:'TRD §9.1, §10, §12.2 updated', s:'todo'}]},
+  {c:'1.5', n:'Cloud deploy', ms:'M0', kids:[
+   {c:'1.5.1', n:'Supabase project (Tokyo), sign-ups off, your user', s:'todo', o:'You'},
+   {c:'1.5.2', n:'Migrations applied to the cloud database', s:'todo'},
+   {c:'1.5.3', n:'Vercel project + env vars', s:'todo', o:'You', note:'No JWT secret, no service key'},
+   {c:'1.5.4', n:'Live checks: health, 401, CSP, phone import ¥670,000, 503 when paused', s:'todo', o:'Both'},
+   {c:'1.5.5', n:'TRD §9.1 / §9.2 match the Build Output deploy', s:'todo'},
+   {c:'1.5.6', n:'Weekly pg_dump backup (keeps the project awake)', s:'todo'}]}]},
+ {c:'2', n:'Sign-in and profile', ms:'M0', kids:[
+  {c:'2.1', r:'AUTH-1', n:'Email + password sign-in; stay signed in on phone and laptop', s:'partial', note:'Works locally; needs cloud deploy'},
+  {c:'2.2', r:'AUTH-2', n:'Sign out; expiry returns to sign-in without losing a form', s:'partial', note:'Form lost; sign-out keeps cached data', ms:'M1'},
+  {c:'2.3', r:'AUTH-3', n:'Sign-up closed', s:'done'},
+  {c:'2.4', r:'PROF-1', n:'Profile: salary, planning rate, cycle day, timezone', s:'done'}]},
+ {c:'3', n:'Import from v1', ms:'M0', kids:[
+  {c:'3.1', r:'IMP-1', n:'Import transactions, categories, settings, loan, SIP', s:'partial', note:'EF goal waits for M2 column'},
+  {c:'3.2', r:'IMP-2', n:'Family/India rows become remittances', s:'done'},
+  {c:'3.3', r:'IMP-3', n:'Starter accounts (JP bank, JP EF, IN bank)', s:'done'},
+  {c:'3.4', r:'IMP-4', n:'Idempotent re-import', s:'done'}]},
+ {c:'4', n:'Spending ledger and categories', ms:'M1', kids:[
+  {c:'4.1', r:'TXN-1', n:'Add / edit / delete transactions', s:'todo'},
+  {c:'4.2', r:'TXN-2', n:'Quick-add on phone (today in JST)', s:'todo'},
+  {c:'4.3', r:'TXN-3', n:'Filters, sort, pagination', s:'todo'},
+  {c:'4.4', r:'TXN-4', n:'Enter in ₹, converted and stored', s:'todo', note:'P1'},
+  {c:'4.5', r:'CAT-1', n:'Categories: add, rename, recolor, reorder, archive', s:'todo'},
+  {c:'4.6', n:'"Not found" page for unknown routes', s:'todo'}]},
+ {c:'5', n:'Dashboard', ms:'M1', kids:[
+  {c:'5.1', r:'DASH-1', n:'Cycle picker (current cycle, JST)', s:'todo'},
+  {c:'5.2', r:'DASH-2', n:'Income, spent, kept, savings rate', s:'todo'},
+  {c:'5.3', r:'DASH-3', n:'Category donut, 12-cycle bar', s:'todo'},
+  {c:'5.4', r:'DASH-4', n:'Sent home: ¥ sent, ₹ received, by purpose', s:'todo', ms:'M2'},
+  {c:'5.5', r:'DASH-5', n:'Net worth: Japan ¥, India ₹, combined', s:'todo', ms:'M2', note:'P1'},
+  {c:'5.6', r:'DASH-6', n:'Emergency fund, goal, months covered', s:'todo', ms:'M2'},
+  {c:'5.7', r:'DASH-7', n:'Loan balance and payoff month', s:'todo', ms:'M3'},
+  {c:'5.8', r:'DASH-8', n:'SIP paid vs plan; 2036 corpus', s:'todo', ms:'M3', note:'P1'},
+  {c:'5.9', r:'DASH-9', n:'Budget status', s:'todo', ms:'M4', note:'P1'}]},
+ {c:'6', n:'Remittances', ms:'M2', kids:[
+  {c:'6.1', r:'REM-1', n:'Add / edit / delete remittances', s:'todo', note:'Fees kept separate'},
+  {c:'6.2', r:'REM-2', n:'Purposes; EMI / prepay linked to a loan', s:'todo'},
+  {c:'6.3', r:'REM-3', n:'Live effective rate vs planning rate', s:'todo', note:'Settle rate decimals here'},
+  {c:'6.4', r:'REM-4', n:'Filters and totals per purpose', s:'todo'},
+  {c:'6.5', r:'REM-5', n:'Rate history chart', s:'todo', note:'P1'}]},
+ {c:'7', n:'Accounts and balances', ms:'M2', kids:[
+  {c:'7.1', r:'ACC-1', n:'Accounts: add, edit, archive, EF flag', s:'todo'},
+  {c:'7.2', r:'BAL-1', n:'Review-day balance entry, prefilled', s:'todo'},
+  {c:'7.3', r:'BAL-2', n:'Change since last cycle', s:'todo', note:'P1'},
+  {c:'7.4', r:'EF-1', n:'Emergency fund total, months covered', s:'todo', note:'Adds EF goal; re-import fills it'},
+  {c:'7.5', n:'Per-cycle income override', s:'todo'}]},
+ {c:'8', n:'Home loan', ms:'M3', kids:[
+  {c:'8.1', r:'LOAN-1', n:'Loan setup; several loans', s:'todo', note:'v1 loan already imported'},
+  {c:'8.2', r:'LOAN-2', n:'Monthly schedule, never below 0', s:'todo'},
+  {c:'8.3', r:'LOAN-3', n:'Actuals from remittances; what-if extras', s:'todo'},
+  {c:'8.4', r:'LOAN-4', n:'Payoff month, interest saved', s:'todo', note:'P1'}]},
+ {c:'9', n:'SIP', ms:'M3', kids:[
+  {c:'9.1', r:'SIP-1', n:'Plan: amount, step-up, return, EMI redirect', s:'todo', note:'v1 plan imported'},
+  {c:'9.2', r:'SIP-2', n:'Fund allocation = 100%', s:'todo'},
+  {c:'9.3', r:'SIP-3', n:'Actual vs plan per cycle', s:'todo'},
+  {c:'9.4', r:'SIP-4', n:'Projection to 2036', s:'todo'}]},
+ {c:'10', n:'Budgets and targets', ms:'M4', kids:[
+  {c:'10.1', r:'BUD-1', n:'Monthly budget per category', s:'todo'},
+  {c:'10.2', r:'BUD-2', n:'Remaining budget in ledger + quick-add', s:'todo', note:'P1'},
+  {c:'10.3', r:'TGT-1', n:'Per-cycle targets; copy last cycle', s:'todo', note:'v1 targets imported'},
+  {c:'10.4', r:'TGT-2', n:'Target vs actual', s:'todo'}]},
+ {c:'11', n:'Cycle review', ms:'M4', kids:[
+  {c:'11.1', r:'REV-1', n:'Guided 25th review', s:'todo', note:'P1'}]},
+ {c:'12', n:'Reports, export, PWA', ms:'M5', kids:[
+  {c:'12.1', r:'REP-1', n:'Spend per cycle and category', s:'todo'},
+  {c:'12.2', r:'REP-2', n:'Japan vs India flow', s:'todo', note:'P1'},
+  {c:'12.3', r:'EXP-1', n:'Export JSON, CSV, XLSX', s:'todo'},
+  {c:'12.4', r:'PWA-1', n:'Installable, offline shell, asset caching', s:'todo'}]},
+];
+const FIXES = [
+ ['Same-owner foreign keys','Before M1','1.2.4'],['Revoke broad default grants','Before cloud deploy','1.2.5'],
+ ['e2e deletes its user; test the 401 → ?next= redirect','Local stack','1.4.10'],
+ ['Keep unsaved form on re-sign-in; clear cache on sign-out','M1','2.2'],['"Not found" page','M1','4.6'],
+ ['JWKS failure → 503','M1','1.3.4'],['Import warns when a profile exists; EF goal','M2','3.1 / 7.4'],
+ ['Rate decimals: code vs TRD','M2','6.3'],['Long cache for /assets/*','M5','12.4']];
+
+const LABEL = {done:'Done', partial:'Partly done', wip:'In progress', todo:'Pending'};
+const W = {done:1, partial:.5, wip:.5, todo:0};
+// inherit milestone + owner, collect leaves, roll up
+function prep(n, ms, depth){
+  n.ms = n.ms || ms; n.o = n.o || 'Claude'; n.depth = depth;
+  if(!n.kids){ return [n]; }
+  const leaves = n.kids.flatMap(k => prep(k, n.ms, depth+1));
+  n.leaves = leaves;
+  const cnt = {done:0,partial:0,wip:0,todo:0}; leaves.forEach(l => cnt[l.s]++);
+  n.cnt = cnt; n.pct = leaves.reduce((a,l)=>a+W[l.s],0)/leaves.length;
+  n.s = cnt.done===leaves.length ? 'done' : (cnt.wip ? 'wip' : (cnt.done||cnt.partial ? 'partial' : 'todo'));
+  return leaves;
+}
+const all = WBS.flatMap(n => prep(n, n.ms, 1));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function barHtml(cnt, total){
+  const p = k => (cnt[k]/total*100).toFixed(2)+'%';
+  return `<span class="d" style="width:${p('done')}"></span><span class="p" style="width:${p('partial')}"></span><span class="w" style="width:${p('wip')}"></span>`;
+}
+// stats
+const tot = {done:0,partial:0,wip:0,todo:0}; all.forEach(l => tot[l.s]++);
+const pct = Math.round(all.reduce((a,l)=>a+W[l.s],0)/all.length*100);
+const prd = all.filter(l=>l.r); const prdDone = prd.filter(l=>l.s==='done').length;
+document.getElementById('stats').innerHTML = [
+  [pct+'%','overall progress'],[all.length,'work packages'],[tot.done,'done'],[tot.partial+tot.wip,'partly done / in progress'],
+  [tot.todo,'pending'],[prdDone+' / '+prd.length,'PRD requirements done']].map(([v,l])=>`<div class="card stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+const ob = document.getElementById('overallBar'); ob.innerHTML = barHtml(tot, all.length);
+ob.setAttribute('aria-label', `${tot.done} done, ${tot.partial+tot.wip} partly done or in progress, ${tot.todo} pending of ${all.length}`);
+document.getElementById('rootBar').innerHTML = barHtml(tot, all.length);
+
+// tree: level-1 cards (platform shows its level-2 groups as cards too)
+const level1 = [...WBS[0].kids, ...WBS.slice(1)];
+document.getElementById('tree').innerHTML = level1.map(n => `
+  <button class="card node" data-go="${n.c}" type="button" aria-label="Open ${esc(n.c)} ${esc(n.n)} in the outline">
+    <div class="top"><span class="code">${n.c}</span><span class="ms">${n.ms}</span></div>
+    <div class="name">${esc(n.n)}</div>
+    <div class="bar">${barHtml(n.cnt, n.leaves.length)}</div>
+    <div class="meta"><span>${n.cnt.done}/${n.leaves.length} done</span><span class="chip s-${n.s}">${LABEL[n.s]}</span></div>
+  </button>`).join('');
+
+// outline rows
+const open = new Set(['1.4','2','3']);
+const filt = {status:'all', ms:'all'};
+function leafMatch(l){
+  const sOk = filt.status==='all' || (filt.status==='open' ? l.s!=='done' : l.s===filt.status);
+  return sOk && (filt.ms==='all' || l.ms===filt.ms);
+}
+function render(){
+  const out = [];
+  const walk = (n) => {
+    if(n.kids){
+      const shown = n.leaves.filter(leafMatch);
+      if(!shown.length) return;
+      const isOpen = open.has(n.c) || filt.status!=='all' || filt.ms!=='all';
+      const cls = n.depth===1 ? 'l1' : '';
+      out.push(`<tr class="${cls}" id="w-${n.c}"><td class="c">${n.c}</td>
+        <td class="nm ${n.depth>2?'indent2':''}"><button class="toggle" data-t="${n.c}" aria-expanded="${isOpen}">${isOpen?'▾':'▸'}</button>${esc(n.n)}</td>
+        <td></td><td><span class="ms">${n.ms}</span></td><td></td>
+        <td class="pg"><span class="chip s-${n.s}">${LABEL[n.s]}</span><div class="bar">${barHtml(n.cnt,n.leaves.length)}</div></td>
+        <td class="nt">${n.cnt.done}/${n.leaves.length} done</td></tr>`);
+      if(isOpen) n.kids.forEach(walk);
+    } else if(leafMatch(n)){
+      out.push(`<tr><td class="c">${n.c}</td><td class="nm ${n.depth>2?'indent2':''}">${esc(n.n)}</td>
+        <td class="c">${n.r||''}</td><td><span class="ms">${n.ms}</span></td><td>${n.o}</td>
+        <td><span class="chip s-${n.s}">${LABEL[n.s]}</span></td><td class="nt">${esc(n.note||'')}</td></tr>`);
+    }
+  };
+  WBS.forEach(walk);
+  document.getElementById('rows').innerHTML = out.join('') || '<tr><td colspan="7" class="empty">Nothing matches these filters.</td></tr>';
+}
+render();
+document.getElementById('rows').addEventListener('click', e => {
+  const b = e.target.closest('[data-t]'); if(!b) return;
+  const c = b.dataset.t; open.has(c) ? open.delete(c) : open.add(c); render();
+});
+document.querySelectorAll('.filters [data-f]').forEach(b => b.addEventListener('click', () => {
+  filt[b.dataset.f] = b.dataset.v;
+  document.querySelectorAll(`.filters [data-f="${b.dataset.f}"]`).forEach(x => x.setAttribute('aria-pressed', String(x===b)));
+  render();
+}));
+const groups = []; const collect = n => { if(n.kids){ groups.push(n.c); n.kids.forEach(collect); } }; WBS.forEach(collect);
+document.getElementById('expandAll').addEventListener('click', () => { groups.forEach(g=>open.add(g)); render(); });
+document.getElementById('collapseAll').addEventListener('click', () => { open.clear(); render(); });
+document.getElementById('tree').addEventListener('click', e => {
+  const b = e.target.closest('[data-go]'); if(!b) return;
+  const c = b.dataset.go; open.add(c); if(c.includes('.')) open.add(c.split('.')[0]);
+  render(); document.getElementById('w-'+c)?.scrollIntoView({behavior:'smooth', block:'center'});
+});
+document.getElementById('fixList').innerHTML = FIXES.map(([t,w,c]) =>
+  `<li><span>${esc(t)}</span><span style="white-space:nowrap"><span class="ms">${esc(w)}</span> <span class="c mono" style="color:var(--muted)">WBS ${esc(c)}</span></span></li>`).join('');
+</script>
+</body></html>
