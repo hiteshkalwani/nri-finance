@@ -8,7 +8,7 @@ import { CATEGORY_ICONS, moveId, PALETTE, useCategories } from '../lib/categorie
 import { safeColor } from '../lib/color'
 import CategoryAvatar from './CategoryAvatar.vue'
 
-const { xs } = useDisplay()
+const { mdAndUp } = useDisplay()
 const qc = useQueryClient()
 const cats = useCategories()
 const newName = ref('')
@@ -131,11 +131,12 @@ function startEdit(c: Category) { editing.value = c.id; editName.value = c.name 
         </v-menu>
         <v-btn icon="mdi-pencil-outline" variant="text" size="small" :aria-label="`Rename ${c.name}`" @click="startEdit(c)" />
         <!-- Reorder discoverability (M1 regression, fix round 1): ↑ ↓ are inline again on wide
-             screens, where there's room; only on phones do they move into the "More actions"
-             menu alongside archive/delete, which stay in the menu on both breakpoints — a phone
-             width has no room for 7 always-visible action icons (verified with Playwright — every
-             row showed just an avatar and icons once there was). -->
-        <template v-if="!xs">
+             screens, where there's room; below `md` (960px) — including the 600-960px sidebar
+             range, where the name column would otherwise squeeze to ~45px — they move into the
+             "More actions" menu alongside archive/delete, which stay in the menu at every width
+             (fix round 2: a phone width has no room for 7 always-visible action icons, verified
+             with Playwright — every row showed just an avatar and icons once there was). -->
+        <template v-if="mdAndUp">
           <v-btn icon="mdi-arrow-up" variant="text" size="small" :aria-label="`Move ${c.name} up`" :disabled="i === 0" @click="move(i, -1)" />
           <v-btn
             icon="mdi-arrow-down" variant="text" size="small" :aria-label="`Move ${c.name} down`"
@@ -145,7 +146,7 @@ function startEdit(c: Category) { editing.value = c.id; editName.value = c.name 
         <v-menu>
           <template #activator="{ props }"><v-btn v-bind="props" icon="mdi-dots-vertical" variant="text" size="small" :aria-label="`More actions for ${c.name}`" /></template>
           <v-list density="compact">
-            <template v-if="xs">
+            <template v-if="!mdAndUp">
               <v-list-item :disabled="i === 0" prepend-icon="mdi-arrow-up" :title="`Move ${c.name} up`" @click="move(i, -1)" />
               <v-list-item
                 :disabled="i === (cats.data.value?.length ?? 0) - 1" prepend-icon="mdi-arrow-down" :title="`Move ${c.name} down`" @click="move(i, 1)"
