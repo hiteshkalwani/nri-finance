@@ -93,10 +93,16 @@ export function areaData(labels: string[], values: number[], lineColor: string) 
  * Options for the net worth area chart. `formatValue` lets the caller switch the y-axis/tooltip
  * between yen and rupees (the Accounts screen's "In ¥ / In ₹" toggle re-expresses the whole
  * chart, not just the headline total) without this module knowing about currencies at all.
+ *
+ * `reducedMotion` (fix round 1): the caller passes `window.matchMedia('(prefers-reduced-motion:
+ * reduce)').matches` — Chart.js's default ~1s draw-in animation otherwise means the chart can
+ * still be mid-animation (or, worse, not yet started) when something screenshots the page the
+ * instant it settles, same as any other browser user who asked for reduced motion.
  */
-export function buildAreaOptions(tickColor: string, gridColor: string, formatValue: (n: number) => string): ChartOptions<'line'> {
+export function buildAreaOptions(tickColor: string, gridColor: string, formatValue: (n: number) => string, reducedMotion = false): ChartOptions<'line'> {
   return {
     maintainAspectRatio: false,
+    animation: reducedMotion ? false : undefined,
     plugins: {
       legend: { display: false },
       tooltip: { callbacks: { label: (ctx) => formatValue(Number(ctx.parsed.y)) } },

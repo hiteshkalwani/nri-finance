@@ -26,7 +26,11 @@ const themeBorder = (): string => {
 // `primary-accent`, not `primary`: the fill/line is a non-text use and must stay the bright
 // mockup accent in both themes (theme.ts) — see DashboardPage's matching comment on `barChartData`.
 const chartData = computed(() => areaData(props.labels, props.values, themeHex('primary-accent')))
-const chartOptions = computed(() => buildAreaOptions(themeHex('on-surface-variant'), themeBorder(), props.formatValue))
+// A real person who set "reduce motion" in their OS gets the chart drawn complete, no animation —
+// same reasoning the screenshot script relies on (scripts/ui-screens.mjs sets `reducedMotion:
+// 'reduce'` on its pages) to never catch the ~1s draw-in mid-animation (fix round 1).
+const reducedMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const chartOptions = computed(() => buildAreaOptions(themeHex('on-surface-variant'), themeBorder(), props.formatValue, reducedMotion))
 </script>
 
 <template>

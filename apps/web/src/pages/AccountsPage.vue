@@ -73,6 +73,21 @@ function otherAmount(amount: number, currency: 'JPY' | 'INR'): string {
   const other = inOtherCurrency(amount, currency, rate.value)
   return currency === 'JPY' ? `≈ ${rupees(other)}` : `≈ ${yen(other)}`
 }
+/**
+ * A row's change-since-last-cycle text and colour class (fix round 1). Zero reads as a plain,
+ * colourless "No change" — a literal "↑ ¥0" claims a direction that didn't happen (review finding).
+ * For an asset row an increase is good (success) and a decrease is bad (error); for a card row —
+ * a liability, "owed" — that's inverted: an increase in what's owed is bad, a decrease is good.
+ * The arrow itself still points the literal numeric direction either way (colour is never the
+ * only signal, spec §5); only which colour means "good" flips.
+ */
+function changeDisplay(row: Row): { text: string; cls: string } {
+  const amt = row.changeAmount!
+  if (amt === 0) return { text: 'No change', cls: 'muted' }
+  const up = amt > 0
+  const good = row.type === 'card' ? !up : up
+  return { text: `${up ? '↑' : '↓'} ${ownAmount(Math.abs(amt), row.currency)}`, cls: `num ${good ? 'text-success' : 'text-error'}` }
+}
 function groupTotalLabel(g: { rows: Row[] }): string {
   const vals = g.rows.filter((r) => r.amount !== null).map((r) => (r.currency === showIn.value ? r.amount! : inOtherCurrency(r.amount!, r.currency, rate.value)))
   if (!vals.length) return '—'
@@ -223,19 +238,17 @@ function submitEfGoal() {
             <div v-for="row in g.rows" :key="row.id" class="acct" :class="{ compact: xs }">
               <span class="av" aria-hidden="true"><v-icon size="18">{{ TYPE_ICON[row.type] }}</v-icon></span>
               <div class="nm-wrap">
-                <div class="nm">
-                  <span class="nm-text">{{ row.name }}</span>
+                <div class="nm-text">{{ row.name }}</div>
+                <div class="sub-row">
                   <span class="tag ctag">{{ row.country }}</span>
                   <span v-if="row.isEmergencyFund" class="tag eftag">Emergency fund</span>
+                  <span class="sub">{{ row.country === 'JP' ? 'Japan' : 'India' }} · {{ row.currency }}</span>
                 </div>
-                <div class="sub">{{ row.country === 'JP' ? 'Japan' : 'India' }} · {{ row.currency }}</div>
               </div>
               <div v-if="!xs" class="chg">
                 <span v-if="row.source === 'none'" class="muted">No balance yet</span>
                 <span v-else-if="row.source === 'carried'" class="muted">updated {{ monthYearLabel(row.fromCycle!) }}</span>
-                <span v-else-if="row.changeAmount !== null" class="num" :class="row.changeAmount! >= 0 ? 'text-success' : 'text-error'">
-                  {{ row.changeAmount! >= 0 ? '↑' : '↓' }} {{ ownAmount(Math.abs(row.changeAmount!), row.currency) }}
-                </span>
+                <span v-else-if="row.changeAmount !== null" :class="changeDisplay(row).cls">{{ changeDisplay(row).text }}</span>
               </div>
               <div class="val num">
                 <template v-if="row.amount !== null">
@@ -244,15 +257,17 @@ function submitEfGoal() {
                 </template>
                 <template v-else>—</template>
               </div>
-              <v-menu>
-                <template #activator="{ props: menuProps }">
-                  <v-btn v-bind="menuProps" icon="mdi-dots-vertical" variant="text" size="small" :aria-label="`More actions for ${row.name}`" />
-                </template>
-                <v-list density="compact">
-                  <v-list-item prepend-icon="mdi-pencil-outline" title="Edit" @click="openEdit(row)" />
-                  <v-list-item prepend-icon="mdi-archive-outline" title="Archive" @click="archive(row)" />
-                </v-list>
-              </v-menu>
+              <div class="menu-cell">
+                <v-menu>
+                  <template #activator="{ props: menuProps }">
+                    <v-btn v-bind="menuProps" icon="mdi-dots-vertical" variant="text" size="small" :aria-label="`More actions for ${row.name}`" />
+                  </template>
+                  <v-list density="compact">
+                    <v-list-item prepend-icon="mdi-pencil-outline" title="Edit" @click="openEdit(row)" />
+                    <v-list-item prepend-icon="mdi-archive-outline" title="Archive" @click="archive(row)" />
+                  </v-list>
+                </v-menu>
+              </div>
             </div>
           </v-card>
 
@@ -438,17 +453,28 @@ function submitEfGoal() {
 .acct {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) 130px minmax(0, 150px) 40px;
-  gap: 12px;
+  grid-template-areas: "avatar name change value menu";
+  column-gap: 12px;
   align-items: center;
   padding: 12px 20px;
   border-top: 1px solid rgb(var(--v-border-color));
   min-width: 0;
   overflow: hidden;
 }
+/* Fix round 1 (review finding 4, continued): a phone-width row only has 3 real columns (avatar,
+   name, menu) on its first line — cramming the value in beside the name here too, as a 4th
+   column, was what left so little room that even "Japan emergency fund" truncated hard. The
+   value instead drops to its own second line, spanning the full width under the name, so the
+   name gets nearly the whole row to itself. */
 .acct.compact {
-  grid-template-columns: 32px minmax(0, 1fr) minmax(0, 120px) 40px;
+  grid-template-columns: 32px minmax(0, 1fr) 40px;
+  grid-template-areas:
+    "avatar name   menu"
+    ".      value  value";
+  row-gap: 4px;
 }
 .av {
+  grid-area: avatar;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -459,28 +485,36 @@ function submitEfGoal() {
   flex: none;
 }
 .nm-wrap {
+  grid-area: name;
   min-width: 0;
   overflow: hidden;
 }
-.nm {
-  display: flex;
-  align-items: center;
+/* The name gets its own full-width line — fix round 1: sharing a line with the country/
+   "Emergency fund" tags (as `.nm` used to) squeezed its available width down to whatever was
+   left after those tags, truncating even a merely-longish name like "Japan emergency fund" to
+   "Japan e…" well before the row was actually full. The tags move to `.sub-row` below instead,
+   next to the "Japan · JPY" sub-line, where they no longer compete with the name for space. */
+.nm-text {
   font-weight: 600;
   font-size: 15px;
-  min-width: 0;
-}
-/* The name itself truncates with an ellipsis when the row is tight; the tags after it (country,
-   "Emergency fund") never do — they're `flex: none`, so they stay fully readable instead of being
-   swallowed into the ellipsis along with the name (fix round 1, caught in the 1280px screenshot). */
-.nm-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
 }
+.sub-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
 .sub {
   color: rgb(var(--v-theme-on-surface-variant));
   font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .tag {
   flex: none;
@@ -488,7 +522,6 @@ function submitEfGoal() {
   font-weight: 600;
   border-radius: 999px;
   padding: 1px 7px;
-  margin-left: 6px;
   white-space: nowrap;
 }
 .tag.ctag {
@@ -500,13 +533,18 @@ function submitEfGoal() {
   color: rgb(var(--v-theme-success));
 }
 .chg {
+  grid-area: change;
   text-align: right;
   font-size: 13px;
 }
 .val {
+  grid-area: value;
   text-align: right;
   font-weight: 600;
   font-size: 15px;
+}
+.menu-cell {
+  grid-area: menu;
 }
 .val small {
   display: block;
