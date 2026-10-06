@@ -10,6 +10,7 @@ import { categoryRoutes } from './routes/categories'
 import { dashboardRoutes } from './routes/dashboard'
 import { importRoutes } from './routes/import'
 import { meRoutes } from './routes/me'
+import { networthRoutes } from './routes/networth'
 import { transactionRoutes } from './routes/transactions'
 
 export type AppDeps = { config: Config; getDb: () => Db }
@@ -42,6 +43,7 @@ export function createApp(deps: AppDeps) {
   app.route('/api/accounts', accountRoutes)
   app.route('/api/balances', balanceRoutes)
   app.route('/api/dashboard', dashboardRoutes)
+  app.route('/api/networth', networthRoutes)
 
   return app
 }
