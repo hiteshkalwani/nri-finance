@@ -11,6 +11,7 @@ import NetWorthChart from '../components/NetWorthChart.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { apiFetch, ApiRequestError } from '../lib/api'
 import { emergencyFundPct, groupByType, inOtherCurrency, loadShowIn, netWorthChangeDisplay, saveShowIn, type ShowIn } from '../lib/accounts'
+import { parseAmount } from '../lib/balancesForm'
 import { flash } from '../lib/flash'
 import { monthYearLabel, rupees, yen } from '../lib/format'
 import { useProfile } from '../lib/profile'
@@ -138,7 +139,13 @@ const efGoalJpy = computed(() => nw.value?.emergencyFund.goalJpy ?? null)
 const efBalanceLabel = computed(() => (nw.value ? amountInShowIn(nw.value.emergencyFund.balanceJpy) : '—'))
 const efPct = computed(() => (nw.value ? emergencyFundPct(nw.value.emergencyFund.balanceJpy, efGoalJpy.value) : null))
 
-const refreshAccounts = () => Promise.all([qc.invalidateQueries({ queryKey: ['accounts'] }), qc.invalidateQueries({ queryKey: ['networth'] })])
+// Includes `['balances']` (final review finding 1): archiving/unarchiving an account changes the
+// row set Update balances should show for the current cycle.
+const refreshAccounts = () => Promise.all([
+  qc.invalidateQueries({ queryKey: ['accounts'] }),
+  qc.invalidateQueries({ queryKey: ['networth'] }),
+  qc.invalidateQueries({ queryKey: ['balances'] }),
+])
 const archiveError = ref('')
 const toggleArchive = useMutation({
   mutationFn: ({ id, archived: a }: { id: string; archived: boolean }) => apiFetch(`/api/accounts/${id}`, { method: 'PATCH', body: JSON.stringify({ archived: a }) }, Account),
@@ -156,8 +163,17 @@ function openEdit(row: Row) { editingAccount.value = row; dialogOpen.value = tru
 
 const efDialogOpen = ref(false)
 const efGoalInput = ref('')
+// Field-level error for the goal text itself, parsed the same way Settings parses its own
+// emergency-fund goal field (`parseAmount(text, 'JPY')`, lib/balancesForm.ts) — a plain
+// `type="number"` + `Number()` (final review finding 4) rejected commas, let a negative value
+// through to a Save that then silently did nothing, and sent "1.5" to the server as a raw 400
+// whose message then never cleared. Reset on every open, alongside the mutation's own error
+// (`saveEfGoal.reset()`), so a stale error from a previous attempt can't still be showing.
+const efGoalError = ref('')
 function openEfDialog() {
   efGoalInput.value = efGoalJpy.value !== null ? String(efGoalJpy.value) : ''
+  efGoalError.value = ''
+  saveEfGoal.reset()
   efDialogOpen.value = true
 }
 const saveEfGoal = useMutation({
@@ -176,10 +192,13 @@ const saveEfGoal = useMutation({
   },
 })
 function submitEfGoal() {
-  const trimmed = efGoalInput.value.trim()
-  const goal = trimmed === '' ? null : Number(trimmed)
-  if (goal !== null && (!Number.isFinite(goal) || goal < 0)) return
-  saveEfGoal.mutate(goal)
+  const parsed = parseAmount(efGoalInput.value, 'JPY')
+  if (parsed === 'invalid') {
+    efGoalError.value = 'Enter a whole number of yen, 0 or more.'
+    return
+  }
+  efGoalError.value = ''
+  saveEfGoal.mutate(parsed)
 }
 </script>
 
@@ -246,7 +265,7 @@ function submitEfGoal() {
                   <span class="sub">{{ row.country === 'JP' ? 'Japan' : 'India' }} · {{ row.currency }}</span>
                 </div>
               </div>
-              <div v-if="!xs" class="chg">
+              <div class="chg">
                 <span v-if="row.source === 'none'" class="muted">No balance yet</span>
                 <span v-else-if="row.source === 'carried'" class="muted">updated {{ monthYearLabel(row.fromCycle!) }}</span>
                 <span v-else-if="row.changeAmount !== null" :class="changeDisplay(row).cls">{{ changeDisplay(row).text }}</span>
@@ -341,7 +360,10 @@ function submitEfGoal() {
       <v-card>
         <div class="tx-hd"><h2>{{ efGoalJpy === null ? 'Set a goal' : 'Edit emergency-fund goal' }}</h2></div>
         <v-form class="px-5" @submit.prevent="submitEfGoal">
-          <v-text-field id="ef-goal" v-model="efGoalInput" label="Emergency-fund goal (¥)" type="number" />
+          <v-text-field
+            id="ef-goal" v-model="efGoalInput" label="Emergency-fund goal (¥)" inputmode="decimal"
+            :error-messages="efGoalError ? [efGoalError] : []"
+          />
         </v-form>
         <v-alert v-if="saveEfGoal.error.value" type="error" variant="tonal" class="mx-5 mb-3">{{ saveEfGoal.error.value.message }}</v-alert>
         <v-card-actions class="px-5 pb-5">
@@ -459,7 +481,7 @@ function submitEfGoal() {
 .acct {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) 130px minmax(0, 150px) 40px;
-  grid-template-areas: "avatar name change value menu";
+  grid-template-areas: "avatar name chg value menu";
   column-gap: 12px;
   align-items: center;
   padding: 12px 20px;
@@ -471,11 +493,15 @@ function submitEfGoal() {
    name, menu) on its first line — cramming the value in beside the name here too, as a 4th
    column, was what left so little room that even "Japan emergency fund" truncated hard. The
    value instead drops to its own second line, spanning the full width under the name, so the
-   name gets nearly the whole row to itself. */
+   name gets nearly the whole row to itself.
+   Final review finding 2: the change/"updated <Mon YYYY>" line used to be dropped outright on
+   phones (`v-if="!xs"`) instead of just moved — it gets its own third line here, still spanning
+   the full width under the name, same reasoning as the value's own second line above it. */
 .acct.compact {
   grid-template-columns: 32px minmax(0, 1fr) 40px;
   grid-template-areas:
     "avatar name   menu"
+    ".      chg    chg"
     ".      value  value";
   row-gap: 4px;
 }
@@ -539,9 +565,12 @@ function submitEfGoal() {
   color: rgb(var(--v-theme-success));
 }
 .chg {
-  grid-area: change;
+  grid-area: chg;
   text-align: right;
   font-size: 13px;
+}
+.acct.compact .chg {
+  text-align: left;
 }
 .val {
   grid-area: value;

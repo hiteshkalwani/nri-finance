@@ -70,7 +70,7 @@ const NETWORTH = {
   emergencyFund: { balanceJpy: 2000000, goalJpy: 2400000, monthsCovered: 6.1, avgSpendJpy: 327000 },
 }
 
-async function mountAccounts(accountItems: typeof ACCOUNTS) {
+async function mountAccounts(accountItems: typeof ACCOUNTS, vuetifyInstance: ReturnType<typeof createVuetify> = vuetify) {
   const fetchMock = vi.fn(async (input: unknown) => {
     const url = String(input)
     if (url.startsWith('/api/accounts')) return jsonResponse({ items: accountItems })
@@ -91,9 +91,20 @@ async function mountAccounts(accountItems: typeof ACCOUNTS) {
   router.push('/accounts')
   await router.isReady()
   const queryClient = new QueryClient()
-  const wrapper = mount(AccountsPage, { global: { plugins: [router, vuetify, [VueQueryPlugin, { queryClient }]] }, attachTo: document.body })
+  const wrapper = mount(AccountsPage, { global: { plugins: [router, vuetifyInstance, [VueQueryPlugin, { queryClient }]] }, attachTo: document.body })
   for (let i = 0; i < 6; i++) await flushPromises()
   return wrapper
+}
+
+/** A Vuetify instance whose `useDisplay().xs` reads true from the moment it's created — display
+ * width is captured once at `createDisplay()` time (vuetify/lib/composables/display.js), so
+ * `window.innerWidth` must already be 390 before this runs. */
+function createMobileVuetify() {
+  const original = window.innerWidth
+  Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 390 })
+  const mobile = createVuetify()
+  Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: original })
+  return mobile
 }
 
 describe('AccountsPage', () => {
@@ -109,6 +120,20 @@ describe('AccountsPage', () => {
   it('shows "updated Sep 2026" for a carried balance', async () => {
     const wrapper = await mountAccounts(ACCOUNTS)
     expect(wrapper.text()).toContain('updated Sep 2026')
+    wrapper.unmount()
+  })
+
+  // Final whole-branch review finding 2: at phone width (`xs`) the row's change/"updated <Mon
+  // YYYY>" block used to be dropped entirely (`v-if="!xs"`), not just relaid out — it must still
+  // render, as the row's own extra compact-layout line.
+  it('still shows the change and the "updated <Mon YYYY>" stale marker at phone width', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS, createMobileVuetify())
+
+    expect(wrapper.text()).toContain('updated Sep 2026')
+    const changedRow = wrapper.findAll('.acct').find((r) => r.text().includes('MUFG savings'))!
+    expect(changedRow.find('.chg').exists()).toBe(true)
+    expect(changedRow.find('.chg').text()).toContain('￥40,000')
+
     wrapper.unmount()
   })
 
@@ -176,6 +201,116 @@ describe('AccountsPage', () => {
     // outside `wrapper`'s own element tree — same reason `wrapper.text()` wouldn't see it either.
     expect(document.body.textContent).toContain('Balances saved for Oct 2026')
     expect(flash.message.value).toBeNull()
+
+    wrapper.unmount()
+  })
+})
+
+// Final whole-branch review finding 4: the emergency-fund goal dialog used to be a bare
+// `type="number"` field parsed with `Number()` — commas rejected, a negative value silently did
+// nothing (Save just never mutated), "1.5" went to the server as a raw 400, and the error stuck
+// around after the dialog was closed and reopened. It must instead use `parseAmount(text, 'JPY')`
+// (the same parser Settings uses, lib/balancesForm.ts), with a field-level error and a reset on
+// open.
+describe('AccountsPage emergency-fund goal dialog', () => {
+  function findButtonByText(text: string): HTMLButtonElement {
+    // The dialog teleports its content to a `.v-overlay-container` on `document.body`, outside
+    // `wrapper`'s own element tree (same reasoning as the snackbar test above).
+    return Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes(text)) as HTMLButtonElement
+  }
+  function goalInput(): HTMLInputElement {
+    return document.querySelector('#ef-goal') as HTMLInputElement
+  }
+  async function setGoal(wrapper: Awaited<ReturnType<typeof mountAccounts>>, text: string) {
+    findButtonByText('Edit emergency-fund goal').click()
+    await flushPromises()
+    const input = goalInput()
+    input.value = text
+    input.dispatchEvent(new Event('input'))
+    await flushPromises()
+  }
+
+  it('accepts a comma-grouped goal, parsed the same way Settings does', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const fetchMock = (globalThis.fetch as unknown) as ReturnType<typeof vi.fn>
+    fetchMock.mockClear()
+
+    await setGoal(wrapper, '3,000,000')
+    findButtonByText('Save').click()
+    await flushPromises()
+
+    const putCall = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
+    expect(putCall).toBeDefined()
+    const body = JSON.parse(String((putCall![1] as RequestInit).body))
+    expect(body.emergencyFundGoalJpy).toBe(3000000)
+
+    wrapper.unmount()
+  })
+
+  it('rejects a negative goal with a field error, instead of silently doing nothing', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const fetchMock = (globalThis.fetch as unknown) as ReturnType<typeof vi.fn>
+    fetchMock.mockClear()
+
+    await setGoal(wrapper, '-100')
+    findButtonByText('Save').click()
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('Enter a whole number of yen, 0 or more.')
+    const putCall = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
+    expect(putCall).toBeUndefined()
+
+    wrapper.unmount()
+  })
+
+  it('rejects a decimal goal with a field error rather than sending it to the server', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const fetchMock = (globalThis.fetch as unknown) as ReturnType<typeof vi.fn>
+    fetchMock.mockClear()
+
+    await setGoal(wrapper, '1.5')
+    findButtonByText('Save').click()
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('Enter a whole number of yen, 0 or more.')
+    const putCall = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
+    expect(putCall).toBeUndefined()
+
+    wrapper.unmount()
+  })
+
+  it('clears the field error when the dialog is reopened', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+
+    await setGoal(wrapper, '1.5')
+    findButtonByText('Save').click()
+    await flushPromises()
+    expect(document.body.textContent).toContain('Enter a whole number of yen, 0 or more.')
+
+    findButtonByText('Cancel').click()
+    await flushPromises()
+
+    findButtonByText('Edit emergency-fund goal').click()
+    await flushPromises()
+
+    expect(document.body.textContent).not.toContain('Enter a whole number of yen, 0 or more.')
+
+    wrapper.unmount()
+  })
+
+  it('sends null (clears the goal) when the field is left blank', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const fetchMock = (globalThis.fetch as unknown) as ReturnType<typeof vi.fn>
+    fetchMock.mockClear()
+
+    await setGoal(wrapper, '')
+    findButtonByText('Save').click()
+    await flushPromises()
+
+    const putCall = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
+    expect(putCall).toBeDefined()
+    const body = JSON.parse(String((putCall![1] as RequestInit).body))
+    expect(body.emergencyFundGoalJpy).toBeNull()
 
     wrapper.unmount()
   })
