@@ -49,7 +49,7 @@ function jsonResponse(body: unknown) {
 async function mountQuickAdd() {
   const fetchMock = vi.fn(async (input: unknown) => {
     const url = String(input)
-    if (url === '/api/me') return jsonResponse({ profile: { salaryJpy: 500000, planningRateJpyPerInr: '1.7', cycleStartDay: 25, timezone: 'Asia/Tokyo' } })
+    if (url === '/api/me') return jsonResponse({ profile: { salaryJpy: 500000, planningRateJpyPerInr: '1.7', cycleStartDay: 25, timezone: 'Asia/Tokyo', emergencyFundGoalJpy: null } })
     if (url === '/api/categories') {
       return jsonResponse({
         items: [

@@ -27,13 +27,13 @@ async function mountSettings() {
     if (url === '/api/me' && (!init || init.method === undefined)) {
       return jsonResponse({
         userId: '99999999-9999-4999-8999-999999999999', email: 'me@example.test',
-        profile: { salaryJpy: 500000, planningRateJpyPerInr: '1.7', cycleStartDay: 25, timezone: 'Asia/Tokyo' },
+        profile: { salaryJpy: 500000, planningRateJpyPerInr: '1.7', cycleStartDay: 25, timezone: 'Asia/Tokyo', emergencyFundGoalJpy: null },
       })
     }
     if (url === '/api/me' && init?.method === 'PUT') {
       return jsonResponse({
         userId: '99999999-9999-4999-8999-999999999999', email: 'me@example.test',
-        profile: JSON.parse(String(init.body)),
+        profile: { emergencyFundGoalJpy: null, ...JSON.parse(String(init.body)) },
       })
     }
     if (url === '/api/categories') return jsonResponse({ items: [] })
