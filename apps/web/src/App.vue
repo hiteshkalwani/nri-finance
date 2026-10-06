@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useDisplay } from 'vuetify'
-import { useQueryClient } from '@tanstack/vue-query'
 import SignInDialog from './components/SignInDialog.vue'
-import { supabase } from './lib/supabase'
-import { undo } from './lib/undo'
+import { useSignOut } from './lib/session'
 import { useThemePref } from './lib/useThemePref'
 
 const route = useRoute()
-const router = useRouter()
-const qc = useQueryClient()
 const { xs } = useDisplay()
 const signedInPage = computed(() => !route.meta.public)
 const nav = [
@@ -26,12 +22,7 @@ const themeIcon = computed(() =>
 )
 const themeAriaLabel = computed(() => `Theme: ${themeWord.value}`)
 
-async function signOut() {
-  qc.clear() // nothing from this account stays in memory
-  undo.pending.value = null // a pending Undo must not survive sign-out into the next session
-  await supabase.auth.signOut()
-  await router.push('/login')
-}
+const signOut = useSignOut()
 </script>
 
 <template>
