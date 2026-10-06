@@ -125,7 +125,10 @@ export function areaData(labels: string[], values: number[], lineColor: string) 
       backgroundColor: withAlpha(lineColor, 0.28),
       fill: true,
       tension: 0.2,
-      pointRadius: 0,
+      // A lone value has no line segment to draw (Chart.js needs 2+ points for a line), so with
+      // points hidden (0) a single-cycle chart rendered nothing at all (final review finding 3) —
+      // the point marker itself becomes the visible mark in that one-point case.
+      pointRadius: values.length === 1 ? 4 : 0,
       pointHoverRadius: 4,
       pointBackgroundColor: lineColor,
       borderWidth: 2.5,
