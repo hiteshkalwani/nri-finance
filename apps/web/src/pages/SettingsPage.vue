@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useDisplay } from 'vuetify'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { ImportResult, MeResponse, ProfileInput, type V1Document } from '@nri/contracts'
+import CategoriesSettings from '../components/CategoriesSettings.vue'
+import PageHeader from '../components/PageHeader.vue'
 import { apiFetch } from '../lib/api'
 import { parseV1File } from '../lib/importFile'
-import CategoriesSettings from '../components/CategoriesSettings.vue'
 
+const { xs } = useDisplay()
 const qc = useQueryClient()
 const me = useQuery({ queryKey: ['me'], queryFn: () => apiFetch('/api/me', {}, MeResponse) })
 const form = ref({ salaryJpy: 0, planningRateJpyPerInr: '1.7', cycleStartDay: 25, timezone: 'Asia/Tokyo' })
@@ -49,7 +52,10 @@ async function onFile(files: File | File[] | null) {
 </script>
 
 <template>
-  <h1 class="text-h5 mb-4">Settings</h1>
+  <PageHeader title="Settings">
+    <!-- The bottom-nav's raised "+" already covers Add expense on phones. -->
+    <v-btn v-if="!xs" to="/spend/new" color="primary" prepend-icon="mdi-plus">Add expense</v-btn>
+  </PageHeader>
   <v-card class="mb-6">
     <v-card-title>Profile</v-card-title>
     <v-card-text>

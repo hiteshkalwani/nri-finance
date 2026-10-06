@@ -1,10 +1,21 @@
 import { expect, it } from 'vitest'
-import { amountPatchFor, defaultsFor, parseAmount, previewJpy } from '../src/lib/expenseForm'
+import { amountPatchFor, defaultsFor, lastUsedNeedWantHint, lastUsedPaymentHint, parseAmount, previewJpy } from '../src/lib/expenseForm'
 
 it('pre-fills payment method and need/want from the category’s last use, else bank / need', () => {
   expect(defaultsFor({ lastPaymentMethod: 'ic_card', lastNeedWant: 'want' } as never)).toEqual({ paymentMethod: 'ic_card', needWant: 'want' })
   expect(defaultsFor({ lastPaymentMethod: null, lastNeedWant: null } as never)).toEqual({ paymentMethod: 'bank', needWant: 'need' })
   expect(defaultsFor(undefined)).toEqual({ paymentMethod: 'bank', needWant: 'need' })
+})
+
+it('hints "last used for <category>" only when the current chip matches the category’s own last use', () => {
+  const groceries = { name: 'Groceries', lastPaymentMethod: 'ic_card' as const, lastNeedWant: 'need' as const }
+  expect(lastUsedPaymentHint(groceries, 'ic_card')).toBe('Groceries')
+  expect(lastUsedPaymentHint(groceries, 'cash')).toBeNull()
+  expect(lastUsedPaymentHint({ name: 'New', lastPaymentMethod: null }, 'bank')).toBeNull()
+  expect(lastUsedPaymentHint(undefined, 'bank')).toBeNull()
+
+  expect(lastUsedNeedWantHint(groceries, 'need')).toBe('Groceries')
+  expect(lastUsedNeedWantHint(groceries, 'want')).toBeNull()
 })
 
 it('reads ¥ as whole numbers and ₹ with up to two decimals', () => {

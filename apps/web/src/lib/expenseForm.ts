@@ -10,6 +10,20 @@ export function defaultsFor(c: Pick<Category, 'lastPaymentMethod' | 'lastNeedWan
   return { paymentMethod: c?.lastPaymentMethod ?? ('bank' as PaymentMethod), needWant: c?.lastNeedWant ?? ('need' as NeedWant) }
 }
 
+/**
+ * Quick-add's "· last used for <category>" hint (spec §4.3): the category's name when the chip
+ * row's current value is that category's own last-used value (whether `defaultsFor` just set it or
+ * the user picked the same one), else null.
+ */
+export function lastUsedPaymentHint(c: Pick<Category, 'name' | 'lastPaymentMethod'> | undefined, current: PaymentMethod): string | null {
+  return c?.lastPaymentMethod != null && c.lastPaymentMethod === current ? c.name : null
+}
+
+/** Same as `lastUsedPaymentHint`, for the need/want row. */
+export function lastUsedNeedWantHint(c: Pick<Category, 'name' | 'lastNeedWant'> | undefined, current: NeedWant): string | null {
+  return c?.lastNeedWant != null && c.lastNeedWant === current ? c.name : null
+}
+
 /** ¥: whole numbers (commas allowed). ₹: up to two decimals, sent as paise. Null when not a positive amount. */
 export function parseAmount(text: string, currency: Currency): { amountJpy: number } | { amountInrPaise: number } | null {
   const s = text.replace(/,/g, '').trim()

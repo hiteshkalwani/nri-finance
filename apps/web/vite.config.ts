@@ -34,6 +34,6 @@ export default defineConfig(({ mode }) => {
       // instead of re-optimizing and reloading the page the first time a new page is opened.
       warmup: { clientFiles: ['./src/**/*.vue'] },
     },
-    test: { environment: 'jsdom' },
+    test: { environment: 'jsdom', server: { deps: { inline: [/vuetify/] } } },
   }
 })
