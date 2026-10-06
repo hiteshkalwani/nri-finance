@@ -108,13 +108,13 @@ const remove = useMutation({
 
     <div class="lbl">Paid with</div>
     <v-chip-group v-model="paymentMethod" mandatory role="radiogroup" aria-label="Payment method" class="chip-row">
-      <v-chip v-for="(label, key) in PAYMENT_LABELS" :key="key" :value="key" variant="outlined" role="radio" :aria-checked="paymentMethod === key" class="c2">
+      <v-chip v-for="(label, key) in PAYMENT_LABELS" :key="key" :value="key" variant="outlined" :ripple="false" role="radio" :aria-checked="paymentMethod === key" class="c2">
         <v-icon v-if="paymentMethod === key" size="13" start aria-hidden="true">mdi-check</v-icon>{{ label }}
       </v-chip>
     </v-chip-group>
     <div class="lbl">Need or want</div>
     <v-chip-group v-model="needWant" mandatory role="radiogroup" aria-label="Need or want" class="chip-row">
-      <v-chip v-for="(label, key) in NEED_LABELS" :key="key" :value="key" variant="outlined" role="radio" :aria-checked="needWant === key" class="c2">
+      <v-chip v-for="(label, key) in NEED_LABELS" :key="key" :value="key" variant="outlined" :ripple="false" role="radio" :aria-checked="needWant === key" class="c2">
         <v-icon v-if="needWant === key" size="13" start aria-hidden="true">mdi-check</v-icon>{{ label }}
       </v-chip>
     </v-chip-group>

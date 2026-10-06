@@ -128,8 +128,18 @@ function submit() {
     </div>
 
     <div class="lbl">Category</div>
+    <!-- `ripple="false"` on every chip below (category, payment, need/want): the click-feedback
+         ripple is a separate element (`.v-ripple__animation`, inside `.v-ripple__container`) from
+         `.v-chip__overlay` above — fix round 1's overlay opacity:0 rule was right but incomplete.
+         Its fade-out is a real CSS transition (0.3s, vuetify/lib/directives/ripple's
+         `.v-ripple__animation--out`), so a screenshot/a real click followed by a quick glance can
+         still catch it mid-fade as a dark, semi-transparent wash over the tile (confirmed in a
+         real browser via getComputedStyle: `.v-ripple__animation--in`'s background-color was a
+         near-black colour at opacity 0.25, `data-is-hiding="true"`, ~150ms after the click — well
+         short of the 300ms fade). Disabling ripple here removes the element outright, so there is
+         nothing left that could ever paint over the tile regardless of timing. -->
     <v-chip-group v-model="categoryId" mandatory show-arrows="never" role="radiogroup" aria-label="Category" class="cat-group">
-      <v-chip v-for="c in active" :key="c.id" :value="c.id" variant="outlined" role="radio" :aria-checked="categoryId === c.id" class="cat-tile">
+      <v-chip v-for="c in active" :key="c.id" :value="c.id" variant="outlined" :ripple="false" role="radio" :aria-checked="categoryId === c.id" class="cat-tile">
         <CategoryAvatar :category="c" :size="30" />
         <span class="cat-name">{{ c.name }}</span>
         <v-icon v-if="categoryId === c.id" size="13" class="cat-check" aria-hidden="true">mdi-check-circle</v-icon>
@@ -141,7 +151,7 @@ function submit() {
     <div class="lbl">Paid with <span v-if="paymentHint" class="lbl-note">· last used for {{ paymentHint }}</span></div>
     <v-chip-group v-model="paymentMethod" mandatory role="radiogroup" aria-label="Payment method" class="chip-row">
       <v-chip
-        v-for="(label, key) in PAYMENT_LABELS" :key="key" :value="key" variant="outlined" role="radio"
+        v-for="(label, key) in PAYMENT_LABELS" :key="key" :value="key" variant="outlined" :ripple="false" role="radio"
         :aria-checked="paymentMethod === key" class="c2"
       >
         <v-icon v-if="paymentMethod === key" size="13" start aria-hidden="true">mdi-check</v-icon>{{ label }}
@@ -151,7 +161,7 @@ function submit() {
     <div class="lbl">Need or want <span v-if="needWantHint" class="lbl-note">· last used for {{ needWantHint }}</span></div>
     <v-chip-group v-model="needWant" mandatory role="radiogroup" aria-label="Need or want" class="chip-row">
       <v-chip
-        v-for="(label, key) in NEED_LABELS" :key="key" :value="key" variant="outlined" role="radio"
+        v-for="(label, key) in NEED_LABELS" :key="key" :value="key" variant="outlined" :ripple="false" role="radio"
         :aria-checked="needWant === key" class="c2"
       >
         <v-icon v-if="needWant === key" size="13" start aria-hidden="true">mdi-check</v-icon>{{ label }}
