@@ -50,6 +50,25 @@ function move(index: number, delta: number) {
   if (next !== ids) reorder.mutate(next)
 }
 function startEdit(c: Category) { editing.value = c.id; editName.value = c.name }
+
+/**
+ * Guards the new-category field's Enter-to-submit (finding 6). Two problems with the old
+ * `@keyup.enter="add.mutate()"`: it fired unconditionally, including on an empty/whitespace-only
+ * name (a pointless blank POST the API would reject); and `keyup` fires *after* a composed IME
+ * input is confirmed (e.g. finishing a Japanese conversion) — a routine keystroke for a
+ * Japanese-locale user, not an edge case — so the very keyup that confirms the composition could
+ * itself submit the field mid-composition.
+ *
+ * Moved to `keydown` with an explicit `isComposing` check instead, which is the actual signal for
+ * "this Enter is confirming an IME composition, not asking to submit" — `keyup`'s own `isComposing`
+ * is unreliable for this (some browsers still report it after the composition has already
+ * ended), so checking it on `keyup` wouldn't fully fix this; `keydown`'s is accurate. No
+ * `@keyup.enter` binding is kept at all, so a trailing keyup can't submit either.
+ */
+function addOnEnter(e: KeyboardEvent) {
+  if (e.isComposing || !newName.value.trim()) return
+  add.mutate()
+}
 </script>
 
 <template>
@@ -58,7 +77,7 @@ function startEdit(c: Category) { editing.value = c.id; editName.value = c.name 
     <div class="cat-add">
       <v-text-field
         id="new-category" v-model="newName" label="New category" density="compact" hide-details style="min-width: 160px"
-        @keyup.enter="add.mutate()"
+        @keydown.enter="addOnEnter"
       />
       <v-menu>
         <template #activator="{ props }"><v-btn v-bind="props" icon size="small" :color="newColor" aria-label="Colour" /></template>

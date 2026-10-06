@@ -56,9 +56,15 @@ const avatarCategory = computed(() => props.category ?? { name: 'Uncategorised',
   cursor: pointer;
 }
 .row:focus-visible {
-  /* `primary-accent`, not `primary`: a non-text ring, must stay the bright accent (theme.ts). */
-  outline: 2px solid rgb(var(--v-theme-primary-accent));
-  outline-offset: 2px;
+  /* `primary`, not `primary-accent` (finding 7): this row sits inside a `v-card`, which clips
+     overflow — a positive `outline-offset` draws the ring *outside* the row's border box, where
+     the card's own edge cut off its bottom/right sides. `-2px` draws it just inside instead, same
+     as the app's global ring (app.css). `primary-accent` also only clears 2.65:1 against this
+     row's hover fill (`surface-variant`) in light theme, under WCAG 1.4.11's 3:1 non-text
+     minimum; `primary` clears it against both the resting and hover backgrounds in both themes
+     (theme.test.ts) — same token the global ring already uses, for the same reason. */
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
 }
 .d {
   font-weight: 500;
