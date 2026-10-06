@@ -34,7 +34,13 @@ test('quick-add an expense on the phone and see it on the dashboard and in the l
   const before = yen(await page.getByTestId('spent').textContent())
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.locator('#amount').fill('1234')
-  await page.locator('.v-chip-group[aria-label="Category"] .v-chip').first().click()
+  const firstCategory = page.locator('.v-chip-group[aria-label="Category"] .v-chip').first()
+  await firstCategory.click()
+  // Guard for the selected-tile grey-wash regression (fix round 2): the tile's own background
+  // must still be the plain surface colour (white in light theme) once selected, not darkened by
+  // a leftover overlay or ripple — `toHaveCSS` polls, so this also covers the ripple's own 0.3s
+  // fade-out rather than racing it.
+  await expect(firstCategory).toHaveCSS('background-color', 'rgb(255, 255, 255)')
   await page.locator('#description').fill('e2e quick-add')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByTestId('saved')).toContainText('￥1,234')
