@@ -102,8 +102,12 @@ function submit() {
           <div class="hint">{{ currencyText }}<span v-if="countryLocked"> · This account has balances</span></div>
           <div v-if="fieldErrors.country" class="field-error">{{ fieldErrors.country }}</div>
         </div>
+        <!-- No `aria-label` here (fix round 2, task 10): Vuetify's own `aria-labelledby` (pointing at
+             this field's floating "Type" label) wins over any `aria-label` per the accessible-name
+             computation order, so one would be silently dead — never reaching assistive tech or
+             `getByLabel`. "Type" is already a unique, descriptive accessible name within this dialog. -->
         <v-select
-          v-model="type" label="Type" aria-label="Account type" :items="TYPE_ORDER.map((t) => ({ value: t, title: TYPE_LABEL[t] }))"
+          v-model="type" label="Type" :items="TYPE_ORDER.map((t) => ({ value: t, title: TYPE_LABEL[t] }))"
           :error-messages="fieldErrors.type"
         />
         <v-switch v-model="isEmergencyFund" label="Counts toward emergency fund" color="primary" hide-details />

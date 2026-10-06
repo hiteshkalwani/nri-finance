@@ -157,9 +157,9 @@ footer{margin-top:48px;color:var(--muted);font-size:13px}
     <div class="card mile partial"><h3>M1 Spending</h3><span class="chip s-partial">Partly done</span>
       <p class="goal">Stop using v1 for daily logging.</p>
       <ul><li>Ledger + quick-add ✅</li><li>Categories ✅</li><li>Dashboard basics ✅</li><li>Cut-over: re-import v1 ⬜</li></ul></div>
-    <div class="card mile"><h3>M2 Remittances</h3><span class="chip s-todo">Pending</span>
+    <div class="card mile partial"><h3>M2 Remittances</h3><span class="chip s-partial">Partly done</span>
       <p class="goal">First real cycle review in v2.</p>
-      <ul><li>Remittances</li><li>Accounts, balances</li><li>Emergency fund</li></ul></div>
+      <ul><li>Remittances</li><li>Accounts, balances ✅</li><li>Emergency fund ✅</li></ul></div>
     <div class="card mile"><h3>M3 Loan &amp; SIP</h3><span class="chip s-todo">Pending</span>
       <p class="goal">Payoff month reflects real payments.</p>
       <ul><li>Loan schedule + actuals</li><li>SIP plan + projection</li></ul></div>
@@ -387,8 +387,8 @@ const WBS = [
   {c:'5.2', r:'DASH-2', n:'Income, spent, kept, savings rate', s:'done'},
   {c:'5.3', r:'DASH-3', n:'Category donut, 12-cycle bar', s:'done', note:'Keyboard-reachable text list; click opens the ledger filtered'},
   {c:'5.4', r:'DASH-4', n:'Sent home: ¥ sent, ₹ received, by purpose', s:'todo', ms:'M2'},
-  {c:'5.5', r:'DASH-5', n:'Net worth: Japan ¥, India ₹, combined', s:'todo', ms:'M2', note:'P1'},
-  {c:'5.6', r:'DASH-6', n:'Emergency fund, goal, months covered', s:'todo', ms:'M2'},
+  {c:'5.5', r:'DASH-5', n:'Net worth: Japan ¥, India ₹, combined', s:'done', ms:'M2', note:'P1'},
+  {c:'5.6', r:'DASH-6', n:'Emergency fund, goal, months covered', s:'done', ms:'M2'},
   {c:'5.7', r:'DASH-7', n:'Loan balance and payoff month', s:'todo', ms:'M3'},
   {c:'5.8', r:'DASH-8', n:'SIP paid vs plan; 2036 corpus', s:'todo', ms:'M3', note:'P1'},
   {c:'5.9', r:'DASH-9', n:'Budget status', s:'todo', ms:'M4', note:'P1'}]},
@@ -399,10 +399,10 @@ const WBS = [
   {c:'6.4', r:'REM-4', n:'Filters and totals per purpose', s:'todo'},
   {c:'6.5', r:'REM-5', n:'Rate history chart', s:'todo', note:'P1'}]},
  {c:'7', n:'Accounts and balances', ms:'M2', kids:[
-  {c:'7.1', r:'ACC-1', n:'Accounts: add, edit, archive, EF flag', s:'todo'},
-  {c:'7.2', r:'BAL-1', n:'Review-day balance entry, prefilled', s:'todo'},
-  {c:'7.3', r:'BAL-2', n:'Change since last cycle', s:'todo', note:'P1'},
-  {c:'7.4', r:'EF-1', n:'Emergency fund total, months covered', s:'todo', note:'Adds EF goal; re-import fills it'},
+  {c:'7.1', r:'ACC-1', n:'Accounts: add, edit, archive, EF flag', s:'done', note:'Country locked once an account has balances'},
+  {c:'7.2', r:'BAL-1', n:'Review-day balance entry, prefilled', s:'done'},
+  {c:'7.3', r:'BAL-2', n:'Change since last cycle', s:'done', note:'P1'},
+  {c:'7.4', r:'EF-1', n:'Emergency fund total, months covered', s:'done', note:'Adds EF goal; re-import fills it'},
   {c:'7.5', n:'Per-cycle income override', s:'todo'}]},
  {c:'8', n:'Home loan', ms:'M3', kids:[
   {c:'8.1', r:'LOAN-1', n:'Loan setup; several loans', s:'todo', note:'v1 loan already imported'},
@@ -431,7 +431,7 @@ const FIXES = [
  ['Same-owner foreign keys','Before M1','1.2.4',true],['Revoke broad default grants','Before cloud deploy','1.2.5'],
  ['e2e deletes its user; test the 401 → ?next= redirect','Local stack','1.4.10',true],
  ['Keep unsaved form on re-sign-in; clear cache on sign-out','M1','2.2',true],['"Not found" page','M1','4.6',true],
- ['JWKS failure → 503','M1','1.3.4',true],['Import warns when a profile exists; EF goal','M2','3.1 / 7.4'],
+ ['JWKS failure → 503','M1','1.3.4',true],['Import warns when a profile exists; EF goal','M2','3.1 / 7.4',true],
  ['Rate decimals: code vs TRD','M2','6.3'],['Long cache for /assets/*','M5','12.4']];
 
 const LABEL = {done:'Done', partial:'Partly done', wip:'In progress', todo:'Pending'};
