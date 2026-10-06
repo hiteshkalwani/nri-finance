@@ -1,6 +1,17 @@
 import { expect, it, vi } from 'vitest'
 import { areaData, barData, buildAreaOptions, buildBarOptions, buildDonutOptions, donutData } from '../src/lib/charts'
 
+// Final whole-branch review finding 3: with `pointRadius: 0` on every point, a single-value series
+// renders nothing at all — no line (needs 2+ points) and no point marker either. A lone cycle must
+// still show as a visible dot.
+it('shows a visible point when the series has exactly one value, and no points for 2+ values', () => {
+  const one = areaData(['Oct 2026'], [1949069], '#f0682e')
+  expect(one.datasets[0]!.pointRadius).toBeGreaterThan(0)
+
+  const many = areaData(['Sep 2026', 'Oct 2026'], [1216769, 1949069], '#f0682e')
+  expect(many.datasets[0]!.pointRadius).toBe(0)
+})
+
 const d = {
   cycle: '2026-10', start: '2026-09-25', end: '2026-10-24', incomeJpy: 1, spentJpy: 2500, sentJpy: 0, feesJpy: 0, keptJpy: 0, savingsRatePct: 0,
   expenseCount: 2, largestJpy: 2000, needJpy: 2500, wantJpy: 0,
