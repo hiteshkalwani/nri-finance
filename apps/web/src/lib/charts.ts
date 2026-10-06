@@ -12,6 +12,18 @@ function withAlpha(hex: string, alpha: number): string {
 }
 
 /**
+ * Whether the OS/browser has "reduce motion" switched on (fix round 1) — guarded the same way
+ * `NetWorthChart.vue` originally checked it inline, since `window`/`matchMedia` aren't guaranteed
+ * to exist (SSR, or this file's own unit tests). Every chart's options builder below takes a
+ * `reducedMotion` flag rather than calling this itself, so each stays a plain, themeless,
+ * unit-testable function (same reasoning `buildAreaOptions`' own doc comment already gives) — the
+ * caller reads this once and passes the result in, same pattern as `tickColor`/`gridColor`.
+ */
+export function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/**
  * Doughnut from the legend rows (already limit/"Everything else"-folded by `legendRows`), so a
  * slice's index always matches its legend row's index for hover/focus highlighting. `Category.color`
  * is a bare string on read (v1-imported colours pass through as stored), so an invalid one falls back
@@ -50,10 +62,16 @@ export function barData(d: Dashboard, primary: string) {
  * unless the options explicitly supply colours (finding 4). The caller must rebuild these options
  * (a `computed()`, not a plain object) whenever the theme changes, since Chart.js reads `options`
  * once at render and won't react to a CSS variable changing on its own.
+ *
+ * `reducedMotion` (fix round 1): same reasoning as `buildAreaOptions`' own — without it, Chart.js's
+ * default ~1s draw-in animation means the bars can still be empty/mid-draw the instant something
+ * screenshots the page (`scripts/ui-screens.mjs` sets `reducedMotion: 'reduce'` on its pages
+ * expecting exactly this).
  */
-export function buildBarOptions(onCycleClick: (index: number) => void, tickColor: string, gridColor: string): ChartOptions<'bar'> {
+export function buildBarOptions(onCycleClick: (index: number) => void, tickColor: string, gridColor: string, reducedMotion = false): ChartOptions<'bar'> {
   return {
     maintainAspectRatio: false,
+    animation: reducedMotion ? false : undefined,
     plugins: { legend: { display: false } },
     scales: {
       x: { ticks: { color: tickColor }, grid: { color: gridColor } },
@@ -62,6 +80,32 @@ export function buildBarOptions(onCycleClick: (index: number) => void, tickColor
     onClick: (_e, els) => {
       const index = els[0]?.index
       if (index !== undefined) onCycleClick(index)
+    },
+  }
+}
+
+/**
+ * Options for the Dashboard's "Spending by category" donut (spec §4.1's `#spend-donut`-equivalent).
+ * A plain function, not a `useTheme()`-reading composable, for the same testability reason
+ * `buildBarOptions` already gives — `onHover`/`onClick` are plain callbacks rather than this module
+ * reaching into the dashboard's legend data or the router itself.
+ *
+ * `reducedMotion` (fix round 1): same as `buildBarOptions`/`buildAreaOptions` — otherwise the
+ * slices can still be empty/mid-draw the instant the page is screenshotted.
+ */
+export function buildDonutOptions(onHover: (index: number | null) => void, onClick: (index: number) => void, reducedMotion = false): ChartOptions<'doughnut'> {
+  return {
+    cutout: '70%',
+    animation: reducedMotion ? false : undefined,
+    plugins: { legend: { display: false } },
+    elements: { arc: { hoverOffset: 10 } },
+    // Chart.js already highlights the hovered slice itself (built-in canvas hover interaction);
+    // `onHover` just mirrors that index back to the caller, so it can highlight the matching
+    // legend row too.
+    onHover: (_e, active) => onHover(active[0]?.index ?? null),
+    onClick: (_e, els) => {
+      const index = els[0]?.index
+      if (index !== undefined) onClick(index)
     },
   }
 }

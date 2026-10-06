@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useTheme } from 'vuetify'
 import { Line } from 'vue-chartjs'
 import { CategoryScale, Chart as ChartJS, Filler, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js'
-import { areaData, buildAreaOptions } from '../lib/charts'
+import { areaData, buildAreaOptions, prefersReducedMotion } from '../lib/charts'
 
 ChartJS.register(CategoryScale, Filler, LinearScale, LineElement, PointElement, Tooltip)
 
@@ -28,8 +28,10 @@ const themeBorder = (): string => {
 const chartData = computed(() => areaData(props.labels, props.values, themeHex('primary-accent')))
 // A real person who set "reduce motion" in their OS gets the chart drawn complete, no animation —
 // same reasoning the screenshot script relies on (scripts/ui-screens.mjs sets `reducedMotion:
-// 'reduce'` on its pages) to never catch the ~1s draw-in mid-animation (fix round 1).
-const reducedMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+// 'reduce'` on its pages) to never catch the ~1s draw-in mid-animation (fix round 1). Shared with
+// the Dashboard's bar/donut charts via `prefersReducedMotion()` (fix round 1, continued) rather
+// than each re-checking `matchMedia` inline.
+const reducedMotion = prefersReducedMotion()
 const chartOptions = computed(() => buildAreaOptions(themeHex('on-surface-variant'), themeBorder(), props.formatValue, reducedMotion))
 </script>
 
