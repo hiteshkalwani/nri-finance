@@ -47,3 +47,18 @@ it('keeps the "Want" chip text at >=4.5:1 contrast against its own tint, both th
   expect(primaryOnly(nriLight).rest).toBeLessThan(4.5)
   expect(primaryOnly(nriLight).hover).toBeLessThan(4.5)
 })
+
+// Fix round 1 (task 7): the quick-add/edit ¥/₹ segmented toggle's selected button painted white
+// text directly on `primary` — measured 3.12:1 light, 2.53:1 dark, both under spec §7's 4.5:1
+// minimum (`primary` is a bright/light accent in both themes). QuickAddPage.vue/
+// EditTransactionPage.vue now use `primary-darken-1` + white in light, and dark text (hardcoded
+// #1d1d1f — light theme's own on-surface/on-background hex, since no "on-primary" token exists) on
+// `primary` itself in dark, where it's already light enough to read under dark text.
+it('keeps the selected ¥/₹ segment at >=4.5:1 contrast in both themes (spec §7)', () => {
+  // The pairing this fix replaced — documents *why* it was replaced.
+  expect(contrastRatio('#ffffff', nriLight.colors!.primary as string)).toBeLessThan(4.5)
+  expect(contrastRatio('#ffffff', nriDark.colors!.primary as string)).toBeLessThan(4.5)
+
+  expect(contrastRatio('#ffffff', nriLight.colors!['primary-darken-1'] as string)).toBeGreaterThanOrEqual(4.5)
+  expect(contrastRatio('#1d1d1f', nriDark.colors!.primary as string)).toBeGreaterThanOrEqual(4.5)
+})

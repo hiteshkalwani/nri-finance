@@ -40,12 +40,18 @@ const selectedCategory = computed(() => active.value.find((c) => c.id === catego
  * `focus()`. That delay is a real race (the known flake this guards against): typing into another
  * field inside that window — e.g. moving straight to the description field, by hand or in a test —
  * gets its focus stolen back to #amount once the delayed call finally fires. Focusing here instead,
- * once, with no delay and nothing to re-trigger it, removes the window entirely; the activeElement
- * guard also means this never steals focus that's already moved (a user or a test got there first).
+ * once, with no delay and nothing to re-trigger it, removes the window entirely.
+ *
+ * The guard is "is focus already inside this page's form", not "is nothing focused at all"
+ * (`=== document.body`): arriving here via the persistent sidebar/bottom-nav "Add expense" link
+ * (App.vue, outside this `<router-view>`) leaves *that* link focused across the route change —
+ * not body — so a body-only check would wrongly skip focusing #amount on every real navigation.
+ * Only an element already inside this form (the user, or a test, got there first) should block it.
  */
+const formRef = ref<{ contains: (n: Node | null) => boolean } | null>(null)
 const amountFieldRef = ref<{ focus: () => void } | null>(null)
 onMounted(() => {
-  if (document.activeElement === document.body) amountFieldRef.value?.focus()
+  if (!formRef.value?.contains(document.activeElement)) amountFieldRef.value?.focus()
 })
 
 // Only apply the profile's timezone-based "today" while the user hasn't touched the date themselves,
@@ -105,7 +111,7 @@ function submit() {
   <v-alert v-if="me.data.value && !profile" type="info" variant="tonal">
     Set up your profile first in <router-link to="/settings">Settings</router-link>.
   </v-alert>
-  <v-form v-else class="quick-add" @submit.prevent="submit">
+  <v-form v-else ref="formRef" class="quick-add" @submit.prevent="submit">
     <div class="amount-card">
       <div class="row1">
         <v-text-field
@@ -220,9 +226,20 @@ function submit() {
   color: rgb(var(--v-theme-on-surface-variant));
   background: rgb(var(--v-theme-surface));
 }
-.cur :deep(.v-btn--active) {
-  background: rgb(var(--v-theme-primary));
+/* White-on-`primary` fails spec §7's 4.5:1 text-contrast minimum in both themes (measured
+   3.12:1 light, 2.53:1 dark — `primary` is a bright/light accent in both). `primary-darken-1`
+   (src/theme.ts) is a darker shade of the same hue for light theme (6.72:1 with white here); dark
+   theme's `primary` is already light enough that dark text reads cleanly against it instead
+   (6.65:1) — there's no "on-primary" token for that in theme.ts, so it's the one hardcoded value
+   here, matching light theme's own on-surface/on-background hex exactly (verified in
+   theme.test.ts, not just eyeballed). */
+.cur :deep(.v-btn--active.v-theme--light) {
+  background: rgb(var(--v-theme-primary-darken-1));
   color: #fff;
+}
+.cur :deep(.v-btn--active.v-theme--dark) {
+  background: rgb(var(--v-theme-primary));
+  color: #1d1d1f;
 }
 .preview,
 .hint {
@@ -310,6 +327,15 @@ function submit() {
   background: rgb(var(--v-theme-surface)) !important;
   border-color: rgb(var(--v-theme-primary));
   box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.16);
+}
+/* The chip's own `.v-chip__overlay` paints `currentColor` over the chip at some opacity for its
+   interaction states (hover/focus/selected) — independent of the `background` above, which it
+   sits on top of. Left alone, the selected state's overlay shows as a muddy grey wash over the
+   tile (on-surface currentColor at low opacity) instead of the mockup's unchanged white/surface
+   tile with just a border + ring. Suppressing it keeps the tile's own background visible; the
+   border, ring and check icon still carry the selected signal. */
+.cat-group :deep(.v-chip--selected .v-chip__overlay) {
+  opacity: 0 !important;
 }
 .cat-check {
   position: absolute;
