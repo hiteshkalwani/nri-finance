@@ -85,6 +85,9 @@ type MountOpts = {
   putResponse?: () => Response
   balancesByCycle?: Record<string, unknown>
   networthByCycle?: Record<string, unknown>
+  /** Pre-seeds the query cache before mounting — simulates arriving on this page with another
+   * cycle's (or this same cycle's, now-stale) data already cached from an earlier visit. */
+  seed?: (qc: QueryClient) => void
 }
 
 async function mountBalances(opts: MountOpts = {}) {
@@ -114,6 +117,7 @@ async function mountBalances(opts: MountOpts = {}) {
   router.push('/accounts/balances')
   await router.isReady()
   const queryClient = new QueryClient()
+  opts.seed?.(queryClient)
   // Mounted behind a real `<router-view />` (not the page directly) — `onBeforeRouteLeave` and
   // `onBeforeRouteUpdate` only register against vue-router's matched-record tracking when the
   // calling component is actually rendered as a router view's matched component, same as it is in
@@ -123,7 +127,7 @@ async function mountBalances(opts: MountOpts = {}) {
     { global: { plugins: [router, vuetify, [VueQueryPlugin, { queryClient }]] }, attachTo: document.body },
   )
   for (let i = 0; i < 8; i++) await flushPromises()
-  return { wrapper, fetchMock, router }
+  return { wrapper, fetchMock, router, queryClient, balancesByCycle }
 }
 
 function saveButton(wrapper: Awaited<ReturnType<typeof mountBalances>>['wrapper']) {
@@ -312,6 +316,64 @@ describe('UpdateBalancesPage', () => {
     await waitUntil(() => (wrapper.get(`#bal-${ID1}`).element as HTMLInputElement).value === '1,300,000')
 
     expect(router.currentRoute.value.query.cycle).toBe('2026-11')
+
+    wrapper.unmount()
+  })
+
+  // Final whole-branch review finding 1 (Critical): the old `fields` watch was keyed only on
+  // `b.value?.cycle` — on remount, vue-query serves a cached `['balances', cycle]` response
+  // immediately, and once the background refetch resolves *for that same cycle*, the cycle string
+  // never changes, so `fields` was never rebuilt from the fresh data at all. A stale prefilled
+  // value could then be confirmed and saved as the cycle's own snapshot.
+  it('rebuilds fields from the fresh refetch, not the stale cache a remount serves first, and Save sends the fresh carried amount', async () => {
+    const STALE = { ...BALANCES_OCT, rows: BALANCES_OCT.rows.map((r) => (r.accountId === ID1 ? { ...r, amount: 1000000 } : r)) }
+    const FRESH = BALANCES_OCT // the "real" server response: ID1 is ¥1,240,000, not the stale ¥1,000,000
+
+    const { wrapper, fetchMock } = await mountBalances({
+      balancesByCycle: { '2026-10': FRESH },
+      seed: (qc) => qc.setQueryData(['balances', ''], STALE),
+    })
+
+    // The field shows the fresh value once the refetch resolves, not the stale cached one.
+    expect((wrapper.get(`#bal-${ID1}`).element as HTMLInputElement).value).toBe('1,240,000')
+
+    const button = saveButton(wrapper)
+    await button.trigger('click')
+    for (let i = 0; i < 6; i++) await flushPromises()
+
+    // Only the untouched carried row (ID3) is confirmed — it's sent at its *fresh* amount, never
+    // anything derived from the stale cache.
+    const putCall = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
+    const body = JSON.parse(String((putCall![1] as RequestInit).body))
+    expect(body.entries).toEqual([{ accountId: ID3, amount: 2000000 }])
+
+    wrapper.unmount()
+  })
+
+  // Final whole-branch review finding 1 (Critical), continued: the same stale-watch bug meant that
+  // once an account was added or unarchived elsewhere (AccountDialog/AccountsPage now also
+  // invalidate `['balances']`), the resulting fresh GET's extra row had no matching field at all —
+  // `fieldFor(row)` returned `undefined`, and the template's `undefined!.text` threw. This must
+  // instead add a field for the new row (and keep whichever fields the user had already edited).
+  it('adds a field for a new row from a fresh refetch without throwing, and keeps an in-progress edit on another field', async () => {
+    const { wrapper, queryClient, balancesByCycle } = await mountBalances()
+
+    await wrapper.get(`#bal-${ID1}`).setValue('1250000') // an in-progress, unsaved edit
+    await flushPromises()
+
+    const NEW_ID = '55555555-5555-4555-8555-555555555555'
+    balancesByCycle['2026-10'] = {
+      ...BALANCES_OCT,
+      rows: [
+        ...BALANCES_OCT.rows,
+        { accountId: NEW_ID, name: 'New JP bank', country: 'JP', currency: 'JPY', type: 'bank', isEmergencyFund: false, amount: 500, source: 'this', fromCycle: '2026-10' },
+      ],
+    }
+    await queryClient.invalidateQueries({ queryKey: ['balances'] })
+    await waitUntil(() => wrapper.text().includes('New JP bank'))
+
+    expect(wrapper.find(`#bal-${NEW_ID}`).exists()).toBe(true) // renders the new row instead of throwing
+    expect((wrapper.get(`#bal-${ID1}`).element as HTMLInputElement).value).toBe('1,250,000') // edit kept
 
     wrapper.unmount()
   })

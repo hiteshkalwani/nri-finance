@@ -38,25 +38,67 @@ const nwQ = useQuery({
   enabled: () => !!b.value,
 })
 
-// One field per row, rebuilt whenever a *different* cycle's data arrives (keyed on the cycle
-// string, not the row objects themselves, so a background refetch of the same cycle — e.g. after
-// Save invalidates ['balances'] — never stomps on text the user is mid-typing).
+// One field per row. Rebuilt from `b.value.rows` every time *fresh* data arrives for the current
+// cycle — not just when the cycle string itself changes (final review finding 1, Critical): on
+// remount, vue-query serves a cached `['balances', cycle]` response immediately, and the
+// background refetch that follows resolves for that *same* cycle, so a watch keyed only on the
+// cycle string never saw it and kept showing (and could save) stale prefilled values; a fresh
+// response with a row this page had never seen before (a new/unarchived account, now that
+// AccountDialog.vue/AccountsPage.vue also invalidate `['balances']`) had no field at all, and
+// `fieldFor` crashed the render.
+//
+// `balQ.dataUpdatedAt` ticks to `Date.now()` every time a fetch actually completes (vue-query's
+// own bookkeeping, not derived from the rows), so watching it alongside the cycle catches both a
+// same-cycle background refetch and a cycle switch. While the form isn't dirty this just replaces
+// `fields` outright. While it *is* dirty (fresh data arrived mid-edit — a cycle switch can't reach
+// here dirty, since the leave/update guard below always resolves that first): any field the user
+// has actually edited (by value, not raw text — same `parseAmount`-based comparison `isDirty`
+// itself uses) keeps its text; every other field, and any brand-new row, takes the fresh value.
 const fields = ref<FieldState[]>([])
+function buildField(r: BalanceRow): FieldState {
+  const text = toText(r.amount, r.currency)
+  return { accountId: r.accountId, text, initial: text, currency: r.currency }
+}
+let lastBuiltCycle: string | undefined
 watch(
-  () => b.value?.cycle,
+  [() => b.value?.cycle, () => balQ.dataUpdatedAt.value],
   () => {
     if (!b.value) return
+    const cycleChanged = b.value.cycle !== lastBuiltCycle
+    lastBuiltCycle = b.value.cycle
+    if (cycleChanged || !isDirty(fields.value)) {
+      fields.value = b.value.rows.map(buildField)
+      return
+    }
+    const prevByAccount = new Map(fields.value.map((f) => [f.accountId, f]))
     fields.value = b.value.rows.map((r) => {
-      const text = toText(r.amount, r.currency)
-      return { accountId: r.accountId, text, initial: text, currency: r.currency }
+      const prev = prevByAccount.get(r.accountId)
+      if (!prev) return buildField(r) // a row this page hadn't seen before — add its field
+      const edited = parseAmount(prev.text, prev.currency) !== parseAmount(prev.initial, prev.currency)
+      return edited ? prev : buildField(r)
     })
   },
   { immediate: true },
 )
 const fieldByAccount = computed(() => new Map(fields.value.map((f) => [f.accountId, f])))
+/** Never undefined, even for a row `fields` hasn't caught up to yet (the watch above runs in the
+ * same reactive flush as `b.value.rows` changing, so in practice this fallback is just a safety
+ * net, not something the UI is expected to show). */
 function fieldFor(row: BalanceRow): FieldState {
-  return fieldByAccount.value.get(row.accountId)!
+  return fieldByAccount.value.get(row.accountId) ?? buildField(row)
 }
+
+// True once the *current* cycle's own GET has actually completed during this page visit — not
+// merely "`b` has a value", which a stale cache satisfies immediately on mount, before the
+// background refetch above has had any chance to run. Rendering the form (rather than a brief
+// skeleton) against that stale snapshot is exactly what let a carried-forward value go stale
+// (final review finding 1): `dataUpdatedAt` is set to `Date.now()` only when a fetch for the
+// *currently active* query key resolves, so comparing it against this component's own mount time
+// is true only once a real fetch has landed since this page was opened (for whichever cycle is
+// active right now — switching cycles swaps which query `balQ` reflects, and `dataUpdatedAt`
+// with it).
+const mountedAt = Date.now()
+const rowsReady = computed(() => !!b.value && balQ.dataUpdatedAt.value >= mountedAt)
 
 // Grouped (comma/lakh) display while a field isn't focused; the raw text the user actually typed
 // (commas and all — `parseAmount` already accepts them) while it is (fix round 1, coordinator
@@ -237,7 +279,12 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
     Set up your profile first in <router-link to="/settings">Settings</router-link>.
   </v-alert>
   <v-alert v-else-if="balQ.error.value" type="error" variant="tonal">{{ balQ.error.value.message }}</v-alert>
-  <template v-else-if="b">
+  <!-- `b` alone isn't enough: a cached-but-stale response satisfies it immediately on mount,
+       before the fresh refetch (`rowsReady`) has landed — rendering the form against that would
+       let the user see (and confirm) values already superseded on the server (final review
+       finding 1). Falls through to the plain skeleton below until the first fetch for this cycle
+       completes. -->
+  <template v-else-if="b && rowsReady">
     <PageHeader title="Update balances">
       <div class="cycle-pill">
         <v-btn icon="mdi-chevron-left" variant="text" size="small" aria-label="Previous cycle" @click="go(previousCycle(b.cycle))" />
