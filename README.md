@@ -46,14 +46,15 @@ When you are done: `pnpm stack:down` (keeps your data) or `pnpm stack:reset` (wi
 - **Dashboard** (`/`) — pick a billing cycle with the arrows (defaults to the current cycle in JST); cards for income,
   spent, sent home and kept; a donut of spend by category and a 12-cycle bar chart, each with a keyboard-reachable
   text list alongside it. Click a category or a bar to open the ledger filtered to it.
-- **Spend** (`/spend`) — the ledger, with cycle, category, payment method, need/want and search filters, sort and
-  paging, all kept in the URL so a link or the back button returns to the same view. Click a row to edit it
-  (`/spend/:id`); editing offers delete, with an undo.
+- **Spend** (`/spend`) — the ledger, grouped by date with a day total, with cycle, category, payment method,
+  need/want and search filters, sort and paging, all kept in the URL so a link or the back button returns to the
+  same view. Click a row to edit it (`/spend/:id`); editing offers delete, with an undo.
 - **Add expense** (`/spend/new`) — quick-add from the phone's bottom nav. Enter the amount in ¥ or ₹ (converted and
   stored at the planning rate), pick a category (payment method and need/want default from that category's last
   use), and a date that defaults to today in JST unless you change it.
-- **Settings** — update your profile, manage categories (add, rename, pick one of 12 colours, reorder with the
-  up/down buttons, archive, or delete when unused), and import from v1.
+- **Settings** — update your profile, manage categories (add, rename, pick one of 12 colours or an emoji icon,
+  reorder with the up/down buttons, archive, or delete when unused), import from v1, and choose the theme under
+  Appearance (System, Light or Dark — remembered per device; System follows the OS).
 
 ---
 
