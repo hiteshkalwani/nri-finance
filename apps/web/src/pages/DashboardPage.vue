@@ -13,7 +13,7 @@ import NetWorthEmergencyFundCards from '../components/NetWorthEmergencyFundCards
 import PageHeader from '../components/PageHeader.vue'
 import { apiFetch, ApiRequestError } from '../lib/api'
 import { useCategories } from '../lib/categories'
-import { barData, buildBarOptions, donutData } from '../lib/charts'
+import { barData, buildBarOptions, buildDonutOptions, donutData, prefersReducedMotion } from '../lib/charts'
 import { safeColor } from '../lib/color'
 import { cycleLabel, dateRangeLabel, MONTHS, yen } from '../lib/format'
 import { groupByDate, isPartialPageGroup, pageCount } from '../lib/groups'
@@ -28,6 +28,10 @@ const { xs } = useDisplay()
 const theme = useTheme()
 const me = useProfile()
 const cats = useCategories()
+// Shared with NetWorthChart.vue's area chart (fix round 1): read once, passed into every chart's
+// options builder below, rather than each one re-checking `matchMedia` (or, worse, not checking
+// it at all — see the doc comments on `buildBarOptions`/`buildDonutOptions`).
+const reducedMotion = prefersReducedMotion()
 
 const cycle = computed(() => (typeof route.query.cycle === 'string' ? route.query.cycle : ''))
 const dash = useQuery({
@@ -135,20 +139,14 @@ const themeHex = (key: string): string => {
   return typeof c === 'string' ? c : '#000000'
 }
 const donutChartData = computed(() => donutData(legend.value, themeHex('on-surface-variant')))
-const donutOptions = computed(() => ({
-  cutout: '70%',
-  plugins: { legend: { display: false } },
-  elements: { arc: { hoverOffset: 10 } },
-  // Chart.js already highlights the hovered slice itself (built-in canvas hover interaction); this
-  // just mirrors that index onto the legend list, so hovering a slice highlights its matching row too.
-  onHover: (_e: unknown, active: { index: number }[]) => {
-    hoveredLegend.value = active[0]?.index ?? null
-  },
-  onClick: (_e: unknown, els: { index: number }[]) => {
-    const row = legend.value[els[0]?.index ?? -1]
+const donutOptions = computed(() => buildDonutOptions(
+  (index) => { hoveredLegend.value = index },
+  (index) => {
+    const row = legend.value[index]
     if (row && d.value) void router.push(ledgerLink(d.value.cycle, row.categoryId))
   },
-}))
+  reducedMotion,
+))
 
 // `primary-accent`, not `primary`: the bars are a non-text use and must stay the bright mockup
 // accent in both themes (theme.ts) — `primary` in light theme is now the deeper button-fill shade.
@@ -172,6 +170,7 @@ const barOptions = computed(() => buildBarOptions(
   },
   themeHex('on-surface-variant'),
   themeBorder(),
+  reducedMotion,
 ))
 </script>
 

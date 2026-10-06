@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { areaData, barData, buildAreaOptions, buildBarOptions, donutData } from '../src/lib/charts'
+import { areaData, barData, buildAreaOptions, buildBarOptions, buildDonutOptions, donutData } from '../src/lib/charts'
 
 const d = {
   cycle: '2026-10', start: '2026-09-25', end: '2026-10-24', incomeJpy: 1, spentJpy: 2500, sentJpy: 0, feesJpy: 0, keptJpy: 0, savingsRatePct: 0,
@@ -46,6 +46,42 @@ it('still formats the y-axis ticks as yen and wires the click-through to the led
   expect(opts.scales!.y!.ticks!.callback!.call({} as never, 2500, 0, [])).toBe('￥2,500')
   opts.onClick!({} as never, [{ index: 0 } as never], {} as never)
   expect(onCycleClick).toHaveBeenCalledWith(0)
+})
+
+// Fix round 1: the Dashboard's "Spend per cycle" bar chart had no `reducedMotion` handling at all
+// (unlike `buildAreaOptions`), so Chart.js's default ~1s draw-in animation raced the screenshot
+// script's settle wait, catching it empty/mid-draw — same bug `buildAreaOptions` was already fixed
+// for.
+it('disables bar animation when reducedMotion is set, and leaves it alone otherwise', () => {
+  expect(buildBarOptions(() => undefined, '#000', '#000', true).animation).toBe(false)
+  expect(buildBarOptions(() => undefined, '#000', '#000', false).animation).toBeUndefined()
+  expect(buildBarOptions(() => undefined, '#000', '#000').animation).toBeUndefined()
+})
+
+// Fix round 1: the donut's options were built inline in DashboardPage.vue, with no `reducedMotion`
+// handling either — moved into `lib/charts.ts` as `buildDonutOptions` so both the behaviour and
+// the fix are unit-testable here, the same way `buildBarOptions` already is.
+it('builds donut options with a 70% cutout, no legend, and wires hover/click through to the caller', () => {
+  const onHover = vi.fn()
+  const onClick = vi.fn()
+  const opts = buildDonutOptions(onHover, onClick)
+  expect(opts.cutout).toBe('70%')
+  expect(opts.plugins!.legend!.display).toBe(false)
+  expect(opts.elements!.arc!.hoverOffset).toBe(10)
+
+  opts.onHover!({} as never, [{ index: 2 } as never], {} as never)
+  expect(onHover).toHaveBeenCalledWith(2)
+  opts.onHover!({} as never, [], {} as never)
+  expect(onHover).toHaveBeenCalledWith(null)
+
+  opts.onClick!({} as never, [{ index: 1 } as never], {} as never)
+  expect(onClick).toHaveBeenCalledWith(1)
+})
+
+it('disables donut animation when reducedMotion is set, and leaves it alone otherwise', () => {
+  expect(buildDonutOptions(() => undefined, () => undefined, true).animation).toBe(false)
+  expect(buildDonutOptions(() => undefined, () => undefined, false).animation).toBeUndefined()
+  expect(buildDonutOptions(() => undefined, () => undefined).animation).toBeUndefined()
 })
 
 // Accounts screen's net worth chart (spec §4.1): a single filled line/area, the fill a 28%-alpha
