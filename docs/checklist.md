@@ -103,7 +103,7 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 
 | ID | Requirement | Status | Notes |
 |---|---|---|---|
-| IMP-1 | Import `finance-data.json`: transactions, categories, settings, loan, SIP plan | 🟡 | All imported except the emergency-fund goal (no column until M2); settings skipped if a profile already exists |
+| IMP-1 | Import `finance-data.json`: transactions, categories, settings, loan, SIP plan | 🟡 | All imported, including the emergency-fund goal into the profile (`emergencyFundGoalJpy`, M2a); settings skipped if a profile already exists |
 | IMP-2 | Family/India rows become remittances (purpose family) | ✅ | |
 | IMP-3 | Starter accounts: Japan bank, Japan emergency fund (flagged), India bank | ✅ | |
 | IMP-4 | Idempotent: running twice adds nothing | ✅ | |
@@ -128,7 +128,7 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 | DASH-2 | Income, spent, kept, savings rate (¥) | ✅ | M1 |
 | DASH-3 | Spending by category (donut), spend per cycle (bar, 12 cycles) | ✅ | M1 |
 | DASH-4 | Sent home this cycle: ¥ sent, ₹ received, by purpose | ⬜ | M2 |
-| DASH-5 | Net worth: Japan ¥, India ₹, combined, change since last cycle | ✅ | M2 (P1) |
+| DASH-5 | Net worth: Japan ¥, India ₹, combined, change since last cycle | ✅ | M2 (P1) — the Dashboard shows the combined total and its change; the Japan/India split is on Accounts |
 | DASH-6 | Emergency fund balance, goal, months covered | ✅ | M2 |
 | DASH-7 | Home loan balance and projected payoff month | ⬜ | M3 |
 | DASH-8 | SIP paid vs plan; projected corpus 2036 | ⬜ | M3 (P1) |
