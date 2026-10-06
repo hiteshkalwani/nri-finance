@@ -84,7 +84,36 @@ describe('/api/accounts', () => {
     const mine = await create(a, { name: 'Private account', country: 'JP', type: 'bank' })
     const patchRes = await call(b, 'PATCH', `/api/accounts/${mine.id}`, { name: 'Taken' })
     expect(patchRes.status).toBe(404)
+    expect(await patchRes.json()).toMatchObject({ error: { code: 'NOT_FOUND', message: 'That account no longer exists' } })
     const bList = await (await call(b, 'GET', '/api/accounts')).json()
     expect(bList.items.map((x: { id: string }) => x.id)).not.toContain(mine.id)
+
+    const aList = await (await call(a, 'GET', '/api/accounts')).json()
+    expect(aList.items.find((x: { id: string }) => x.id === mine.id)).toMatchObject({ name: 'Private account' })
+  })
+
+  it('refuses renaming into another active account’s name (case-insensitive) with 409, and keeps the old name', async () => {
+    await create(a, { name: 'Checking one', country: 'JP', type: 'bank' })
+    const two = await create(a, { name: 'Checking two', country: 'JP', type: 'bank' })
+
+    const res = await call(a, 'PATCH', `/api/accounts/${two.id}`, { name: 'checking one' })
+    expect(res.status).toBe(409)
+    expect((await res.json()).error.message).toBe('You already have an account called "checking one"')
+
+    const list = await (await call(a, 'GET', '/api/accounts')).json()
+    expect(list.items.find((x: { id: string }) => x.id === two.id)).toMatchObject({ name: 'Checking two' })
+  })
+
+  it('refuses unarchiving into a name now taken by another active account (409), and stays archived', async () => {
+    const x = await create(a, { name: 'Old wallet', country: 'JP', type: 'cash' })
+    expect((await call(a, 'PATCH', `/api/accounts/${x.id}`, { archived: true })).status).toBe(200)
+    await create(a, { name: 'Old wallet', country: 'JP', type: 'cash' })
+
+    const res = await call(a, 'PATCH', `/api/accounts/${x.id}`, { archived: false })
+    expect(res.status).toBe(409)
+    expect((await res.json()).error.message).toBe('You already have an account called "Old wallet"')
+
+    const list = await (await call(a, 'GET', '/api/accounts?include=archived')).json()
+    expect(list.items.find((it: { id: string }) => it.id === x.id)).toMatchObject({ archived: true })
   })
 })
