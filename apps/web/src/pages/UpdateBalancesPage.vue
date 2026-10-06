@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { useDisplay } from 'vuetify'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { BalancesResponse, NetWorthResponse, type BalanceRow } from '@nri/contracts'
 import { jpyFromInrPaise, nextCycle, previousCycle } from '@nri/core'
 import PageHeader from '../components/PageHeader.vue'
 import { apiFetch, ApiRequestError } from '../lib/api'
-import { changedEntries, type FieldState, isDirty, netWorthAfterSaving, parseAmount, toText } from '../lib/balancesForm'
+import { changedEntries, type FieldState, formatGrouped, isDirty, netWorthAfterSaving, parseAmount, toText } from '../lib/balancesForm'
 import { flash } from '../lib/flash'
-import { cycleLabel, dateRangeLabel, MONTHS, monthYearLabel, yen } from '../lib/format'
+import { cycleLabel, dateRangeLabel, MONTHS, monthYearLabel, rupees, yen } from '../lib/format'
 import { useProfile } from '../lib/profile'
 
 const route = useRoute()
@@ -58,6 +58,28 @@ function fieldFor(row: BalanceRow): FieldState {
   return fieldByAccount.value.get(row.accountId)!
 }
 
+// Grouped (comma/lakh) display while a field isn't focused; the raw text the user actually typed
+// (commas and all — `parseAmount` already accepts them) while it is (fix round 1, coordinator
+// finding 2). Formatting is purely a display concern: it's never written back into the field's
+// own stored `text`, so it can never register as an edit (see `isDirty`/`changedEntries`, which
+// compare parsed values for exactly this reason).
+const focusedAccounts = ref(new Set<string>())
+function onFieldFocus(accountId: string) {
+  focusedAccounts.value.add(accountId)
+}
+function onFieldBlur(accountId: string) {
+  focusedAccounts.value.delete(accountId)
+}
+function displayText(row: BalanceRow): string {
+  const f = fieldFor(row)
+  if (focusedAccounts.value.has(row.accountId)) return f.text
+  const parsed = parseAmount(f.text, f.currency)
+  return typeof parsed === 'number' ? formatGrouped(parsed, f.currency) : f.text
+}
+function setText(row: BalanceRow, value: string) {
+  fieldFor(row).text = value
+}
+
 // Rows arrive pre-sorted Japan-then-India (spec §3), so grouping is just a run-length split, not a re-sort.
 const groupedRows = computed(() => {
   const out: { country: 'JP' | 'IN'; label: string; rows: BalanceRow[] }[] = []
@@ -82,6 +104,17 @@ function approxYen(row: BalanceRow): string | null {
   const parsed = parseAmount(fieldFor(row).text, 'INR')
   if (typeof parsed !== 'number') return null
   return `≈ ${yen(jpyFromInrPaise(parsed, b.value.rate))}`
+}
+/**
+ * "Left blank — keeps ¥1,240,000" under a field the user cleared that had a prior value (fix
+ * round 1, coordinator finding 3): the controller ruling is that a blank field means "keep the
+ * current value", never a balance of zero — Save skips it (`changedEntries`) and the footer
+ * preview treats it as unchanged (`netWorthAfterSaving`), so this hint spells out, in the row's
+ * own currency, exactly what "unchanged" means here.
+ */
+function blankHint(row: BalanceRow): string | null {
+  if (fieldFor(row).text.trim() !== '' || row.amount === null) return null
+  return `Left blank — keeps ${row.currency === 'JPY' ? yen(row.amount) : rupees(row.amount)}`
 }
 
 const serverFieldErrors = ref<Record<string, string>>({})
@@ -165,15 +198,22 @@ function save() {
 
 // Leaving with unsaved changes (spec §4.3): a Vuetify dialog, not window.confirm — the guard
 // itself just returns a Promise<boolean> that resolves once the dialog's own buttons answer it.
+// Shared by both guards below (fix round 1, coordinator finding 1): `onBeforeRouteLeave` covers
+// navigating to a different page, and `onBeforeRouteUpdate` covers staying on this same page with
+// a different `?cycle=` — the cycle picker's own `go()` and a manually-edited URL both land here,
+// since either way the component is reused (not unmounted) and the cycle watch would otherwise
+// silently rebuild `fields` out from under whatever the user was mid-typing.
 const leaveConfirmOpen = ref(false)
 let resolveLeave: ((ok: boolean) => void) | null = null
-onBeforeRouteLeave(() => {
+function confirmDiscard(): true | Promise<boolean> {
   if (!dirty.value) return true
   return new Promise<boolean>((resolve) => {
     resolveLeave = resolve
     leaveConfirmOpen.value = true
   })
-})
+}
+onBeforeRouteLeave(confirmDiscard)
+onBeforeRouteUpdate(confirmDiscard)
 function keepEditing() {
   leaveConfirmOpen.value = false
   resolveLeave?.(false)
@@ -219,18 +259,22 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
             <div class="sub-row">
               <span v-if="row.type === 'card'" class="sub">owed</span>
               <span v-if="fromHint(row)" class="sub">{{ fromHint(row) }}</span>
+              <span v-if="blankHint(row)" class="sub">{{ blankHint(row) }}</span>
             </div>
           </div>
           <div class="amt-wrap">
             <v-text-field
               :id="`bal-${row.accountId}`"
-              v-model="fieldFor(row).text"
+              :model-value="displayText(row)"
               :label="`Balance for ${row.name}`"
               inputmode="decimal"
               :prefix="row.currency === 'JPY' ? '¥' : '₹'"
               :error-messages="fieldErrorFor(row)"
               density="comfortable"
               hide-details="auto"
+              @update:model-value="(v) => setText(row, v)"
+              @focus="onFieldFocus(row.accountId)"
+              @blur="onFieldBlur(row.accountId)"
             />
             <div v-if="approxYen(row)" class="sub approx">{{ approxYen(row) }}</div>
           </div>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { BalanceRow } from '@nri/contracts'
 import { jpyFromInrPaise } from '@nri/core'
-import { changedEntries, type FieldState, isDirty, netWorthAfterSaving, parseAmount, toText } from '../src/lib/balancesForm'
+import { changedEntries, type FieldState, formatGrouped, isDirty, netWorthAfterSaving, parseAmount, toText } from '../src/lib/balancesForm'
 
 const RATE = '1.694915'
 
@@ -63,6 +63,17 @@ describe('parseAmount', () => {
   })
 })
 
+describe('formatGrouped', () => {
+  it('groups a ¥ amount with thousands separators', () => {
+    expect(formatGrouped(1240000, 'JPY')).toBe('1,240,000')
+    expect(formatGrouped(0, 'JPY')).toBe('0')
+  })
+  it('groups a ₹ amount (given in paise) with Indian lakh/crore separators and 2 decimals', () => {
+    expect(formatGrouped(40670000, 'INR')).toBe('4,06,700.00')
+    expect(formatGrouped(100000000, 'INR')).toBe('10,00,000.00')
+  })
+})
+
 describe('changedEntries', () => {
   it('skips a "this"-cycle row whose text was never touched', () => {
     const rows = [row({ accountId: 'a1', amount: 500000, source: 'this' })]
@@ -99,6 +110,13 @@ describe('changedEntries', () => {
     const fields = [field({ accountId: 'a6', currency: 'JPY', text: '1.5', initial: '500000' })]
     expect(changedEntries(fields, rows)).toEqual([])
   })
+  // Fix round 1 (coordinator finding 2): blur-formatting re-displays a field's own unchanged value
+  // with commas — that must never look like an edit just because the *text* differs from `initial`.
+  it('does not include a "this"-cycle row re-typed (or re-displayed) with the same value in a different format', () => {
+    const rows = [row({ accountId: 'a1', amount: 1240000, source: 'this' })]
+    const fields = [field({ accountId: 'a1', currency: 'JPY', text: '1,240,000', initial: '1240000' })]
+    expect(changedEntries(fields, rows)).toEqual([])
+  })
 })
 
 describe('isDirty', () => {
@@ -115,6 +133,12 @@ describe('isDirty', () => {
       field({ accountId: 'a2', currency: 'INR', text: '100.00', initial: '' }),
     ]
     expect(isDirty(fields)).toBe(true)
+  })
+  // Fix round 1 (coordinator finding 2): compares *parsed* amounts, not raw text — blur-formatting
+  // a field (adding commas) must never make an otherwise-untouched field look dirty.
+  it('is not dirty when a field\'s text differs only in formatting (commas), same parsed value', () => {
+    const fields = [field({ accountId: 'a1', currency: 'JPY', text: '1,240,000', initial: '1240000' })]
+    expect(isDirty(fields)).toBe(false)
   })
 })
 
@@ -146,15 +170,26 @@ describe('netWorthAfterSaving', () => {
     expect(netWorthAfterSaving(fields, rows, COMBINED, RATE)).toBe(COMBINED + expectedDelta)
   })
 
-  it('treats a field cleared to blank as saving 0, subtracting the row\'s old ¥ value in full', () => {
+  // Fix round 1 (coordinator finding 3): the controller ruling is that a blank field means "keep
+  // the current value" — Save doesn't send it, and the live preview must not act as though it
+  // were about to be zeroed either. (Previously this asserted `COMBINED - 500000`.)
+  it('treats a field cleared to blank as unchanged — "keep the current value" — not a drop to 0', () => {
     const rows = [row({ accountId: 'a5', amount: 500000, source: 'this' })]
     const fields = [field({ accountId: 'a5', currency: 'JPY', text: '', initial: '500000' })]
-    expect(netWorthAfterSaving(fields, rows, COMBINED, RATE)).toBe(COMBINED - 500000)
+    expect(netWorthAfterSaving(fields, rows, COMBINED, RATE)).toBe(COMBINED)
   })
 
   it('leaves an untouched blank field (no prior balance, still blank) contributing nothing', () => {
     const rows = [row({ accountId: 'a6', amount: null, source: 'none' })]
     const fields = [field({ accountId: 'a6', currency: 'JPY', text: '', initial: '' })]
+    expect(netWorthAfterSaving(fields, rows, COMBINED, RATE)).toBe(COMBINED)
+  })
+
+  // Fix round 1 (coordinator finding 2): same reasoning as isDirty/changedEntries above — a
+  // formatting-only difference (commas) must not register as an edit here either.
+  it('is unchanged when a field is re-typed (or re-displayed) with the same value in a different format', () => {
+    const rows = [row({ accountId: 'a1', amount: 500000, source: 'this' })]
+    const fields = [field({ accountId: 'a1', currency: 'JPY', text: '500,000', initial: '500000' })]
     expect(netWorthAfterSaving(fields, rows, COMBINED, RATE)).toBe(COMBINED)
   })
 })
