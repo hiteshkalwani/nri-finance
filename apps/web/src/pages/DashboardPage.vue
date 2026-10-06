@@ -455,13 +455,21 @@ const barOptions = {
 }
 @media (max-width: 1100px) {
   .grid2 {
-    grid-template-columns: 1fr;
+    /* Defensive (fix round 1, cheap extra): `minmax(0, 1fr)`, not bare `1fr` — Settings'
+       `.grid2` hit the exact same bug (see SettingsPage.vue's matching comment) once a row's
+       content had a wide enough min-content to bubble up through this track. Nothing here is
+       that wide yet, but the pattern is identical and just as unguarded. */
+    grid-template-columns: minmax(0, 1fr);
   }
+}
+.grid2 > .v-card {
+  min-width: 0;
 }
 .side-col {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
 .tx-hd {

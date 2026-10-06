@@ -83,3 +83,29 @@ it('keeps the selected ¥/₹ segment at >=4.5:1 contrast in both themes (spec �
   expect(contrastRatio('#ffffff', nriLight.colors!['primary-darken-1'] as string)).toBeGreaterThanOrEqual(4.5)
   expect(contrastRatio(nriDark.colors!['on-primary'] as string, nriDark.colors!.primary as string)).toBeGreaterThanOrEqual(4.5)
 })
+
+// Fix round 1, item 3: the global `:focus-visible` ring (app.css) used `primary-accent` — a
+// non-text use, so spec §7's 4.5:1 text minimum doesn't apply, but WCAG 1.4.11 (non-text
+// contrast) requires >=3:1 against the ring's surroundings, and light theme's `primary-accent`
+// (#f0682e) only clears 2.84:1 against the page background and 3.12:1 against a card surface —
+// the first fails outright. Switched the global ring to `primary` (the deeper #c2410c from the
+// task 8 button-contrast fix), which clears both. Dark theme's `primary` was never darkened and
+// already cleared both, so it's unchanged.
+it('keeps the global focus ring at >=3:1 contrast against both the background and a surface (WCAG 1.4.11)', () => {
+  const ringContrast = (theme: typeof nriLight) => {
+    const colors = theme.colors!
+    return {
+      bg: contrastRatio(colors.primary as string, colors.background as string),
+      surface: contrastRatio(colors.primary as string, colors.surface as string),
+    }
+  }
+  const light = ringContrast(nriLight)
+  const dark = ringContrast(nriDark)
+  expect(light.bg).toBeGreaterThanOrEqual(3)
+  expect(light.surface).toBeGreaterThanOrEqual(3)
+  expect(dark.bg).toBeGreaterThanOrEqual(3)
+  expect(dark.surface).toBeGreaterThanOrEqual(3)
+
+  // The ring this replaced in light theme — documents *why* `primary-accent` wasn't kept here.
+  expect(contrastRatio(nriLight.colors!['primary-accent'] as string, nriLight.colors!.background as string)).toBeLessThan(3)
+})

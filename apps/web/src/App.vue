@@ -143,6 +143,9 @@ const signOut = useSignOut()
      in both themes (controller ruling, task 8 — see theme.ts). */
   color: rgb(var(--v-theme-on-primary));
   margin-top: -14px;
-  box-shadow: 0 4px 12px rgba(240, 104, 46, 0.35);
+  /* The theme variable, not a hard-coded rgb() of the old bright accent's hex (fix round 1,
+     cheap extra) — this already happened to match `primary-accent` in both themes, but a literal
+     copy of the hex wouldn't survive either token changing again. */
+  box-shadow: 0 4px 12px rgba(var(--v-theme-primary-accent), 0.35);
 }
 </style>

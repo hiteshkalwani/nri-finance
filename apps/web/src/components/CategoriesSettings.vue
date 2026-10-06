@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useDisplay } from 'vuetify'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { Category, CategoryList, type CategoryPatch } from '@nri/contracts'
 import { apiFetch, ApiRequestError } from '../lib/api'
@@ -7,6 +8,7 @@ import { CATEGORY_ICONS, moveId, PALETTE, useCategories } from '../lib/categorie
 import { safeColor } from '../lib/color'
 import CategoryAvatar from './CategoryAvatar.vue'
 
+const { xs } = useDisplay()
 const qc = useQueryClient()
 const cats = useCategories()
 const newName = ref('')
@@ -103,7 +105,7 @@ function startEdit(c: Category) { editing.value = c.id; editName.value = c.name 
       </div>
       <div class="acts">
         <v-menu>
-          <template #activator="{ props }"><v-btn v-bind="props" icon="mdi-palette-outline" variant="text" size="small" aria-label="Colour" /></template>
+          <template #activator="{ props }"><v-btn v-bind="props" icon="mdi-palette-outline" variant="text" size="small" :aria-label="`Colour for ${c.name}`" /></template>
           <div class="d-flex flex-wrap ga-1 pa-2 bg-surface" style="max-width: 200px" role="radiogroup" aria-label="Colour">
             <v-btn v-for="p in PALETTE" :key="p" icon size="x-small" :color="p" :aria-label="p" :aria-checked="c.color === p" role="radio" :ripple="false"
               :variant="c.color === p ? 'outlined' : 'flat'" @click="patch.mutate({ id: c.id, body: { color: p } })" />
@@ -111,7 +113,7 @@ function startEdit(c: Category) { editing.value = c.id; editName.value = c.name 
         </v-menu>
         <v-menu>
           <template #activator="{ props }">
-            <v-btn v-bind="props" variant="text" size="small" icon aria-label="Icon">
+            <v-btn v-bind="props" variant="text" size="small" icon :aria-label="`Icon for ${c.name}`">
               <span v-if="c.icon" aria-hidden="true">{{ c.icon }}</span>
               <v-icon v-else>mdi-emoticon-outline</v-icon>
             </v-btn>
@@ -127,20 +129,33 @@ function startEdit(c: Category) { editing.value = c.id; editName.value = c.name 
             >No icon</v-btn>
           </div>
         </v-menu>
-        <v-btn icon="mdi-pencil-outline" variant="text" size="small" aria-label="Rename" @click="startEdit(c)" />
-        <!-- Move/archive/delete behind one "More actions" menu, not 4 more inline icons: at a
-             phone width, 7 always-visible action icons left no room at all for the category name
-             (verified with Playwright — every row showed just an avatar and icons). -->
+        <v-btn icon="mdi-pencil-outline" variant="text" size="small" :aria-label="`Rename ${c.name}`" @click="startEdit(c)" />
+        <!-- Reorder discoverability (M1 regression, fix round 1): ↑ ↓ are inline again on wide
+             screens, where there's room; only on phones do they move into the "More actions"
+             menu alongside archive/delete, which stay in the menu on both breakpoints — a phone
+             width has no room for 7 always-visible action icons (verified with Playwright — every
+             row showed just an avatar and icons once there was). -->
+        <template v-if="!xs">
+          <v-btn icon="mdi-arrow-up" variant="text" size="small" :aria-label="`Move ${c.name} up`" :disabled="i === 0" @click="move(i, -1)" />
+          <v-btn
+            icon="mdi-arrow-down" variant="text" size="small" :aria-label="`Move ${c.name} down`"
+            :disabled="i === (cats.data.value?.length ?? 0) - 1" @click="move(i, 1)"
+          />
+        </template>
         <v-menu>
-          <template #activator="{ props }"><v-btn v-bind="props" icon="mdi-dots-vertical" variant="text" size="small" aria-label="More actions" /></template>
+          <template #activator="{ props }"><v-btn v-bind="props" icon="mdi-dots-vertical" variant="text" size="small" :aria-label="`More actions for ${c.name}`" /></template>
           <v-list density="compact">
-            <v-list-item :disabled="i === 0" prepend-icon="mdi-arrow-up" title="Move up" @click="move(i, -1)" />
-            <v-list-item :disabled="i === (cats.data.value?.length ?? 0) - 1" prepend-icon="mdi-arrow-down" title="Move down" @click="move(i, 1)" />
+            <template v-if="xs">
+              <v-list-item :disabled="i === 0" prepend-icon="mdi-arrow-up" :title="`Move ${c.name} up`" @click="move(i, -1)" />
+              <v-list-item
+                :disabled="i === (cats.data.value?.length ?? 0) - 1" prepend-icon="mdi-arrow-down" :title="`Move ${c.name} down`" @click="move(i, 1)"
+              />
+            </template>
             <v-list-item
-              :prepend-icon="c.archived ? 'mdi-archive-arrow-up-outline' : 'mdi-archive-outline'" :title="c.archived ? 'Unarchive' : 'Archive'"
+              :prepend-icon="c.archived ? 'mdi-archive-arrow-up-outline' : 'mdi-archive-outline'" :title="`${c.archived ? 'Unarchive' : 'Archive'} ${c.name}`"
               @click="patch.mutate({ id: c.id, body: { archived: !c.archived } })"
             />
-            <v-list-item v-if="!c.inUse" prepend-icon="mdi-delete-outline" title="Delete" @click="remove.mutate(c.id)" />
+            <v-list-item v-if="!c.inUse" prepend-icon="mdi-delete-outline" :title="`Delete ${c.name}`" @click="remove.mutate(c.id)" />
           </v-list>
         </v-menu>
       </div>
