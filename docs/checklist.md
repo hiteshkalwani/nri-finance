@@ -117,6 +117,7 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 | TXN-3 | Filters (cycle, category, payment, need/want, search), sort, pagination | ✅ | URL-backed filters, sort and paging; keyboard-reachable rows |
 | TXN-4 | Enter in ₹, converted to ¥ at the planning rate and stored | ✅ | |
 | CAT-1 | Add, rename, recolor, reorder, archive categories; delete blocked when in use | ✅ | Colour from 12; reorder with up/down buttons; delete blocked (409) while in use |
+| — | UI refresh (mockup look, light/dark, category icons) | ✅ | Matches `docs/diagrams/nri-ui-mockup.html`; theme toggle (System/Light/Dark) in Settings › Appearance; date-grouped Spend list |
 | — | Cut-over: re-import the latest v1 `finance-data.json`, then log only in v2 | ⬜ | You |
 
 ### 4. Dashboard — M1 basic, extended M2–M4
