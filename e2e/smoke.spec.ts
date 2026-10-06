@@ -34,7 +34,13 @@ test('quick-add an expense on the phone and see it on the dashboard and in the l
   const before = yen(await page.getByTestId('spent').textContent())
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.locator('#amount').fill('1234')
-  await page.locator('.v-chip-group[aria-label="Category"] .v-chip').first().click()
+  const firstCategory = page.locator('.v-chip-group[aria-label="Category"] .v-chip').first()
+  await firstCategory.click()
+  // Guard for the selected-tile grey-wash regression (fix round 2): the tile's own background
+  // must still be the plain surface colour (white in light theme) once selected, not darkened by
+  // a leftover overlay or ripple — `toHaveCSS` polls, so this also covers the ripple's own 0.3s
+  // fade-out rather than racing it.
+  await expect(firstCategory).toHaveCSS('background-color', 'rgb(255, 255, 255)')
   await page.locator('#description').fill('e2e quick-add')
   await page.getByRole('button', { name: 'Save' }).click()
   await expect(page.getByTestId('saved')).toContainText('￥1,234')
@@ -56,6 +62,8 @@ test.describe('on a laptop', () => {
     await signIn(page, '/spend')
     expect(page.viewportSize()?.width).toBe(1280) // now the Desktop Chrome viewport, not Pixel 7
     await page.locator('#search').fill('e2e quick-add')
+    // Default sort is date, so the filtered list still renders its date-group header (spec §4.2).
+    await expect(page.locator('.day-row').first()).toBeVisible()
     await expect(page.getByTestId('ledger-total')).toContainText('1 expenses')
     await page.getByText('e2e quick-add').click()
     await page.locator('#amount').fill('2000')
@@ -84,7 +92,7 @@ test.describe('on a laptop', () => {
     await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(0)
 
     // Delete another row, sign out immediately (before the 5s timeout), sign back in — still cleared.
-    await page.getByRole('link', { name: 'Add expense' }).first().click()
+    await page.getByRole('link', { name: 'Add expense' }).click()
     await page.locator('#amount').fill('1')
     const firstChip = page.locator('.v-chip-group[aria-label="Category"] .v-chip').first()
     await expect(firstChip).toBeVisible()

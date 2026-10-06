@@ -12,7 +12,7 @@ export function assertId(id: string, what = 'category'): string {
 /** My categories with usage and the last payment method / need-want used (quick-add defaults). */
 export async function listCategories(tx: Tx, userId: string, id?: string): Promise<Category[]> {
   const rows = await tx.execute<Category>(sql`
-    select c.id, c.name, c.color, c.sort_order as "sortOrder", c.archived_at is not null as archived,
+    select c.id, c.name, c.color, c.icon, c.sort_order as "sortOrder", c.archived_at is not null as archived,
       (exists (select 1 from transactions t where t.user_id = c.user_id and t.category_id = c.id)
         or exists (select 1 from category_budgets b where b.user_id = c.user_id and b.category_id = c.id)) as "inUse",
       l.payment_method as "lastPaymentMethod", l.need_want as "lastNeedWant"

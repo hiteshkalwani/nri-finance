@@ -10,6 +10,10 @@ export const Dashboard = z.object({
   feesJpy: z.number().int(),
   keptJpy: z.number().int(),
   savingsRatePct: z.number().nullable(),
+  expenseCount: z.number().int(),
+  largestJpy: z.number().int(),
+  needJpy: z.number().int(),
+  wantJpy: z.number().int(),
   byCategory: z.array(z.object({ categoryId: z.uuid(), name: z.string(), color: z.string(), spentJpy: z.number().int() })),
   byCycle: z.array(z.object({ cycle: z.string(), spentJpy: z.number().int() })),
 })

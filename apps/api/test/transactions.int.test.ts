@@ -81,6 +81,7 @@ describe('/api/transactions', () => {
     await post(a, base({ categoryId: rent, amountJpy: 500, paymentMethod: 'credit_card', needWant: 'want', description: 'Rent fee' }))
     const byCat = await list(a, `?categoryId=${rent}&pageSize=1`)
     expect(byCat).toMatchObject({ total: 2, pageSize: 1, totalJpy: 90500 })
+    expect(byCat).toMatchObject({ needJpy: 90000, wantJpy: 500 })
     expect(byCat.items).toHaveLength(1)
     expect((await list(a, `?categoryId=${rent}&paymentMethod=bank`)).total).toBe(1)
     expect((await list(a, `?categoryId=${rent}&needWant=want`)).items[0].description).toBe('Rent fee')

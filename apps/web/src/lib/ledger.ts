@@ -14,10 +14,23 @@ const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const KEYS = ['cycle', 'categoryId', 'paymentMethod', 'needWant', 'q', 'sort', 'dir', 'page'] as const
 export const PAGE_SIZE = 50
 
+/**
+ * A junk or out-of-range `page` (e.g. `?page=abc` or `?page=0`, both URL-fed) must not reach the
+ * API as-is — the API rejects anything that isn't a positive integer with a 400, which otherwise
+ * surfaced as a confusing "No expenses match these filters." Falls back to 1, same as an absent
+ * page.
+ */
+export function coercePage(v: unknown): number {
+  const n = Number(str(v))
+  return Number.isInteger(n) && n >= 1 ? n : 1
+}
+
 /** The page URL is the source of truth for filters/sort/page (reload and back/forward keep them). */
 export function toApiQuery(route: RouteQuery): URLSearchParams {
   const p = new URLSearchParams()
-  for (const k of KEYS) if (str(route[k])) p.set(k, str(route[k]))
+  for (const k of KEYS) { if (k !== 'page' && str(route[k])) p.set(k, str(route[k])) }
+  const page = coercePage(route.page)
+  if (page > 1) p.set('page', String(page)) // matches the API's own default of 1 when absent
   p.set('pageSize', String(PAGE_SIZE))
   return p
 }
@@ -25,6 +38,33 @@ export function toApiQuery(route: RouteQuery): URLSearchParams {
 export function sortFromRoute(route: RouteQuery): { key: SortField; order: 'asc' | 'desc' }[] {
   const key = (str(route.sort) || 'occurredOn') as SortField
   return [{ key, order: str(route.dir) === 'asc' ? 'asc' : 'desc' }]
+}
+
+export type SortValue = `${SortField}:asc` | `${SortField}:desc`
+
+/** Friendly sort picker options, each mapped to a single `sort:dir` route value. */
+export const SORT_OPTIONS: { title: string; value: SortValue }[] = [
+  { title: 'Newest', value: 'occurredOn:desc' },
+  { title: 'Oldest', value: 'occurredOn:asc' },
+  { title: 'Amount high→low', value: 'amountJpy:desc' },
+  { title: 'Amount low→high', value: 'amountJpy:asc' },
+  { title: 'Category A→Z', value: 'category:asc' },
+  { title: 'Description A→Z', value: 'description:asc' },
+]
+
+const DEFAULT_SORT = { key: 'occurredOn' as SortField, order: 'desc' as const }
+
+/** Falls back to the default sort for anything outside SORT_OPTIONS — this reads URL-controlled values (Task 6). */
+export function sortFromValue(v: string): { key: SortField; order: 'asc' | 'desc' } {
+  if (!SORT_OPTIONS.some((o) => o.value === v)) return { ...DEFAULT_SORT }
+  const [key, order] = v.split(':') as [SortField, 'asc' | 'desc']
+  return { key, order }
+}
+
+/** The current sort as a single picker value, built on the same route reading as the table. */
+export function sortValue(route: RouteQuery): SortValue {
+  const { key, order } = sortFromRoute(route)[0]!
+  return `${key}:${order}` as SortValue
 }
 
 /** The search box's value as the URL's `q` would show it (non-strings, e.g. undefined, read as ''). */

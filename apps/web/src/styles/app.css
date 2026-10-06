@@ -1,0 +1,92 @@
+/* Global styles that the Vuetify theme can't express. Values from the mockup's
+   <style> block (.eyebrow, .day, .card) — docs/diagrams/nri-ui-mockup.html. */
+
+.v-application {
+  font-family: 'Inter Variable', system-ui, sans-serif;
+  --v-font-body: 'Inter Variable', system-ui, sans-serif;
+  --v-font-heading: 'Inter Variable', system-ui, sans-serif;
+}
+
+/* Vuetify 4.2's utilities only ship the M3 type-scale classes (.text-headline-*, .text-title-*,
+   .text-body-*, .text-label-*); existing pages still use the legacy MD2 names below, which
+   otherwise render at the browser default size. New components use the M3 names directly. */
+.text-h5 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 2rem;
+}
+.text-h6 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.6rem;
+}
+.text-subtitle-1 {
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5rem;
+}
+.text-subtitle-2 {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.375rem;
+}
+.text-body-2 {
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.25rem;
+}
+.text-caption {
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+
+/* Tabular figures for any numeric value (amounts, balances, percentages). */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Small uppercase section label, e.g. above a card's date range. */
+.eyebrow {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  font-weight: 600;
+  opacity: var(--v-medium-emphasis-opacity);
+}
+
+/* Date-group header row inside a list (ledger / recent expenses), with a subtle
+   fill, a muted 13px label, and a top border separating it from the prior group. */
+.day-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgb(var(--v-theme-on-surface-variant));
+  background: rgb(var(--v-theme-surface-variant));
+  border-top: 1px solid rgb(var(--v-border-color));
+}
+
+.card-border {
+  border: 1px solid rgb(var(--v-border-color));
+}
+
+.v-card {
+  border-radius: 14px;
+}
+
+/* Fix round 1: `primary`, not `primary-accent`, for the GLOBAL focus ring. Task 8 originally used
+   `primary-accent` here reasoning that a ring is a non-text use like the bars/selection rings —
+   true in principle, but WCAG 1.4.11 (non-text contrast) needs >=3:1 against the ring's
+   surroundings, and light theme's `primary-accent` (#f0682e, the bright mockup accent) only
+   measures 2.84:1 against the page background (#f6f4f1) and 3.12:1 against a card surface
+   (#ffffff) — the first fails outright. Light theme's `primary` (the deeper #c2410c from the task
+   8 button-contrast fix) clears both: 4.72:1 / 5.18:1 (verified in theme.test.ts). Dark theme's
+   `primary` (#f58450, unchanged — it was never darkened) already cleared both (7.28:1 / 6.73:1),
+   so this is a no-op for dark. Component-level *selection* rings (the ¥/₹ and category-tile
+   rings, the bar chart) are unaffected — they already use `primary-accent` directly in their own
+   rules, not this global default. */
+:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}

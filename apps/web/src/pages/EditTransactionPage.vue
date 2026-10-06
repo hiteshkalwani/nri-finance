@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { AccountList, Transaction, type NeedWant, type PaymentMethod } from '@nri/contracts'
 import { decimalFromPaise } from '@nri/core'
+import CategoryAvatar from '../components/CategoryAvatar.vue'
 import { apiFetch, ApiRequestError } from '../lib/api'
 import { useCategories } from '../lib/categories'
 import { amountPatchFor, NEED_LABELS, PAYMENT_LABELS, parseAmount, type Currency } from '../lib/expenseForm'
@@ -75,22 +76,50 @@ const remove = useMutation({
 </script>
 
 <template>
-  <h1 class="text-h5 mb-4">Edit expense</h1>
+  <h1 class="text-h5 font-weight-bold mb-4">Edit expense</h1>
   <v-progress-linear v-if="row.isLoading.value" indeterminate />
   <v-alert v-else-if="!row.data.value" type="warning" variant="tonal">That expense no longer exists. <router-link to="/spend">Back to the ledger</router-link></v-alert>
-  <v-form v-else style="max-width: 560px" @submit.prevent="save.mutate()">
-    <div class="d-flex ga-2 align-start">
-      <v-text-field id="amount" v-model="amount" :label="currency === 'JPY' ? 'Amount (¥)' : 'Amount (₹)'" inputmode="decimal" />
-      <v-btn-toggle v-model="currency" mandatory density="comfortable" class="mt-2" aria-label="Currency">
-        <v-btn value="JPY" aria-label="Yen">¥</v-btn><v-btn value="INR" aria-label="Rupees">₹</v-btn>
-      </v-btn-toggle>
+  <v-form v-else class="quick-add" @submit.prevent="save.mutate()">
+    <div class="amount-card">
+      <div class="row1">
+        <v-text-field
+          id="amount" v-model="amount" :label="currency === 'JPY' ? 'Amount (¥)' : 'Amount (₹)'" inputmode="decimal"
+          variant="plain" hide-details class="amount-input num"
+        />
+        <v-btn-toggle v-model="currency" mandatory density="comfortable" class="cur" aria-label="Currency">
+          <v-btn value="JPY" aria-label="Yen" :aria-pressed="currency === 'JPY'">¥</v-btn>
+          <v-btn value="INR" aria-label="Rupees" :aria-pressed="currency === 'INR'">₹</v-btn>
+        </v-btn-toggle>
+      </div>
     </div>
-    <v-select v-model="categoryId" :items="choices" item-title="name" item-value="id" label="Category" />
+
+    <v-select v-model="categoryId" :items="choices" item-title="name" item-value="id" label="Category">
+      <template #item="{ item, props: itemProps }">
+        <v-list-item v-bind="itemProps">
+          <template #prepend><CategoryAvatar :category="item" :size="24" /></template>
+        </v-list-item>
+      </template>
+      <template #selection="{ item }">
+        <CategoryAvatar :category="item" :size="20" class="mr-2" />{{ item.name }}
+      </template>
+    </v-select>
     <v-select v-model="accountId" :items="accounts.data.value ?? []" item-title="name" item-value="id" label="Account (optional)" clearable />
     <v-text-field v-model="occurredOn" label="Date" type="date" />
-    <v-select v-model="paymentMethod" :items="Object.entries(PAYMENT_LABELS).map(([value, title]) => ({ value, title }))" label="Payment method" />
-    <v-select v-model="needWant" :items="Object.entries(NEED_LABELS).map(([value, title]) => ({ value, title }))" label="Need or want" />
-    <v-text-field id="description" v-model="description" label="Description" counter="200" maxlength="200" />
+
+    <div class="lbl">Paid with</div>
+    <v-chip-group v-model="paymentMethod" mandatory role="radiogroup" aria-label="Payment method" class="chip-row">
+      <v-chip v-for="(label, key) in PAYMENT_LABELS" :key="key" :value="key" variant="outlined" :ripple="false" role="radio" :aria-checked="paymentMethod === key" class="c2">
+        <v-icon v-if="paymentMethod === key" size="13" start aria-hidden="true">mdi-check</v-icon>{{ label }}
+      </v-chip>
+    </v-chip-group>
+    <div class="lbl">Need or want</div>
+    <v-chip-group v-model="needWant" mandatory role="radiogroup" aria-label="Need or want" class="chip-row">
+      <v-chip v-for="(label, key) in NEED_LABELS" :key="key" :value="key" variant="outlined" :ripple="false" role="radio" :aria-checked="needWant === key" class="c2">
+        <v-icon v-if="needWant === key" size="13" start aria-hidden="true">mdi-check</v-icon>{{ label }}
+      </v-chip>
+    </v-chip-group>
+
+    <v-text-field id="description" v-model="description" label="Description" counter="200" maxlength="200" class="mt-2" />
     <v-textarea v-model="notes" label="Notes" counter="2000" maxlength="2000" rows="2" auto-grow />
     <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
     <div class="d-flex ga-2">
@@ -101,3 +130,98 @@ const remove = useMutation({
     </div>
   </v-form>
 </template>
+
+<style scoped>
+.quick-add {
+  max-width: 560px;
+}
+
+.amount-card {
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgb(var(--v-border-color));
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.row1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.amount-input {
+  flex: 1 1 auto;
+}
+.amount-input :deep(.v-field) {
+  padding: 0;
+}
+.amount-input :deep(.v-field__input) {
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  padding: 0;
+  min-height: auto;
+}
+.amount-input :deep(.v-field__input input) {
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+}
+.amount-input :deep(.v-label) {
+  font-size: 13px;
+}
+.cur {
+  flex: none;
+  border: 1px solid rgb(var(--v-border-color));
+  border-radius: 10px;
+  box-shadow: none;
+  height: auto;
+}
+.cur :deep(.v-btn) {
+  min-width: 42px;
+  height: 36px;
+  border-radius: 0;
+  font-weight: 600;
+  color: rgb(var(--v-theme-on-surface-variant));
+  background: rgb(var(--v-theme-surface));
+}
+/* See QuickAddPage.vue's matching rule: white-on-`primary` used to fail spec §7's 4.5:1 minimum in
+   both themes (3.12:1 light, 2.53:1 dark); `primary-darken-1` + white clears it in light (6.72:1),
+   and dark theme's own `on-primary` token (dark text, 6.65:1) clears it there instead. */
+.cur :deep(.v-btn--active.v-theme--light) {
+  background: rgb(var(--v-theme-primary-darken-1));
+  color: #fff;
+}
+.cur :deep(.v-btn--active.v-theme--dark) {
+  background: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-on-primary));
+}
+
+.lbl {
+  font-size: 12px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgb(var(--v-theme-on-surface-variant));
+  font-weight: 600;
+  margin: 12px 2px 8px;
+}
+.chip-row :deep(.v-slide-group__container) {
+  overflow: visible;
+}
+.chip-row :deep(.v-slide-group__content) {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip-row :deep(.v-chip) {
+  margin: 0;
+  border: 1px solid rgb(var(--v-border-color));
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+  font-weight: 500;
+  font-size: 13px;
+}
+.chip-row :deep(.v-chip--selected) {
+  background: rgb(var(--v-theme-on-surface));
+  border-color: rgb(var(--v-theme-on-surface));
+  color: rgb(var(--v-theme-surface));
+}
+</style>
