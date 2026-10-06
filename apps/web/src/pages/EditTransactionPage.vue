@@ -7,7 +7,7 @@ import { decimalFromPaise } from '@nri/core'
 import CategoryAvatar from '../components/CategoryAvatar.vue'
 import { apiFetch, ApiRequestError } from '../lib/api'
 import { useCategories } from '../lib/categories'
-import { amountPatchFor, NEED_LABELS, PAYMENT_LABELS, parseAmount, type Currency } from '../lib/expenseForm'
+import { accountOptionsFor, amountPatchFor, NEED_LABELS, PAYMENT_LABELS, parseAmount, type Currency } from '../lib/expenseForm'
 import { toRestoreInput } from '../lib/ledger'
 import { undo } from '../lib/undo'
 
@@ -16,7 +16,10 @@ const router = useRouter()
 const qc = useQueryClient()
 const cats = useCategories()
 const id = computed(() => String(route.params.id))
-const accounts = useQuery({ queryKey: ['accounts'], queryFn: async () => (await apiFetch('/api/accounts', {}, AccountList)).items })
+const accounts = useQuery({
+  queryKey: ['accounts', 'all'],
+  queryFn: async () => (await apiFetch('/api/accounts?include=archived', {}, AccountList)).items,
+})
 const row = useQuery({
   queryKey: ['transactions', 'one', id],
   queryFn: async () => {
@@ -50,6 +53,7 @@ watch(() => row.data.value, (t) => {
 }, { immediate: true })
 
 const choices = computed(() => (cats.data.value ?? []).filter((c) => !c.archived || c.id === row.data.value?.categoryId))
+const accountChoices = computed(() => accountOptionsFor(accounts.data.value ?? [], row.data.value?.accountId))
 const refresh = () => Promise.all(['transactions', 'dashboard', 'categories'].map((k) => qc.invalidateQueries({ queryKey: [k] })))
 const fail = (e: unknown) => { error.value = e instanceof ApiRequestError ? e.message : 'Could not save' }
 
@@ -103,7 +107,7 @@ const remove = useMutation({
         <CategoryAvatar :category="item" :size="20" class="mr-2" />{{ item.name }}
       </template>
     </v-select>
-    <v-select v-model="accountId" :items="accounts.data.value ?? []" item-title="name" item-value="id" label="Account (optional)" clearable />
+    <v-select v-model="accountId" :items="accountChoices" item-title="name" item-value="id" label="Account (optional)" clearable />
     <v-text-field v-model="occurredOn" label="Date" type="date" />
 
     <div class="lbl">Paid with</div>
