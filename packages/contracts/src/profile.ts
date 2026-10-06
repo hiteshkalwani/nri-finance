@@ -1,14 +1,17 @@
 import { z } from 'zod'
 import { PG_INT_MAX, RateString, TimeZoneString } from './common'
 
+const Goal = z.number().int().nonnegative().max(PG_INT_MAX)
+
 export const ProfileInput = z.object({
   salaryJpy: z.number().int().nonnegative().max(PG_INT_MAX),
   planningRateJpyPerInr: RateString,
   cycleStartDay: z.number().int().min(1).max(28),
   timezone: TimeZoneString,
+  emergencyFundGoalJpy: Goal.nullable().optional(),
 })
 export type ProfileInput = z.infer<typeof ProfileInput>
-export const Profile = ProfileInput
+export const Profile = ProfileInput.extend({ emergencyFundGoalJpy: Goal.nullable() })
 export type Profile = z.infer<typeof Profile>
 
 export const MeResponse = z.object({
