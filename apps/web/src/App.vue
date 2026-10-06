@@ -12,6 +12,7 @@ const signedInPage = computed(() => !route.meta.public)
 const nav = [
   { title: 'Dashboard', icon: 'mdi-home-outline', to: '/' },
   { title: 'Spend', icon: 'mdi-credit-card-outline', to: '/spend' },
+  { title: 'Accounts', icon: 'mdi-bank-outline', to: '/accounts' },
   { title: 'Settings', icon: 'mdi-cog-outline', to: '/settings' },
 ]
 
@@ -87,7 +88,15 @@ const signOut = useSignOut()
         <v-btn icon to="/spend/new" aria-label="Add expense" class="add-expense-fab">
           <v-icon>mdi-plus</v-icon>
         </v-btn>
-        <v-btn to="/settings"><v-icon>mdi-dots-horizontal</v-icon><span>More</span></v-btn>
+        <v-menu>
+          <template #activator="{ props: menuProps }">
+            <v-btn v-bind="menuProps"><v-icon>mdi-dots-horizontal</v-icon><span>More</span></v-btn>
+          </template>
+          <v-list density="compact">
+            <v-list-item to="/accounts" prepend-icon="mdi-bank-outline" title="Accounts" />
+            <v-list-item to="/settings" prepend-icon="mdi-cog-outline" title="Settings" />
+          </v-list>
+        </v-menu>
       </v-bottom-navigation>
     </template>
 
