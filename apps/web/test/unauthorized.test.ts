@@ -1,4 +1,6 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
+// session.ts imports the Supabase client, which needs VITE_SUPABASE_URL; CI runs unit tests without .env.local.
+vi.mock('../src/lib/supabase', () => ({ supabase: { auth: { signOut: async () => ({ error: null }) } } }))
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { session } from '../src/lib/session'
 import { handleUnauthorized } from '../src/lib/unauthorized'
