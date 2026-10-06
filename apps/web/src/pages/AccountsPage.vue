@@ -10,7 +10,7 @@ import AccountDialog from '../components/AccountDialog.vue'
 import NetWorthChart from '../components/NetWorthChart.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { apiFetch, ApiRequestError } from '../lib/api'
-import { groupByType, inOtherCurrency, loadShowIn, saveShowIn, type ShowIn } from '../lib/accounts'
+import { emergencyFundPct, groupByType, inOtherCurrency, loadShowIn, netWorthChangeDisplay, saveShowIn, type ShowIn } from '../lib/accounts'
 import { flash } from '../lib/flash'
 import { monthYearLabel, rupees, yen } from '../lib/format'
 import { useProfile } from '../lib/profile'
@@ -108,13 +108,10 @@ function formatValue(n: number): string {
   return showIn.value === 'JPY' ? yen(n) : rupees(n)
 }
 const totalLabel = computed(() => (nw.value ? formatValue(showIn.value === 'JPY' ? nw.value.current.combinedJpy : inOtherCurrency(nw.value.current.combinedJpy, 'JPY', rate.value)) : '—'))
-const changeLabelNw = computed(() => {
-  if (!nw.value) return null
-  const { changeJpy, changePct } = nw.value.current
-  if (changeJpy === null || changePct === null) return null
-  const amt = showIn.value === 'JPY' ? Math.abs(changeJpy) : inOtherCurrency(Math.abs(changeJpy), 'JPY', rate.value)
-  return { up: changeJpy >= 0, text: `${changeJpy >= 0 ? '↑' : '↓'} ${formatValue(amt)} (${Math.abs(changePct).toFixed(1)}%)` }
-})
+const changeLabelNw = computed(() => (nw.value ? netWorthChangeDisplay(
+  nw.value.current.changeJpy, nw.value.current.changePct,
+  (absJpy) => formatValue(showIn.value === 'JPY' ? absJpy : inOtherCurrency(absJpy, 'JPY', rate.value)),
+) : null))
 const chartLabels = computed(() => (nw.value?.series ?? []).map((s) => monthYearLabel(s.cycle)))
 const chartValues = computed(() => (nw.value?.series ?? []).map((s) => (showIn.value === 'JPY' ? s.combinedJpy : inOtherCurrency(s.combinedJpy, 'JPY', rate.value))))
 
@@ -139,10 +136,7 @@ function pctWidth(jpy: number, totalJpy: number): string {
 
 const efGoalJpy = computed(() => nw.value?.emergencyFund.goalJpy ?? null)
 const efBalanceLabel = computed(() => (nw.value ? amountInShowIn(nw.value.emergencyFund.balanceJpy) : '—'))
-const efPct = computed(() => {
-  if (!nw.value || efGoalJpy.value === null || efGoalJpy.value <= 0) return null
-  return Math.min(100, Math.round((nw.value.emergencyFund.balanceJpy / efGoalJpy.value) * 100))
-})
+const efPct = computed(() => (nw.value ? emergencyFundPct(nw.value.emergencyFund.balanceJpy, efGoalJpy.value) : null))
 
 const refreshAccounts = () => Promise.all([qc.invalidateQueries({ queryKey: ['accounts'] }), qc.invalidateQueries({ queryKey: ['networth'] })])
 const archiveError = ref('')

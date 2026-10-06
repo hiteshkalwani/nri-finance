@@ -6,9 +6,10 @@ import { keepPreviousData, useQuery } from '@tanstack/vue-query'
 import { Bar, Doughnut } from 'vue-chartjs'
 import { ArcElement, BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Tooltip } from 'chart.js'
 import type { ChartComponentRef } from 'vue-chartjs'
-import { Dashboard, TransactionPage } from '@nri/contracts'
+import { Dashboard, NetWorthResponse, TransactionPage } from '@nri/contracts'
 import { nextCycle, previousCycle } from '@nri/core'
 import ExpenseRow from '../components/ExpenseRow.vue'
+import NetWorthEmergencyFundCards from '../components/NetWorthEmergencyFundCards.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { apiFetch, ApiRequestError } from '../lib/api'
 import { useCategories } from '../lib/categories'
@@ -57,6 +58,19 @@ const recent = useQuery({
   placeholderData: keepPreviousData,
 })
 const recentGroups = computed(() => groupByDate(recent.data.value?.items ?? []))
+
+// Net worth / emergency fund cards (spec §4.4): the Dashboard's own *resolved* cycle (`d.value.cycle`),
+// not the raw route query (which may be empty, letting the API default it) — same reasoning as
+// `recentCycle` above. `span=6` is fixed (no selector on the Dashboard); invalidating the broad
+// `['networth']` prefix from Accounts/Update balances still covers this query.
+const netWorthCycle = computed(() => d.value?.cycle ?? '')
+const networthQ = useQuery({
+  queryKey: ['networth', netWorthCycle, 6],
+  queryFn: () => apiFetch(`/api/networth?cycle=${netWorthCycle.value}&span=6`, {}, NetWorthResponse),
+  enabled: () => !!d.value,
+  placeholderData: keepPreviousData,
+})
+const nw = computed(() => networthQ.data.value ?? null)
 // This card only ever shows the most recent `RECENT_PAGE_SIZE` rows (there's no pager here, unlike
 // the ledger) — when the cycle has more than that, the last day group on screen may be a partial
 // day, same risk Spend's own groups carry at a page boundary. Reuses `isPartialPageGroup` as if
@@ -211,6 +225,12 @@ const barOptions = computed(() => buildBarOptions(
       </v-card>
     </div>
 
+    <!-- Phones (spec §4.4): the net worth / emergency fund cards sit right after the KPIs, ahead
+         of everything else — the wide layout's own copies (below, in `.side-col`) are hidden here. -->
+    <div v-if="xs" class="mobile-nw-ef">
+      <NetWorthEmergencyFundCards :nw="nw" />
+    </div>
+
     <v-card>
       <div class="hd">
         <div>
@@ -279,6 +299,9 @@ const barOptions = computed(() => buildBarOptions(
         <p v-else class="pa-5 mb-0 text-medium-emphasis">No expenses recorded in this cycle yet.</p>
       </v-card>
       <div class="side-col">
+        <!-- Wide layout (spec §4.4): these cards sit above Summary; on phones they instead render
+             right after the KPIs, above (see `.mobile-nw-ef`). -->
+        <NetWorthEmergencyFundCards v-if="!xs" :nw="nw" />
         <v-card class="summary">
           <div class="tx-hd"><h2>Summary</h2></div>
           <div class="kv"><span>Expenses this cycle</span><b class="num">{{ d.expenseCount }}</b></div>
@@ -365,6 +388,13 @@ const barOptions = computed(() => buildBarOptions(
   display: block;
   height: 100%;
   border-radius: 99px;
+}
+
+.mobile-nw-ef {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .hd {

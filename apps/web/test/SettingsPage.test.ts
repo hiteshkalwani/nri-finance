@@ -90,6 +90,115 @@ describe('SettingsPage profile form (finding 5: Enter must save, same as clickin
   })
 })
 
+describe('SettingsPage emergency-fund goal field (Task 9)', () => {
+  it('sends the typed goal (commas stripped) as a number on save', async () => {
+    const { wrapper, fetchMock } = await mountSettings()
+
+    const goal = wrapper.get('#ef-goal').element as HTMLInputElement
+    goal.value = '1,200,000'
+    goal.dispatchEvent(new Event('input'))
+    await flushPromises()
+
+    await wrapper.get('#profile-form').trigger('submit')
+    for (let i = 0; i < 4; i++) await flushPromises()
+
+    const putCalls = fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
+    expect(putCalls.length).toBe(1)
+    const body = JSON.parse(String((putCalls[0]![1] as RequestInit).body))
+    expect(body.emergencyFundGoalJpy).toBe(1200000)
+
+    wrapper.unmount()
+  })
+
+  it('sends null when the goal field is left blank', async () => {
+    const { wrapper, fetchMock } = await mountSettings()
+
+    const goal = wrapper.get('#ef-goal').element as HTMLInputElement
+    goal.value = ''
+    goal.dispatchEvent(new Event('input'))
+    await flushPromises()
+
+    await wrapper.get('#profile-form').trigger('submit')
+    for (let i = 0; i < 4; i++) await flushPromises()
+
+    const putCalls = fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
+    expect(putCalls.length).toBe(1)
+    const body = JSON.parse(String((putCalls[0]![1] as RequestInit).body))
+    expect(body.emergencyFundGoalJpy).toBeNull()
+
+    wrapper.unmount()
+  })
+
+  it('shows a field error and does not save when the goal is not a valid whole yen amount', async () => {
+    const { wrapper, fetchMock } = await mountSettings()
+
+    const goal = wrapper.get('#ef-goal').element as HTMLInputElement
+    goal.value = '-5'
+    goal.dispatchEvent(new Event('input'))
+    await flushPromises()
+
+    await wrapper.get('#profile-form').trigger('submit')
+    for (let i = 0; i < 4; i++) await flushPromises()
+
+    expect(wrapper.text()).toContain('Enter a whole number of yen, 0 or more.')
+    const putCalls = fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
+    expect(putCalls.length).toBe(0)
+
+    wrapper.unmount()
+  })
+})
+
+describe('SettingsPage import result message (Task 9: profile-kept sentence)', () => {
+  it('appends the profile-kept sentence when the import result says profileKept', async () => {
+    const fetchMock = vi.fn(async (input: unknown, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/me' && (!init || init.method === undefined)) {
+        return jsonResponse({
+          userId: '99999999-9999-4999-8999-999999999999', email: 'me@example.test',
+          profile: { salaryJpy: 500000, planningRateJpyPerInr: '1.7', cycleStartDay: 25, timezone: 'Asia/Tokyo', emergencyFundGoalJpy: null },
+        })
+      }
+      if (url === '/api/categories') return jsonResponse({ items: [] })
+      if (url === '/api/import/v1' && init?.method === 'POST') {
+        return jsonResponse({
+          inserted: { transactions: 3, remittances: 0, categories: 1, accounts: 2, loans: 0, plannedPrepayments: 0, sipPlans: 0, cycleTargets: 0 },
+          skippedRows: [], profileKept: true,
+        })
+      }
+      throw new Error(`unexpected fetch(${url})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/settings', component: SettingsPage }, { path: '/spend/new', component: { template: '<div/>' } }],
+    })
+    router.push('/settings')
+    await router.isReady()
+    const queryClient = new QueryClient()
+    const wrapper = mount(SettingsPage, { global: { plugins: [router, vuetify, [VueQueryPlugin, { queryClient }]] }, attachTo: document.body })
+    for (let i = 0; i < 6; i++) await flushPromises()
+
+    const v1Doc = {
+      settings: {
+        salaryJPY: 500000, jpyPerInr: 1.7,
+        homeLoan: { principalINR: 0, annualRatePct: 0, emiINR: 0, tenureMonths: 0, startCycle: '2026-01' },
+        sip: { startingMonthlyINR: 0, annualStepUpPct: 0, estimatedReturnPct: 0, allocation: {} },
+      },
+      categories: [], transactions: [],
+    }
+    const input = wrapper.get('#import-file').element as HTMLInputElement
+    const file = new File([JSON.stringify(v1Doc)], 'finance-data.json', { type: 'application/json' })
+    Object.defineProperty(input, 'files', { value: [file], configurable: true })
+    input.dispatchEvent(new Event('change'))
+    for (let i = 0; i < 6; i++) await flushPromises()
+
+    expect(wrapper.text()).toContain('Profile kept: settings from the file were not imported.')
+
+    wrapper.unmount()
+  })
+})
+
 describe('SettingsPage import drop zone (finding 9)', () => {
   it('resets the file input after reading, so choosing the same file again still fires change', async () => {
     const { wrapper } = await mountSettings()
