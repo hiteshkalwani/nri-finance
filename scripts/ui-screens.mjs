@@ -50,6 +50,7 @@ const SCREENS = [
     },
   },
   { path: '/accounts', slug: 'accounts', ready: (page) => page.getByTestId('net-worth-total').waitFor() },
+  { path: '/accounts/balances', slug: 'balances', ready: (page) => page.getByTestId('cycle-label').waitFor() },
 ]
 const VIEWPORTS = [{ width: 1280, height: 900 }, { width: 390, height: 844 }]
 const SCHEMES = ['light', 'dark']
@@ -179,6 +180,26 @@ async function shoot(browser, user, screen, viewport, colorScheme) {
   await page.close()
 }
 
+// Task 8's acceptance check: the sticky footer must sit above the phone bottom nav and never
+// cover the last field. A `fullPage: true` shot (what `shoot()` takes) can't show that — it
+// captures the whole scrollable document flattened out, not what's actually pinned on screen
+// after scrolling — so this is a second, viewport-only screenshot taken after scrolling all the
+// way down.
+async function shootBalancesScrolledToBottom(browser, user) {
+  const label = 'balances-390-scrolled-bottom'
+  const viewport = { width: 390, height: 844 }
+  const page = await browser.newPage({ viewport, colorScheme: 'light', reducedMotion: 'reduce' })
+  trackErrors(page, label)
+  await signIn(page, user, '/accounts/balances')
+  await page.waitForURL(/\/accounts\/balances(\?.*)?$/)
+  await page.getByTestId('cycle-label').waitFor()
+  await settle(page)
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  await page.waitForTimeout(150)
+  await page.screenshot({ path: path.join(outDir, `${label}.png`), fullPage: false })
+  await page.close()
+}
+
 const user = await createTestUser('ui-screens')
 let browser
 try {
@@ -192,6 +213,7 @@ try {
       }
     }
   }
+  await shootBalancesScrolledToBottom(browser, user)
 } finally {
   // Both cleanups always run, success or failure — `browser.close()` used to be the last
   // statement of the try block, so an error anywhere above it (seed, or any one shot) leaked the

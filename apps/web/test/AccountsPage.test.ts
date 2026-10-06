@@ -6,12 +6,18 @@ import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 vi.hoisted(() => {
   class FakeResizeObserver { observe() {} unobserve() {} disconnect() {} }
   globalThis.ResizeObserver = FakeResizeObserver as unknown as typeof ResizeObserver
+  // jsdom has no `visualViewport` global at all (not even `undefined` as an own property), so the
+  // bare identifier Vuetify's VOverlay location strategy reads (`visualViewport?.addEventListener`)
+  // throws a ReferenceError before optional chaining ever gets a chance to short-circuit it — this
+  // only surfaces once a test actually opens an overlay (here, the "Balances saved" snackbar).
+  if (!('visualViewport' in globalThis)) (globalThis as { visualViewport?: unknown }).visualViewport = undefined
 })
 vi.mock('../src/lib/supabase', () => ({
   supabase: { auth: { getSession: async () => ({ data: { session: { access_token: 'tok-123' } } }) } },
 }))
 
 import { createVuetify } from 'vuetify'
+import { flash } from '../src/lib/flash'
 import AccountsPage from '../src/pages/AccountsPage.vue'
 
 const vuetify = createVuetify()
@@ -157,6 +163,20 @@ describe('AccountsPage', () => {
     const row = wrapper.findAll('.acct').find((r) => r.text().includes('A very long account name'))!
     expect(row.find('.nm-text').text()).toBe('A very long account name that should not be truncated in the dom')
     expect(row.find('.sub-row .tag').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  // Update balances (Task 8) hands this page a one-shot message via the shared `flash` ref rather
+  // than a route query — it must show once, as a snackbar, and not resurface on a later mount.
+  it('shows and consumes a pending "Balances saved" flash message as a snackbar', async () => {
+    flash.message.value = 'Balances saved for Oct 2026'
+    const wrapper = await mountAccounts(ACCOUNTS)
+
+    // The snackbar teleports its content to a `.v-overlay-container` appended to `document.body`,
+    // outside `wrapper`'s own element tree — same reason `wrapper.text()` wouldn't see it either.
+    expect(document.body.textContent).toContain('Balances saved for Oct 2026')
+    expect(flash.message.value).toBeNull()
+
     wrapper.unmount()
   })
 })
