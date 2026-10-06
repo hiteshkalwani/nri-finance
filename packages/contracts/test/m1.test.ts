@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CategoryCreate, CategoryOrder, CategoryPatch, ErrorCode, TransactionCreate, TransactionPatch, TransactionQuery, TransactionRestore } from '../src'
+import { CategoryCreate, CategoryIcon, CategoryOrder, CategoryPatch, ErrorCode, TransactionCreate, TransactionPatch, TransactionQuery, TransactionRestore } from '../src'
 
 const base = { occurredOn: '2026-10-05', categoryId: '11111111-1111-4111-8111-111111111111', paymentMethod: 'cash', needWant: 'need' }
 
@@ -64,4 +64,15 @@ describe('transactions', () => {
 
 it('has an error code for an unreachable sign-in service', () => {
   expect(ErrorCode.options).toContain('AUTH_UNAVAILABLE')
+})
+
+describe('category icons', () => {
+  it('accepts a single emoji or a short emoji sequence, and null', () => {
+    for (const ok of ['🛒', '🍜', '🛍️', '🏠', '👨‍👩‍👧']) expect(CategoryIcon.safeParse(ok).success).toBe(true)
+    expect(CategoryCreate.safeParse({ name: 'Food', color: '#4caf50', icon: null }).success).toBe(true)
+    expect(CategoryPatch.safeParse({ icon: null }).success).toBe(true)
+  })
+  it('refuses text, empty strings and over-long values', () => {
+    for (const bad of ['', 'A', 'food', '🛒🛒🛒🛒🛒🛒🛒🛒🛒']) expect(CategoryIcon.safeParse(bad).success).toBe(false)
+  })
 })

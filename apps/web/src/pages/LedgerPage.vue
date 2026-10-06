@@ -1,20 +1,37 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { Transaction, TransactionPage, type NeedWant, type PaymentMethod, type SortField } from '@nri/contracts'
+import { Transaction, TransactionPage, type NeedWant, type PaymentMethod } from '@nri/contracts'
 import { cycleOf, lastCycles, todayIn } from '@nri/core'
-import { apiFetch, ApiRequestError } from '../lib/api'
+import ExpenseRow from '../components/ExpenseRow.vue'
+import PageHeader from '../components/PageHeader.vue'
+import { apiFetch, ApiRequestError, retryUnlessClientError } from '../lib/api'
 import { useCategories } from '../lib/categories'
 import { NEED_LABELS, PAYMENT_LABELS } from '../lib/expenseForm'
-import { cycleLabel, rupees, yen } from '../lib/format'
-import { coerceSearch, PAGE_SIZE, routeQueryFrom, routeSearchValue, sortFromRoute, toApiQuery, type LedgerState } from '../lib/ledger'
+import { cycleLabel, yen } from '../lib/format'
+import { groupByDate, isPartialPageGroup, pageCount } from '../lib/groups'
+import {
+  coercePage,
+  coerceSearch,
+  PAGE_SIZE,
+  routeQueryFrom,
+  routeSearchValue,
+  SORT_OPTIONS,
+  sortFromRoute,
+  sortFromValue,
+  sortValue,
+  toApiQuery,
+  type LedgerState,
+} from '../lib/ledger'
 import { useProfile } from '../lib/profile'
 import { undo } from '../lib/undo'
 
 const route = useRoute()
 const router = useRouter()
 const qc = useQueryClient()
+const { xs } = useDisplay()
 const me = useProfile()
 const cats = useCategories()
 const startDay = computed(() => me.data.value?.profile?.cycleStartDay ?? 25)
@@ -23,7 +40,7 @@ const cycleOptions = computed(() => [
   { title: 'All cycles', value: 'all' },
   ...lastCycles(current.value, 24).reverse().map((c) => ({ title: cycleLabel(c, startDay.value), value: c })),
 ])
-const catName = (id: string) => cats.data.value?.find((c) => c.id === id)
+const catOf = (id: string) => cats.data.value?.find((c) => c.id === id)
 const str = (v: unknown) => (typeof v === 'string' && v ? v : null)
 
 // "All" is explicit in the URL (?cycle=all) so the default can be the current cycle.
@@ -36,7 +53,17 @@ const page = useQuery({
   queryKey: ['transactions', apiQuery],
   queryFn: () => apiFetch(`/api/transactions?${apiQuery.value}`, {}, TransactionPage),
   placeholderData: keepPreviousData,
+  // Explicit here too (main.ts sets the same as the app-wide default): a 4xx filter/sort/page
+  // combination will never succeed by retrying it, so don't make the error message wait on it.
+  retry: retryUnlessClientError,
 })
+
+const items = computed(() => page.data.value?.items ?? [])
+const totalPages = computed(() => pageCount(page.data.value?.total ?? 0, PAGE_SIZE))
+// Grouping (spec §4.2) only makes sense while the list is actually in date order — any other sort
+// shows a flat list instead, same rows, no day headers.
+const isDateSort = computed(() => sortFromRoute(route.query)[0]!.key === 'occurredOn')
+const groups = computed(() => groupByDate(items.value))
 
 const search = ref(str(route.query.q) ?? '')
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -67,24 +94,11 @@ function state(): LedgerState {
     needWant: str(route.query.needWant) as NeedWant | null,
     q: str(route.query.q) ?? '',
     sort: sortFromRoute(route.query)[0]!,
-    page: Number(str(route.query.page) ?? 1),
+    page: coercePage(route.query.page),
   }
 }
 // Explicit path: a late-firing (debounced) push must never land on whatever page the user has since navigated to.
 function push(change: Partial<LedgerState>) { void router.replace({ path: '/spend', query: routeQueryFrom({ ...state(), ...change }) }) }
-function onOptions(o: { page: number; sortBy: { key: string; order?: 'asc' | 'desc' | boolean }[] }) {
-  const s = o.sortBy[0]
-  push({ page: o.page, sort: s ? { key: s.key as SortField, order: s.order === 'asc' ? 'asc' : 'desc' } : { key: 'occurredOn', order: 'desc' } })
-}
-
-const headers = [
-  { title: 'Date', key: 'occurredOn' },
-  { title: 'Category', key: 'category' },
-  { title: 'Description', key: 'description' },
-  { title: 'Amount', key: 'amountJpy', align: 'end' as const },
-  { title: 'Payment', key: 'paymentMethod' },
-  { title: 'Need/want', key: 'needWant' },
-]
 
 const restoreError = ref('')
 const restore = useMutation({
@@ -100,44 +114,119 @@ const restore = useMutation({
 </script>
 
 <template>
-  <div class="d-flex align-center flex-wrap ga-2 mb-4">
-    <h1 class="text-h5 mr-auto">Spend</h1>
-    <v-btn to="/spend/new" color="primary" prepend-icon="mdi-plus">Add expense</v-btn>
-  </div>
-  <div class="d-flex flex-wrap ga-2 mb-2">
-    <v-select :model-value="cycleParam" :items="cycleOptions" label="Cycle" density="compact" hide-details style="max-width: 260px"
-      @update:model-value="(v) => push({ cycle: v === current ? null : v, page: 1 })" />
-    <v-select :model-value="state().categoryId" :items="cats.data.value ?? []" item-title="name" item-value="id" label="Category"
-      clearable density="compact" hide-details style="max-width: 200px" @update:model-value="(v) => push({ categoryId: v, page: 1 })" />
-    <v-select :model-value="state().paymentMethod" :items="Object.entries(PAYMENT_LABELS).map(([value, title]) => ({ value, title }))"
-      label="Payment" clearable density="compact" hide-details style="max-width: 170px" @update:model-value="(v) => push({ paymentMethod: v, page: 1 })" />
-    <v-select :model-value="state().needWant" :items="Object.entries(NEED_LABELS).map(([value, title]) => ({ value, title }))"
-      label="Need/want" clearable density="compact" hide-details style="max-width: 150px" @update:model-value="(v) => push({ needWant: v, page: 1 })" />
-    <v-text-field id="search" :model-value="search" label="Search" prepend-inner-icon="mdi-magnify" clearable density="compact" hide-details
-      style="max-width: 240px" @update:model-value="(v: string | null) => (search = coerceSearch(v))" />
-  </div>
-  <div class="text-body-2 mb-2" data-testid="ledger-total">
-    {{ page.data.value?.total ?? 0 }} expenses · {{ yen(page.data.value?.totalJpy ?? 0) }}
-  </div>
-  <v-data-table-server
-    :headers="headers" :items="page.data.value?.items ?? []" :items-length="page.data.value?.total ?? 0" :loading="page.isFetching.value"
-    :page="state().page" :items-per-page="PAGE_SIZE" :items-per-page-options="[PAGE_SIZE]" :sort-by="sortFromRoute(route.query)"
-    must-sort hover @update:options="onOptions" @click:row="(_e: unknown, { item }: { item: Transaction }) => router.push(`/spend/${item.id}`)">
-    <template #[`item.category`]="{ item }">
-      <v-icon size="x-small" :color="catName(item.categoryId)?.color">mdi-circle</v-icon> {{ catName(item.categoryId)?.name }}
+  <PageHeader title="Spend">
+    <v-select
+      :model-value="cycleParam"
+      :items="cycleOptions"
+      label="Cycle"
+      density="compact"
+      hide-details
+      class="cycle-select"
+      style="max-width: 220px"
+      @update:model-value="(v) => push({ cycle: v === current ? null : v, page: 1 })"
+    />
+    <!-- The bottom-nav's raised "+" already covers Add expense on phones. -->
+    <v-btn v-if="!xs" to="/spend/new" color="primary" prepend-icon="mdi-plus">Add expense</v-btn>
+  </PageHeader>
+
+  <v-card>
+    <div class="filters">
+      <v-select
+        :model-value="state().categoryId"
+        :items="cats.data.value ?? []"
+        item-title="name"
+        item-value="id"
+        label="Category"
+        clearable
+        density="compact"
+        hide-details
+        style="flex: 0 0 160px"
+        @update:model-value="(v) => push({ categoryId: v, page: 1 })"
+      />
+      <v-select
+        :model-value="state().paymentMethod"
+        :items="Object.entries(PAYMENT_LABELS).map(([value, title]) => ({ value, title }))"
+        label="Payment method"
+        clearable
+        density="compact"
+        hide-details
+        style="flex: 0 0 205px"
+        @update:model-value="(v) => push({ paymentMethod: v, page: 1 })"
+      />
+      <v-select
+        :model-value="state().needWant"
+        :items="Object.entries(NEED_LABELS).map(([value, title]) => ({ value, title }))"
+        label="Need or want"
+        clearable
+        density="compact"
+        hide-details
+        style="flex: 0 0 180px"
+        @update:model-value="(v) => push({ needWant: v, page: 1 })"
+      />
+      <v-text-field
+        id="search"
+        :model-value="search"
+        label="Search"
+        prepend-inner-icon="mdi-magnify"
+        clearable
+        density="compact"
+        hide-details
+        style="flex: 1 1 160px"
+        @update:model-value="(v: string | null) => (search = coerceSearch(v))"
+      />
+      <v-select
+        :model-value="sortValue(route.query)"
+        :items="SORT_OPTIONS"
+        label="Sort"
+        density="compact"
+        hide-details
+        style="flex: 0 0 210px"
+        @update:model-value="(v) => push({ sort: sortFromValue(v), page: 1 })"
+      />
+    </div>
+
+    <div class="totbar" data-testid="ledger-total">
+      <span><b class="num">{{ page.data.value?.total ?? 0 }}</b> expenses · <b class="num">{{ yen(page.data.value?.totalJpy ?? 0) }}</b></span>
+      · <span>Needs <b class="num">{{ yen(page.data.value?.needJpy ?? 0) }}</b></span>
+      · <span>Wants <b class="num">{{ yen(page.data.value?.wantJpy ?? 0) }}</b></span>
+    </div>
+    <v-progress-linear v-if="page.isFetching.value" indeterminate />
+
+    <template v-if="page.error.value">
+      <p class="pa-5 mb-0 text-error">
+        {{ page.error.value instanceof ApiRequestError ? page.error.value.message : 'Could not load expenses.' }}
+      </p>
     </template>
-    <template #[`item.description`]="{ item }">
-      <!-- A real link gives keyboard users a way to reach and open a row, not only a mouse click. -->
-      <router-link :to="`/spend/${item.id}`" @click.stop>{{ item.description || '(no description)' }}</router-link>
+    <template v-else-if="!page.isFetching.value && items.length === 0">
+      <p class="pa-5 mb-0 text-medium-emphasis">No expenses match these filters.</p>
     </template>
-    <template #[`item.amountJpy`]="{ item }">
-      <div>{{ yen(item.amountJpy) }}</div>
-      <div v-if="item.amountInrPaise !== null" class="text-caption text-medium-emphasis">{{ rupees(item.amountInrPaise) }}</div>
+    <template v-else-if="isDateSort">
+      <template v-for="(g, i) in groups" :key="g.date">
+        <div class="day-row" role="heading" aria-level="3">
+          <span>{{ g.label }}</span>
+          <span class="num">{{ yen(g.totalJpy) }}{{ isPartialPageGroup(i, groups.length, totalPages, state().page) ? ' on this page' : '' }}</span>
+        </div>
+        <!-- Each day's rows are their own list — day-row headers sit outside it (role="heading"
+             above), so role="list" here only ever has role="listitem" children (valid ARIA). Each
+             listitem wraps (rather than *is*) its ExpenseRow: ExpenseRow's root is a router-link,
+             and passing role="listitem" straight onto it used to stomp its native link role
+             (`<a role="listitem">`), leaving the row undiscoverable as a link to assistive tech. -->
+        <div role="list" :aria-label="`Expenses on ${g.label}`">
+          <div v-for="t in g.rows" :key="t.id" role="listitem"><ExpenseRow :t="t" :category="catOf(t.categoryId)" /></div>
+        </div>
+      </template>
     </template>
-    <template #[`item.paymentMethod`]="{ item }">{{ PAYMENT_LABELS[item.paymentMethod] }}</template>
-    <template #[`item.needWant`]="{ item }">{{ NEED_LABELS[item.needWant] }}</template>
-    <template #no-data>No expenses match these filters.</template>
-  </v-data-table-server>
+    <template v-else>
+      <div role="list" aria-label="Expenses">
+        <div v-for="t in items" :key="t.id" role="listitem"><ExpenseRow :t="t" :category="catOf(t.categoryId)" /></div>
+      </div>
+    </template>
+  </v-card>
+
+  <div v-if="totalPages > 1" class="d-flex justify-center mt-4">
+    <v-pagination :model-value="state().page" :length="totalPages" density="comfortable" @update:model-value="(p: number) => push({ page: p })" />
+  </div>
+
   <v-snackbar :model-value="!!undo.pending.value" timeout="5000" @update:model-value="(v) => { if (!v) undo.pending.value = null }">
     Deleted
     <template #actions><v-btn variant="text" :loading="restore.isPending.value" @click="restore.mutate()">Undo</v-btn></template>
@@ -146,3 +235,45 @@ const restore = useMutation({
     {{ restoreError }}
   </v-snackbar>
 </template>
+
+<style scoped>
+/* Rounds the cycle select's field to echo the mockup's pill-shaped cycle picker (`.cycle`),
+   rather than Vuetify's default outlined-field corners. */
+.cycle-select :deep(.v-field) {
+  border-radius: 10px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgb(var(--v-border-color));
+}
+/* Each select above sets its own `flex: 0 0 <width>` (fixed, no grow/shrink) rather than relying
+   on the browser's default auto-sizing, which otherwise renders some selects a bit narrower than
+   their label needs — that silently truncated "Payment method" to "Payment met…" with a cap this
+   generous. The four fixed widths (plus Search's own flex-basis and the 8px gaps) are sized to
+   fit on one row at the laptop width the mockup assumes (1280px, with the 232px sidebar) without
+   any of them truncating — checked against "Payment method" and every SORT_OPTIONS title, the two
+   widest labels. Search is the one control that actually flexes, so it absorbs whatever room is
+   left over. Below 600px, every filter control takes the full row instead (its inline `flex`
+   needs `!important` to win over that fixed basis). */
+@media (max-width: 600px) {
+  .filters > * {
+    flex: 1 1 100% !important;
+  }
+}
+
+.totbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 10px 20px;
+  color: rgb(var(--v-theme-on-surface-variant));
+  font-size: 13px;
+}
+.totbar b {
+  color: rgb(var(--v-theme-on-surface));
+}
+</style>

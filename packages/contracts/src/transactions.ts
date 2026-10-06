@@ -102,5 +102,7 @@ export const TransactionPage = z.object({
   page: z.number().int(),
   pageSize: z.number().int(),
   totalJpy: z.number().int(),
+  needJpy: z.number().int(),
+  wantJpy: z.number().int(),
 })
 export type TransactionPage = z.infer<typeof TransactionPage>

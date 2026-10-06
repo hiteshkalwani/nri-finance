@@ -76,4 +76,15 @@ describe('/api/categories', () => {
     expect((await call(b, 'PATCH', `/api/categories/${mine.id}`, { name: 'Taken' })).status).toBe(404)
     expect((await call(b, 'DELETE', `/api/categories/${mine.id}`)).status).toBe(404)
   })
+
+  it('stores, returns and clears a category icon; refuses non-emoji', async () => {
+    const c = await (await call(a, 'POST', '/api/categories', { name: 'Iconic', color: '#4caf50', icon: '🛒' })).json()
+    expect(c.icon).toBe('🛒')
+    const patched = await (await call(a, 'PATCH', `/api/categories/${c.id}`, { icon: '🍜' })).json()
+    expect(patched.icon).toBe('🍜')
+    expect((await (await call(a, 'PATCH', `/api/categories/${c.id}`, { icon: null })).json()).icon).toBeNull()
+    expect((await call(a, 'PATCH', `/api/categories/${c.id}`, { icon: 'abc' })).status).toBe(400)
+    const listed = (await (await call(a, 'GET', '/api/categories')).json()).items.find((x: { id: string }) => x.id === c.id)
+    expect(listed).toHaveProperty('icon', null)
+  })
 })

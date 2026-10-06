@@ -25,7 +25,7 @@ async function submit() {
 <template>
   <v-dialog :model-value="session.dialogOpen.value" persistent max-width="420">
     <v-card>
-      <v-card-title>Your session expired</v-card-title>
+      <v-card-title class="text-h5 font-weight-bold pt-6">Your session expired</v-card-title>
       <v-card-text>
         <p class="mb-4">Sign in again to continue. Nothing you typed has been lost; save again after signing in.</p>
         <v-form @submit.prevent="submit">

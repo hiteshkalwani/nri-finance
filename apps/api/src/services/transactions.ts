@@ -162,7 +162,17 @@ export async function listTransactions(tx: Tx, userId: string, q: TransactionQue
   const [totals] = await tx.select({
     total: sql<number>`count(*)`.mapWith(Number),
     totalJpy: sql<number>`coalesce(sum(${transactions.amountJpy}), 0)`.mapWith(Number),
+    needJpy: sql<number>`coalesce(sum(${transactions.amountJpy}) filter (where ${transactions.needWant} = 'need'), 0)`.mapWith(Number),
+    wantJpy: sql<number>`coalesce(sum(${transactions.amountJpy}) filter (where ${transactions.needWant} = 'want'), 0)`.mapWith(Number),
   }).from(transactions).where(cond)
 
-  return { items: rows.map((r) => toTransaction(r.t, startDay)), total: totals!.total, page: q.page, pageSize: q.pageSize, totalJpy: totals!.totalJpy }
+  return {
+    items: rows.map((r) => toTransaction(r.t, startDay)),
+    total: totals!.total,
+    page: q.page,
+    pageSize: q.pageSize,
+    totalJpy: totals!.totalJpy,
+    needJpy: totals!.needJpy,
+    wantJpy: totals!.wantJpy,
+  }
 }

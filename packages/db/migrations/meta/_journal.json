@@ -29,6 +29,13 @@
       "when": 1791195418346,
       "tag": "0003_same_owner_fks",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791209005902,
+      "tag": "0004_category_icon",
+      "breakpoints": true
     }
   ]
 }
