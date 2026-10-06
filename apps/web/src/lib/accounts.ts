@@ -45,20 +45,25 @@ export function inOtherCurrency(amount: number, currency: 'JPY' | 'INR', rate: s
 
 /**
  * A net-worth change's "↑/↓ <amount> (<pct>%)" display text and up/down flag — shared by the
- * Accounts and Dashboard net-worth cards (spec §4.1, §4.4). `null` when either half is null
- * (first cycle, or no prior total to compare against). `amountLabel` formats the absolute ¥
- * amount in whichever currency/representation the caller wants shown (Accounts re-expresses it
- * via `showIn`; the Dashboard always shows ¥). Colour is never the only signal (spec §5): the
- * caller still applies the up/down colour class itself, alongside this text's own ↑/↓ glyph.
+ * Accounts and Dashboard net-worth cards (spec §4.1, §4.4). `null` only when `changeJpy` itself
+ * is null (first cycle — no prior total to compare against at all). `changePct` is null on its
+ * own whenever the previous total was 0 (a percent change from zero is undefined) — that's still
+ * a real ¥ change, so it's shown with its ↑/↓ arrow and amount, just without a "(…%)" suffix
+ * (final review finding 5 — this used to read as "first cycle" too, hiding a real change).
+ * `amountLabel` formats the absolute ¥ amount in whichever currency/representation the caller
+ * wants shown (Accounts re-expresses it via `showIn`; the Dashboard always shows ¥). Colour is
+ * never the only signal (spec §5): the caller still applies the up/down colour class itself,
+ * alongside this text's own ↑/↓ glyph.
  */
 export function netWorthChangeDisplay(
   changeJpy: number | null,
   changePct: number | null,
   amountLabel: (absJpy: number) => string,
 ): { up: boolean; text: string } | null {
-  if (changeJpy === null || changePct === null) return null
+  if (changeJpy === null) return null
   const up = changeJpy >= 0
-  return { up, text: `${up ? '↑' : '↓'} ${amountLabel(Math.abs(changeJpy))} (${Math.abs(changePct).toFixed(1)}%)` }
+  const pct = changePct === null ? '' : ` (${Math.abs(changePct).toFixed(1)}%)`
+  return { up, text: `${up ? '↑' : '↓'} ${amountLabel(Math.abs(changeJpy))}${pct}` }
 }
 
 /** Emergency-fund progress toward its ¥ goal, 0–100 (clamped); `null` when there's no goal (or it's 0). */

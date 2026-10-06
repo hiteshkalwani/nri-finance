@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { groupByType, inOtherCurrency, loadShowIn, saveShowIn } from '../src/lib/accounts'
+import { groupByType, inOtherCurrency, loadShowIn, netWorthChangeDisplay, saveShowIn } from '../src/lib/accounts'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -38,4 +38,17 @@ it('does not throw when localStorage.setItem is unavailable', () => {
 it('converts yen to paise and paise to yen via the planning rate', () => {
   expect(inOtherCurrency(169, 'JPY', '1.694915')).toBe(9971) // ¥169 ≈ ₹99.71 (9971 paise)
   expect(inOtherCurrency(10000, 'INR', '1.694915')).toBe(169) // ₹100.00 ≈ ¥169
+})
+
+// Final review finding 5: a null changePct (previous total was 0) is not the same as "first
+// cycle" (changeJpy null) — there's still a real ¥ change to show, just no meaningful percent.
+it('shows "first cycle" (null) only when changeJpy itself is null, not whenever changePct is null', () => {
+  expect(netWorthChangeDisplay(null, null, String)).toBeNull()
+
+  const zeroPrevTotal = netWorthChangeDisplay(50000, null, (abs) => `¥${abs}`)
+  expect(zeroPrevTotal).not.toBeNull()
+  expect(zeroPrevTotal).toEqual({ up: true, text: '↑ ¥50000' })
+
+  const normal = netWorthChangeDisplay(-50000, 12.3, (abs) => `¥${abs}`)
+  expect(normal).toEqual({ up: false, text: '↓ ¥50000 (12.3%)' })
 })
