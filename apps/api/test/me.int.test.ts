@@ -20,9 +20,16 @@ describe('/api/me', () => {
   it('saves and returns the profile, rate kept exact', async () => {
     const put = await app.request('/api/me', json(a.accessToken, 'PUT', profile))
     expect(put.status).toBe(200)
-    expect((await put.json()).profile).toEqual(profile)
+    expect((await put.json()).profile).toEqual({ ...profile, emergencyFundGoalJpy: null })
     const again = await app.request('/api/me', json(a.accessToken, 'PUT', { ...profile, salaryJpy: 700000 }))
     expect((await again.json()).profile.salaryJpy).toBe(700000)
+  })
+
+  it('stores the emergency-fund goal and keeps it when a later PUT omits it', async () => {
+    const put = (body: unknown) => app.request('/api/me', json(a.accessToken, 'PUT', body))
+    expect((await (await put({ ...profile, emergencyFundGoalJpy: 2400000 })).json()).profile.emergencyFundGoalJpy).toBe(2400000)
+    expect((await (await put(profile)).json()).profile.emergencyFundGoalJpy).toBe(2400000)
+    expect((await (await put({ ...profile, emergencyFundGoalJpy: null })).json()).profile.emergencyFundGoalJpy).toBeNull()
   })
 
   it('never shows one user’s profile to another', async () => {
