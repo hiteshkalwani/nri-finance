@@ -46,13 +46,6 @@ async function signOut() {
         </div>
         <v-list nav density="comfortable" class="px-2">
           <v-list-item
-            to="/spend/new"
-            prepend-icon="mdi-plus-circle"
-            title="Add expense"
-            rounded="lg"
-            class="mb-3 font-weight-medium text-primary"
-          />
-          <v-list-item
             v-for="n in nav"
             :key="n.to"
             :to="n.to"

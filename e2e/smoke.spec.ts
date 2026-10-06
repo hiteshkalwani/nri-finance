@@ -86,7 +86,7 @@ test.describe('on a laptop', () => {
     await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(0)
 
     // Delete another row, sign out immediately (before the 5s timeout), sign back in — still cleared.
-    await page.getByRole('link', { name: 'Add expense' }).first().click()
+    await page.getByRole('link', { name: 'Add expense' }).click()
     await page.locator('#amount').fill('1')
     const firstChip = page.locator('.v-chip-group[aria-label="Category"] .v-chip').first()
     await expect(firstChip).toBeVisible()

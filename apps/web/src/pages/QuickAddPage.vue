@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { Transaction, type NeedWant, type PaymentMethod } from '@nri/contracts'
 import { todayIn } from '@nri/core'
+import CategoryAvatar from '../components/CategoryAvatar.vue'
 import { apiFetch, ApiRequestError } from '../lib/api'
 import { activeCategories, useCategories } from '../lib/categories'
-import { defaultsFor, NEED_LABELS, PAYMENT_LABELS, parseAmount, previewJpy, type Currency } from '../lib/expenseForm'
-import { yen } from '../lib/format'
+import {
+  defaultsFor, lastUsedNeedWantHint, lastUsedPaymentHint, NEED_LABELS, PAYMENT_LABELS,
+  parseAmount, previewJpy, type Currency,
+} from '../lib/expenseForm'
+import { dateHint, yen } from '../lib/format'
 import { useProfile } from '../lib/profile'
 
 const router = useRouter()
@@ -27,6 +31,23 @@ const description = ref('')
 const error = ref('')
 const saved = ref<string | null>(null)
 
+const selectedCategory = computed(() => active.value.find((c) => c.id === categoryId.value))
+
+/**
+ * Focus the amount field once, synchronously, right on mount — not via Vuetify's `autofocus`
+ * prop. That prop's own mechanism (vuetify/lib/composables/autofocus.js) waits for an
+ * IntersectionObserver to report the field visible, then waits *another* 50ms before calling
+ * `focus()`. That delay is a real race (the known flake this guards against): typing into another
+ * field inside that window — e.g. moving straight to the description field, by hand or in a test —
+ * gets its focus stolen back to #amount once the delayed call finally fires. Focusing here instead,
+ * once, with no delay and nothing to re-trigger it, removes the window entirely; the activeElement
+ * guard also means this never steals focus that's already moved (a user or a test got there first).
+ */
+const amountFieldRef = ref<{ focus: () => void } | null>(null)
+onMounted(() => {
+  if (document.activeElement === document.body) amountFieldRef.value?.focus()
+})
+
 // Only apply the profile's timezone-based "today" while the user hasn't touched the date themselves,
 // so a cold load (profile query resolving after the user already edited the date) doesn't clobber their edit.
 const dateTouched = ref(false)
@@ -45,8 +66,11 @@ watch(categoryId, (id) => {
   needWant.value = d.needWant
 })
 
+const today = computed(() => todayIn(profile.value?.timezone ?? 'Asia/Tokyo'))
 const parsed = computed(() => parseAmount(amount.value, currency.value))
 const preview = computed(() => (currency.value === 'INR' && profile.value ? previewJpy(amount.value, profile.value.planningRateJpyPerInr) : null))
+const paymentHint = computed(() => lastUsedPaymentHint(selectedCategory.value, paymentMethod.value))
+const needWantHint = computed(() => lastUsedNeedWantHint(selectedCategory.value, needWant.value))
 
 const save = useMutation({
   mutationFn: () =>
@@ -77,44 +101,64 @@ function submit() {
 </script>
 
 <template>
-  <h1 class="text-h5 mb-4">Add expense</h1>
+  <h1 class="text-h5 font-weight-bold mb-4">Add expense</h1>
   <v-alert v-if="me.data.value && !profile" type="info" variant="tonal">
     Set up your profile first in <router-link to="/settings">Settings</router-link>.
   </v-alert>
-  <v-form v-else style="max-width: 560px" @submit.prevent="submit">
-    <div class="d-flex ga-2 align-start">
-      <v-text-field id="amount" v-model="amount" :label="currency === 'JPY' ? 'Amount (¥)' : 'Amount (₹)'" inputmode="decimal"
-        autofocus class="text-h5" :hint="preview !== null ? `≈ ${yen(preview)} at the planning rate` : ''" persistent-hint />
-      <v-btn-toggle v-model="currency" mandatory density="comfortable" class="mt-2" aria-label="Currency">
-        <v-btn value="JPY" aria-label="Yen">¥</v-btn><v-btn value="INR" aria-label="Rupees">₹</v-btn>
-      </v-btn-toggle>
+  <v-form v-else class="quick-add" @submit.prevent="submit">
+    <div class="amount-card">
+      <div class="row1">
+        <v-text-field
+          id="amount" ref="amountFieldRef" v-model="amount" :label="currency === 'JPY' ? 'Amount (¥)' : 'Amount (₹)'"
+          inputmode="decimal" variant="plain" hide-details class="amount-input num"
+        />
+        <v-btn-toggle v-model="currency" mandatory density="comfortable" class="cur" aria-label="Currency">
+          <v-btn value="JPY" aria-label="Yen" :aria-pressed="currency === 'JPY'">¥</v-btn>
+          <v-btn value="INR" aria-label="Rupees" :aria-pressed="currency === 'INR'">₹</v-btn>
+        </v-btn-toggle>
+      </div>
+      <div v-if="preview !== null" class="preview">≈ {{ yen(preview) }} at the planning rate</div>
+      <div class="hint">{{ dateHint(occurredOn, today) }}</div>
     </div>
-    <div class="text-subtitle-2 mt-4 mb-2">Category</div>
-    <v-chip-group v-model="categoryId" column mandatory selected-class="text-primary" role="radiogroup" aria-label="Category">
-      <v-chip v-for="c in active" :key="c.id" :value="c.id" filter variant="outlined" role="radio" :aria-checked="categoryId === c.id">
-        <v-icon start :color="c.color">mdi-circle</v-icon>{{ c.name }}
+
+    <div class="lbl">Category</div>
+    <v-chip-group v-model="categoryId" mandatory show-arrows="never" role="radiogroup" aria-label="Category" class="cat-group">
+      <v-chip v-for="c in active" :key="c.id" :value="c.id" variant="outlined" role="radio" :aria-checked="categoryId === c.id" class="cat-tile">
+        <CategoryAvatar :category="c" :size="30" />
+        <span class="cat-name">{{ c.name }}</span>
+        <v-icon v-if="categoryId === c.id" size="13" class="cat-check" aria-hidden="true">mdi-check-circle</v-icon>
       </v-chip>
     </v-chip-group>
-    <v-text-field id="date" v-model="occurredOn" label="Date" type="date" class="mt-4" />
-    <div class="d-flex flex-wrap ga-4">
-      <div>
-        <div class="text-subtitle-2 mb-2">Payment method</div>
-        <v-chip-group v-model="paymentMethod" mandatory role="radiogroup" aria-label="Payment method">
-          <v-chip v-for="(label, key) in PAYMENT_LABELS" :key="key" :value="key" filter role="radio" :aria-checked="paymentMethod === key">{{ label }}</v-chip>
-        </v-chip-group>
-      </div>
-      <div>
-        <div class="text-subtitle-2 mb-2">Need or want</div>
-        <v-chip-group v-model="needWant" mandatory role="radiogroup" aria-label="Need or want">
-          <v-chip v-for="(label, key) in NEED_LABELS" :key="key" :value="key" filter role="radio" :aria-checked="needWant === key">{{ label }}</v-chip>
-        </v-chip-group>
-      </div>
-    </div>
-    <v-text-field id="description" v-model="description" label="Description (optional)" counter="200" maxlength="200" />
+
+    <v-text-field id="date" v-model="occurredOn" label="Date" type="date" class="mt-2" density="compact" />
+
+    <div class="lbl">Paid with <span v-if="paymentHint" class="lbl-note">· last used for {{ paymentHint }}</span></div>
+    <v-chip-group v-model="paymentMethod" mandatory role="radiogroup" aria-label="Payment method" class="chip-row">
+      <v-chip
+        v-for="(label, key) in PAYMENT_LABELS" :key="key" :value="key" variant="outlined" role="radio"
+        :aria-checked="paymentMethod === key" class="c2"
+      >
+        <v-icon v-if="paymentMethod === key" size="13" start aria-hidden="true">mdi-check</v-icon>{{ label }}
+      </v-chip>
+    </v-chip-group>
+
+    <div class="lbl">Need or want <span v-if="needWantHint" class="lbl-note">· last used for {{ needWantHint }}</span></div>
+    <v-chip-group v-model="needWant" mandatory role="radiogroup" aria-label="Need or want" class="chip-row">
+      <v-chip
+        v-for="(label, key) in NEED_LABELS" :key="key" :value="key" variant="outlined" role="radio"
+        :aria-checked="needWant === key" class="c2"
+      >
+        <v-icon v-if="needWant === key" size="13" start aria-hidden="true">mdi-check</v-icon>{{ label }}
+      </v-chip>
+    </v-chip-group>
+
+    <v-text-field id="description" v-model="description" label="Description (optional)" counter="200" maxlength="200" class="mt-2" />
     <v-alert v-if="error" type="error" variant="tonal" class="mb-4">{{ error }}</v-alert>
-    <v-btn type="submit" color="primary" size="large" :loading="save.isPending.value">Save</v-btn>
+    <v-btn type="submit" color="primary" size="large" block class="save-btn" :loading="save.isPending.value">Save</v-btn>
   </v-form>
+
   <v-snackbar :model-value="!!saved" timeout="6000" @update:model-value="saved = null">
+    <v-icon size="16" class="mr-1" aria-hidden="true">mdi-check-circle</v-icon>
     <span data-testid="saved">{{ saved }}</span>
     <template #actions>
       <v-btn variant="text" @click="saved = null">Add another</v-btn>
@@ -122,3 +166,186 @@ function submit() {
     </template>
   </v-snackbar>
 </template>
+
+<style scoped>
+.quick-add {
+  max-width: 560px;
+}
+
+.amount-card {
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgb(var(--v-border-color));
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.row1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.amount-input {
+  flex: 1 1 auto;
+}
+.amount-input :deep(.v-field) {
+  padding: 0;
+}
+.amount-input :deep(.v-field__input) {
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  padding: 0;
+  min-height: auto;
+}
+.amount-input :deep(.v-field__input input) {
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+}
+.amount-input :deep(.v-label) {
+  font-size: 13px;
+}
+.cur {
+  flex: none;
+  border: 1px solid rgb(var(--v-border-color));
+  border-radius: 10px;
+  box-shadow: none;
+  height: auto;
+}
+.cur :deep(.v-btn) {
+  min-width: 42px;
+  height: 36px;
+  border-radius: 0;
+  font-weight: 600;
+  color: rgb(var(--v-theme-on-surface-variant));
+  background: rgb(var(--v-theme-surface));
+}
+.cur :deep(.v-btn--active) {
+  background: rgb(var(--v-theme-primary));
+  color: #fff;
+}
+.preview,
+.hint {
+  color: rgb(var(--v-theme-on-surface-variant));
+  font-size: 12.5px;
+  margin-top: 6px;
+}
+
+.lbl {
+  font-size: 12px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgb(var(--v-theme-on-surface-variant));
+  font-weight: 600;
+  margin: 12px 2px 8px;
+}
+.lbl-note {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+/* The category grid keeps v-chip-group for its radiogroup/keyboard behaviour (role="radiogroup",
+   each chip role="radio"), but its default rendering is a single scrolling row (VSlideGroup) —
+   overridden here into the mockup's tile grid (3 per row on phones, 6 on wide). */
+.cat-group :deep(.v-slide-group__container) {
+  overflow: visible;
+}
+.cat-group :deep(.v-slide-group__prev),
+.cat-group :deep(.v-slide-group__next) {
+  display: none !important;
+}
+.cat-group :deep(.v-slide-group__content) {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  flex-wrap: unset;
+  /* `.v-slide-group__content` is itself a flex item of `.v-slide-group__container` (built for a
+     horizontally-scrolling row, sized to its content's natural width by default) — width/flex here
+     make it fill that container instead, so the grid's `1fr` tracks divide the real available
+     width rather than the content's own hug-width. */
+  width: 100%;
+  flex: 1 1 auto;
+  transform: none !important;
+}
+@media (max-width: 600px) {
+  .cat-group :deep(.v-slide-group__content) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.cat-group :deep(.v-chip) {
+  margin: 0;
+  height: auto;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px 6px;
+  border-radius: 12px;
+  border: 1px solid rgb(var(--v-border-color));
+  background: rgb(var(--v-theme-surface));
+  font-size: 12.5px;
+  font-weight: 500;
+  position: relative;
+}
+.cat-group :deep(.v-chip__content) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.cat-name {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+.cat-group :deep(.v-chip--selected) {
+  background: rgb(var(--v-theme-surface)) !important;
+  border-color: rgb(var(--v-theme-primary));
+  box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.16);
+}
+.cat-check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  color: rgb(var(--v-theme-primary));
+}
+
+.chip-row :deep(.v-slide-group__container) {
+  overflow: visible;
+}
+.chip-row :deep(.v-slide-group__content) {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip-row :deep(.v-chip) {
+  margin: 0;
+  border: 1px solid rgb(var(--v-border-color));
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+  font-weight: 500;
+  font-size: 13px;
+}
+/* Selected payment/need-want chip is an inverse (dark-on-light / light-on-dark) fill, not the
+   accent colour — matches the mockup's `.c2.on` and keeps the selected state a shape+fill signal
+   (plus the check icon above), not colour alone (spec §7). */
+.chip-row :deep(.v-chip--selected) {
+  background: rgb(var(--v-theme-on-surface));
+  border-color: rgb(var(--v-theme-on-surface));
+  color: rgb(var(--v-theme-surface));
+}
+
+.save-btn {
+  margin-top: 8px;
+  border-radius: 14px;
+  padding: 14px 0;
+  font-size: 15px;
+}
+</style>
