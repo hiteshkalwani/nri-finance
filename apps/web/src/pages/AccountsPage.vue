@@ -11,12 +11,19 @@ import NetWorthChart from '../components/NetWorthChart.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { apiFetch, ApiRequestError } from '../lib/api'
 import { groupByType, inOtherCurrency, loadShowIn, saveShowIn, type ShowIn } from '../lib/accounts'
+import { flash } from '../lib/flash'
 import { monthYearLabel, rupees, yen } from '../lib/format'
 import { useProfile } from '../lib/profile'
 
 const { xs } = useDisplay()
 const qc = useQueryClient()
 const me = useProfile()
+
+// Consumed immediately (not left live-bound to `flash.message`) so Update balances' "Balances
+// saved for <Mon YYYY>" snackbar shows exactly once — a later visit, or a refresh, must not
+// resurface it, same reasoning as the ledger's undo snackbar clearing itself (lib/session.ts).
+const savedMessage = ref(flash.message.value)
+flash.message.value = null
 
 const TYPE_ICON: Record<AccountType, string> = {
   bank: 'mdi-bank-outline', cash: 'mdi-cash', fd: 'mdi-finance', investment: 'mdi-chart-line', card: 'mdi-credit-card-outline',
@@ -352,6 +359,11 @@ function submitEfGoal() {
     </v-dialog>
   </template>
   <v-progress-linear v-else indeterminate />
+
+  <v-snackbar :model-value="!!savedMessage" timeout="6000" @update:model-value="(v) => { if (!v) savedMessage = null }">
+    <v-icon size="16" class="mr-1" aria-hidden="true">mdi-check-circle</v-icon>
+    {{ savedMessage }}
+  </v-snackbar>
 </template>
 
 <style scoped>
