@@ -59,5 +59,5 @@ export const ImportCounts = z.object({
   sipPlans: z.number().int(),
   cycleTargets: z.number().int(),
 })
-export const ImportResult = z.object({ inserted: ImportCounts, skippedRows: z.array(z.string()) })
+export const ImportResult = z.object({ inserted: ImportCounts, skippedRows: z.array(z.string()), profileKept: z.boolean() })
 export type ImportResult = z.infer<typeof ImportResult>

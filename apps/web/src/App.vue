@@ -12,8 +12,14 @@ const signedInPage = computed(() => !route.meta.public)
 const nav = [
   { title: 'Dashboard', icon: 'mdi-home-outline', to: '/' },
   { title: 'Spend', icon: 'mdi-credit-card-outline', to: '/spend' },
+  { title: 'Accounts', icon: 'mdi-bank-outline', to: '/accounts' },
   { title: 'Settings', icon: 'mdi-cog-outline', to: '/settings' },
 ]
+// The phone bottom nav's "More" button (unlike Dashboard/Spend above) has no `to`, so it never
+// gets Vuetify's own router-link active-state for free — it opens a menu, not a route, but it
+// still needs to read as the active tab while sitting on either page that menu leads to (final
+// review finding 6).
+const moreActive = computed(() => route.path.startsWith('/accounts') || route.path.startsWith('/settings'))
 
 const { pref: themePref, cycleThemePref } = useThemePref()
 const themeWord = computed(() => (themePref.value === 'system' ? 'System' : themePref.value === 'light' ? 'Light' : 'Dark'))
@@ -87,7 +93,15 @@ const signOut = useSignOut()
         <v-btn icon to="/spend/new" aria-label="Add expense" class="add-expense-fab">
           <v-icon>mdi-plus</v-icon>
         </v-btn>
-        <v-btn to="/settings"><v-icon>mdi-dots-horizontal</v-icon><span>More</span></v-btn>
+        <v-menu>
+          <template #activator="{ props: menuProps }">
+            <v-btn v-bind="menuProps" :active="moreActive"><v-icon>mdi-dots-horizontal</v-icon><span>More</span></v-btn>
+          </template>
+          <v-list density="compact">
+            <v-list-item to="/accounts" prepend-icon="mdi-bank-outline" title="Accounts" />
+            <v-list-item to="/settings" prepend-icon="mdi-cog-outline" title="Settings" />
+          </v-list>
+        </v-menu>
       </v-bottom-navigation>
     </template>
 

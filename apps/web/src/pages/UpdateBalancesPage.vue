@@ -1,0 +1,479 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { BalancesResponse, NetWorthResponse, type BalanceRow } from '@nri/contracts'
+import { jpyFromInrPaise, nextCycle, previousCycle } from '@nri/core'
+import PageHeader from '../components/PageHeader.vue'
+import { apiFetch, ApiRequestError } from '../lib/api'
+import { changedEntries, type FieldState, formatGrouped, isDirty, netWorthAfterSaving, parseAmount, toText } from '../lib/balancesForm'
+import { flash } from '../lib/flash'
+import { cycleLabel, dateRangeLabel, MONTHS, monthYearLabel, rupees, yen } from '../lib/format'
+import { useProfile } from '../lib/profile'
+
+const route = useRoute()
+const router = useRouter()
+const { xs } = useDisplay()
+const qc = useQueryClient()
+const me = useProfile()
+const startDay = computed(() => me.data.value?.profile?.cycleStartDay ?? 25)
+
+const cycleParam = computed(() => (typeof route.query.cycle === 'string' ? route.query.cycle : ''))
+const balQ = useQuery({
+  queryKey: ['balances', cycleParam],
+  queryFn: () => apiFetch(`/api/balances${cycleParam.value ? `?cycle=${cycleParam.value}` : ''}`, {}, BalancesResponse),
+  retry: (n, e) => !(e instanceof ApiRequestError && e.status === 409) && n < 2,
+})
+const b = computed(() => balQ.data.value)
+const needsProfile = computed(() => balQ.error.value instanceof ApiRequestError && balQ.error.value.status === 409)
+
+// Keyed off the GET's own resolved `cycle` (same reasoning as Dashboard's "recent expenses" query),
+// not the raw route query — an empty `?cycle=` resolves to the current cycle server-side, and this
+// must follow that resolution rather than request its own default.
+const nwCycle = computed(() => b.value?.cycle ?? '')
+const nwQ = useQuery({
+  queryKey: ['networth', nwCycle],
+  queryFn: () => apiFetch(`/api/networth?cycle=${nwCycle.value}`, {}, NetWorthResponse),
+  enabled: () => !!b.value,
+})
+
+// One field per row. Rebuilt from `b.value.rows` every time *fresh* data arrives for the current
+// cycle — not just when the cycle string itself changes (final review finding 1, Critical): on
+// remount, vue-query serves a cached `['balances', cycle]` response immediately, and the
+// background refetch that follows resolves for that *same* cycle, so a watch keyed only on the
+// cycle string never saw it and kept showing (and could save) stale prefilled values; a fresh
+// response with a row this page had never seen before (a new/unarchived account, now that
+// AccountDialog.vue/AccountsPage.vue also invalidate `['balances']`) had no field at all, and
+// `fieldFor` crashed the render.
+//
+// `balQ.dataUpdatedAt` ticks to `Date.now()` every time a fetch actually completes (vue-query's
+// own bookkeeping, not derived from the rows), so watching it alongside the cycle catches both a
+// same-cycle background refetch and a cycle switch. While the form isn't dirty this just replaces
+// `fields` outright. While it *is* dirty (fresh data arrived mid-edit — a cycle switch can't reach
+// here dirty, since the leave/update guard below always resolves that first): any field the user
+// has actually edited (by value, not raw text — same `parseAmount`-based comparison `isDirty`
+// itself uses) keeps its text; every other field, and any brand-new row, takes the fresh value.
+const fields = ref<FieldState[]>([])
+function buildField(r: BalanceRow): FieldState {
+  const text = toText(r.amount, r.currency)
+  return { accountId: r.accountId, text, initial: text, currency: r.currency }
+}
+let lastBuiltCycle: string | undefined
+watch(
+  [() => b.value?.cycle, () => balQ.dataUpdatedAt.value],
+  () => {
+    if (!b.value) return
+    const cycleChanged = b.value.cycle !== lastBuiltCycle
+    lastBuiltCycle = b.value.cycle
+    if (cycleChanged || !isDirty(fields.value)) {
+      fields.value = b.value.rows.map(buildField)
+      return
+    }
+    const prevByAccount = new Map(fields.value.map((f) => [f.accountId, f]))
+    fields.value = b.value.rows.map((r) => {
+      const prev = prevByAccount.get(r.accountId)
+      if (!prev) return buildField(r) // a row this page hadn't seen before — add its field
+      const edited = parseAmount(prev.text, prev.currency) !== parseAmount(prev.initial, prev.currency)
+      return edited ? prev : buildField(r)
+    })
+  },
+  { immediate: true },
+)
+const fieldByAccount = computed(() => new Map(fields.value.map((f) => [f.accountId, f])))
+/** Never undefined, even for a row `fields` hasn't caught up to yet (the watch above runs in the
+ * same reactive flush as `b.value.rows` changing, so in practice this fallback is just a safety
+ * net, not something the UI is expected to show). */
+function fieldFor(row: BalanceRow): FieldState {
+  return fieldByAccount.value.get(row.accountId) ?? buildField(row)
+}
+
+// True once the *current* cycle's own GET has actually completed during this page visit — not
+// merely "`b` has a value", which a stale cache satisfies immediately on mount, before the
+// background refetch above has had any chance to run. Rendering the form (rather than a brief
+// skeleton) against that stale snapshot is exactly what let a carried-forward value go stale
+// (final review finding 1): `dataUpdatedAt` is set to `Date.now()` only when a fetch for the
+// *currently active* query key resolves, so comparing it against this component's own mount time
+// is true only once a real fetch has landed since this page was opened (for whichever cycle is
+// active right now — switching cycles swaps which query `balQ` reflects, and `dataUpdatedAt`
+// with it).
+const mountedAt = Date.now()
+const rowsReady = computed(() => !!b.value && balQ.dataUpdatedAt.value >= mountedAt)
+
+// Grouped (comma/lakh) display while a field isn't focused; the raw text the user actually typed
+// (commas and all — `parseAmount` already accepts them) while it is (fix round 1, coordinator
+// finding 2). Formatting is purely a display concern: it's never written back into the field's
+// own stored `text`, so it can never register as an edit (see `isDirty`/`changedEntries`, which
+// compare parsed values for exactly this reason).
+const focusedAccounts = ref(new Set<string>())
+function onFieldFocus(accountId: string) {
+  focusedAccounts.value.add(accountId)
+}
+function onFieldBlur(accountId: string) {
+  focusedAccounts.value.delete(accountId)
+}
+function displayText(row: BalanceRow): string {
+  const f = fieldFor(row)
+  if (focusedAccounts.value.has(row.accountId)) return f.text
+  const parsed = parseAmount(f.text, f.currency)
+  return typeof parsed === 'number' ? formatGrouped(parsed, f.currency) : f.text
+}
+function setText(row: BalanceRow, value: string) {
+  fieldFor(row).text = value
+}
+
+// Rows arrive pre-sorted Japan-then-India (spec §3), so grouping is just a run-length split, not a re-sort.
+const groupedRows = computed(() => {
+  const out: { country: 'JP' | 'IN'; label: string; rows: BalanceRow[] }[] = []
+  for (const r of b.value?.rows ?? []) {
+    const last = out[out.length - 1]
+    if (last && last.country === r.country) last.rows.push(r)
+    else out.push({ country: r.country, label: r.country === 'JP' ? 'Japan' : 'India', rows: [r] })
+  }
+  return out
+})
+
+const monthOnly = (cycle: string) => MONTHS[Number(cycle.slice(5, 7)) - 1]!
+/** "from <Mon>" only while the row is still showing its carried-forward value untouched (spec §4.3) — editing it clears the hint. */
+function fromHint(row: BalanceRow): string | null {
+  const f = fieldFor(row)
+  if (row.source !== 'carried' || !row.fromCycle || f.text !== f.initial) return null
+  return `from ${monthOnly(row.fromCycle)}`
+}
+/** Live "≈ ¥…" for a ₹ row, at the planning rate the GET response itself carries. */
+function approxYen(row: BalanceRow): string | null {
+  if (row.currency !== 'INR' || !b.value) return null
+  const parsed = parseAmount(fieldFor(row).text, 'INR')
+  if (typeof parsed !== 'number') return null
+  return `≈ ${yen(jpyFromInrPaise(parsed, b.value.rate))}`
+}
+/**
+ * "Left blank — keeps ¥1,240,000" under a field the user cleared that had a prior value (fix
+ * round 1, coordinator finding 3): the controller ruling is that a blank field means "keep the
+ * current value", never a balance of zero — Save skips it (`changedEntries`) and the footer
+ * preview treats it as unchanged (`netWorthAfterSaving`), so this hint spells out, in the row's
+ * own currency, exactly what "unchanged" means here.
+ */
+function blankHint(row: BalanceRow): string | null {
+  if (fieldFor(row).text.trim() !== '' || row.amount === null) return null
+  return `Left blank — keeps ${row.currency === 'JPY' ? yen(row.amount) : rupees(row.amount)}`
+}
+
+const serverFieldErrors = ref<Record<string, string>>({})
+function fieldErrorFor(row: BalanceRow): string | undefined {
+  const f = fieldFor(row)
+  const parsed = parseAmount(f.text, f.currency)
+  if (parsed === 'invalid') return row.currency === 'JPY' ? 'Enter a whole yen amount' : 'Enter an amount with up to 2 decimals'
+  return serverFieldErrors.value[row.accountId]
+}
+
+const hasInvalid = computed(() => fields.value.some((f) => parseAmount(f.text, f.currency) === 'invalid'))
+const entriesToSave = computed(() => (b.value ? changedEntries(fields.value, b.value.rows) : []))
+const dirty = computed(() => isDirty(fields.value))
+
+const netWorthAfter = computed(() => {
+  if (!b.value || !nwQ.data.value) return null
+  return netWorthAfterSaving(fields.value, b.value.rows, nwQ.data.value.current.combinedJpy, nwQ.data.value.rate)
+})
+const sinceLastCycle = computed(() => {
+  const cur = nwQ.data.value?.current
+  if (!cur || cur.changeJpy === null || netWorthAfter.value === null) return null
+  return netWorthAfter.value - (cur.combinedJpy - cur.changeJpy)
+})
+
+function go(c: string) {
+  void router.replace({ query: { ...route.query, cycle: c } })
+}
+function copyLastCycle() {
+  fields.value = fields.value.map((f) => ({ ...f, text: f.initial }))
+}
+
+// The exact array last sent to PUT, kept only to map a 400's `details[].path` — `['entries', i,
+// 'amount' | 'accountId']` — back onto the field at that same index (balances.ts's own validation
+// shape; AccountDialog.vue's `applyApiError` does the equivalent for a flat `path: [field]`).
+let lastSent: { accountId: string; amount: number }[] = []
+const formError = ref('')
+function applyApiError(e: unknown) {
+  serverFieldErrors.value = {}
+  formError.value = ''
+  if (!(e instanceof ApiRequestError)) { formError.value = 'Something went wrong'; return }
+  const details = e.details
+  if (Array.isArray(details) && details.length) {
+    const next: Record<string, string> = {}
+    for (const issue of details as { path?: unknown[]; message?: string }[]) {
+      const p = issue.path
+      if (Array.isArray(p) && p[0] === 'entries' && typeof p[1] === 'number') {
+        const entry = lastSent[p[1]]
+        if (entry) next[entry.accountId] = issue.message ?? e.message
+      }
+    }
+    if (Object.keys(next).length) { serverFieldErrors.value = next; return }
+  }
+  formError.value = e.message
+}
+
+const saveMut = useMutation({
+  mutationFn: (entries: { accountId: string; amount: number }[]) =>
+    apiFetch('/api/balances', { method: 'PUT', body: JSON.stringify({ cycle: b.value!.cycle, entries }) }, BalancesResponse),
+  onSuccess: async () => {
+    // Mark every field clean before navigating away — it really was just saved — so the unsaved-
+    // changes guard below doesn't fire on this page's own redirect to Accounts.
+    fields.value = fields.value.map((f) => ({ ...f, initial: f.text }))
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['balances'] }),
+      qc.invalidateQueries({ queryKey: ['networth'] }),
+      qc.invalidateQueries({ queryKey: ['accounts'] }),
+    ])
+    flash.message.value = `Balances saved for ${monthYearLabel(b.value!.cycle)}`
+    await router.push('/accounts')
+  },
+  onError: applyApiError,
+})
+const canSave = computed(() => !hasInvalid.value && entriesToSave.value.length > 0 && !saveMut.isPending.value)
+function save() {
+  if (!b.value || !canSave.value) return
+  serverFieldErrors.value = {}
+  formError.value = ''
+  lastSent = entriesToSave.value
+  saveMut.mutate(lastSent)
+}
+
+// Leaving with unsaved changes (spec §4.3): a Vuetify dialog, not window.confirm — the guard
+// itself just returns a Promise<boolean> that resolves once the dialog's own buttons answer it.
+// Shared by both guards below (fix round 1, coordinator finding 1): `onBeforeRouteLeave` covers
+// navigating to a different page, and `onBeforeRouteUpdate` covers staying on this same page with
+// a different `?cycle=` — the cycle picker's own `go()` and a manually-edited URL both land here,
+// since either way the component is reused (not unmounted) and the cycle watch would otherwise
+// silently rebuild `fields` out from under whatever the user was mid-typing.
+const leaveConfirmOpen = ref(false)
+let resolveLeave: ((ok: boolean) => void) | null = null
+function confirmDiscard(): true | Promise<boolean> {
+  if (!dirty.value) return true
+  return new Promise<boolean>((resolve) => {
+    resolveLeave = resolve
+    leaveConfirmOpen.value = true
+  })
+}
+onBeforeRouteLeave(confirmDiscard)
+onBeforeRouteUpdate(confirmDiscard)
+function keepEditing() {
+  leaveConfirmOpen.value = false
+  resolveLeave?.(false)
+  resolveLeave = null
+}
+function discardChanges() {
+  leaveConfirmOpen.value = false
+  resolveLeave?.(true)
+  resolveLeave = null
+}
+
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (dirty.value) e.preventDefault()
+}
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload))
+</script>
+
+<template>
+  <v-alert v-if="needsProfile" type="info" variant="tonal">
+    Set up your profile first in <router-link to="/settings">Settings</router-link>.
+  </v-alert>
+  <v-alert v-else-if="balQ.error.value" type="error" variant="tonal">{{ balQ.error.value.message }}</v-alert>
+  <!-- `b` alone isn't enough: a cached-but-stale response satisfies it immediately on mount,
+       before the fresh refetch (`rowsReady`) has landed — rendering the form against that would
+       let the user see (and confirm) values already superseded on the server (final review
+       finding 1). Falls through to the plain skeleton below until the first fetch for this cycle
+       completes. -->
+  <template v-else-if="b && rowsReady">
+    <PageHeader title="Update balances">
+      <div class="cycle-pill">
+        <v-btn icon="mdi-chevron-left" variant="text" size="small" aria-label="Previous cycle" @click="go(previousCycle(b.cycle))" />
+        <span data-testid="cycle-label">{{ cycleLabel(b.cycle, startDay) }}</span>
+        <v-btn icon="mdi-chevron-right" variant="text" size="small" aria-label="Next cycle" @click="go(nextCycle(b.cycle))" />
+      </div>
+    </PageHeader>
+    <p class="subtitle">Review day · cycle {{ monthYearLabel(b.cycle) }} ({{ dateRangeLabel(b.start, b.end) }})</p>
+
+    <v-card class="bal-card">
+      <div class="hint-row">
+        Prefilled with last cycle's balances. Change only what moved; ₹ accounts show the ¥ value at the planning rate.
+      </div>
+      <template v-for="g in groupedRows" :key="g.country">
+        <div class="grp">{{ g.label }}</div>
+        <div v-for="row in g.rows" :key="row.accountId" class="brow" :class="{ compact: xs }">
+          <div class="nm-wrap">
+            <div class="nm-text">{{ row.name }}</div>
+            <div class="sub-row">
+              <span v-if="row.type === 'card'" class="sub">owed</span>
+              <span v-if="fromHint(row)" class="sub">{{ fromHint(row) }}</span>
+              <span v-if="blankHint(row)" class="sub">{{ blankHint(row) }}</span>
+            </div>
+          </div>
+          <div class="amt-wrap">
+            <v-text-field
+              :id="`bal-${row.accountId}`"
+              :model-value="displayText(row)"
+              :label="`Balance for ${row.name}`"
+              inputmode="decimal"
+              :prefix="row.currency === 'JPY' ? '¥' : '₹'"
+              :error-messages="fieldErrorFor(row)"
+              density="comfortable"
+              hide-details="auto"
+              @update:model-value="(v) => setText(row, v)"
+              @focus="onFieldFocus(row.accountId)"
+              @blur="onFieldBlur(row.accountId)"
+            />
+            <div v-if="approxYen(row)" class="sub approx">{{ approxYen(row) }}</div>
+          </div>
+        </div>
+      </template>
+      <div class="rows-end-spacer" aria-hidden="true" />
+    </v-card>
+
+    <v-alert v-if="formError" type="error" variant="tonal" class="mt-3">{{ formError }}</v-alert>
+
+    <div class="bal-footer">
+      <div class="totals">
+        <span class="sub">Net worth after saving</span>
+        <b class="num">{{ netWorthAfter !== null ? yen(netWorthAfter) : '—' }}</b>
+        <span
+          v-if="sinceLastCycle !== null"
+          class="num font-weight-medium"
+          :class="sinceLastCycle >= 0 ? 'text-success' : 'text-error'"
+        >{{ sinceLastCycle >= 0 ? '↑' : '↓' }} {{ yen(Math.abs(sinceLastCycle)) }} since last cycle</span>
+      </div>
+      <div class="actions">
+        <v-btn variant="outlined" @click="copyLastCycle">Copy last cycle</v-btn>
+        <v-btn color="primary" :loading="saveMut.isPending.value" :disabled="!canSave" @click="save">Save balances</v-btn>
+      </div>
+    </div>
+
+    <v-dialog v-model="leaveConfirmOpen" max-width="420" persistent>
+      <v-card>
+        <v-card-title>Discard unsaved changes?</v-card-title>
+        <v-card-text>Balances you typed on this screen haven't been saved yet.</v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="outlined" @click="keepEditing">Keep editing</v-btn>
+          <v-btn color="error" @click="discardChanges">Discard changes</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+  </template>
+  <v-progress-linear v-else indeterminate />
+</template>
+
+<style scoped>
+.cycle-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgb(var(--v-border-color));
+  background: rgb(var(--v-theme-surface));
+  border-radius: 10px;
+  overflow: hidden;
+}
+.cycle-pill span {
+  padding: 0 4px;
+  font-weight: 600;
+  min-width: 150px;
+  text-align: center;
+  font-size: 14px;
+}
+.subtitle {
+  color: rgb(var(--v-theme-on-surface-variant));
+  margin: -10px 0 16px;
+  font-size: 14px;
+}
+
+.hint-row {
+  padding: 14px 22px;
+  color: rgb(var(--v-theme-on-surface-variant));
+  border-bottom: 1px solid rgb(var(--v-border-color));
+  font-size: 13.5px;
+}
+.grp {
+  padding: 14px 22px 4px;
+  font-weight: 700;
+}
+.brow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 16px;
+  align-items: center;
+  padding: 10px 22px;
+  border-top: 1px solid rgb(var(--v-border-color));
+  min-width: 0;
+}
+.brow.compact {
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 6px;
+}
+.nm-wrap {
+  min-width: 0;
+}
+.nm-text {
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sub-row {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+.sub {
+  color: rgb(var(--v-theme-on-surface-variant));
+  font-size: 12.5px;
+}
+.amt-wrap {
+  min-width: 0;
+}
+.approx {
+  text-align: right;
+  margin-top: 2px;
+}
+/* Enough clearance that, scrolled all the way down, the last field is never tucked right up
+   against (or behind) the sticky footer below it — see the 390px "scrolled to bottom" screenshot. */
+.rows-end-spacer {
+  height: 96px;
+}
+
+.bal-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px 22px;
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgb(var(--v-border-color));
+  border-radius: 12px;
+  box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.08);
+}
+.bal-footer .totals {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.bal-footer .actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+/* The phone bottom nav (App.vue's `.bottom-nav`, a fixed v-bottom-navigation) isn't itself part of
+   this page's scroll container, so a plain `bottom: 0` would stick the footer underneath it —
+   offset by its height (Vuetify's default 56px) only below the `xs` breakpoint (spec §5) where
+   that nav exists at all. */
+@media (max-width: 599px) {
+  .bal-footer {
+    bottom: 56px;
+  }
+}
+</style>

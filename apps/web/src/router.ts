@@ -6,6 +6,8 @@ export const router = createRouter({
   routes: [
     { path: '/login', component: () => import('./pages/LoginPage.vue'), meta: { public: true } },
     { path: '/', component: () => import('./pages/DashboardPage.vue') },
+    { path: '/accounts/balances', component: () => import('./pages/UpdateBalancesPage.vue') },
+    { path: '/accounts', component: () => import('./pages/AccountsPage.vue') },
     { path: '/settings', component: () => import('./pages/SettingsPage.vue') },
     { path: '/spend/new', component: () => import('./pages/QuickAddPage.vue') },
     { path: '/spend', component: () => import('./pages/LedgerPage.vue') },

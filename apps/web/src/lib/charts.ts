@@ -12,6 +12,18 @@ function withAlpha(hex: string, alpha: number): string {
 }
 
 /**
+ * Whether the OS/browser has "reduce motion" switched on (fix round 1) — guarded the same way
+ * `NetWorthChart.vue` originally checked it inline, since `window`/`matchMedia` aren't guaranteed
+ * to exist (SSR, or this file's own unit tests). Every chart's options builder below takes a
+ * `reducedMotion` flag rather than calling this itself, so each stays a plain, themeless,
+ * unit-testable function (same reasoning `buildAreaOptions`' own doc comment already gives) — the
+ * caller reads this once and passes the result in, same pattern as `tickColor`/`gridColor`.
+ */
+export function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/**
  * Doughnut from the legend rows (already limit/"Everything else"-folded by `legendRows`), so a
  * slice's index always matches its legend row's index for hover/focus highlighting. `Category.color`
  * is a bare string on read (v1-imported colours pass through as stored), so an invalid one falls back
@@ -50,10 +62,16 @@ export function barData(d: Dashboard, primary: string) {
  * unless the options explicitly supply colours (finding 4). The caller must rebuild these options
  * (a `computed()`, not a plain object) whenever the theme changes, since Chart.js reads `options`
  * once at render and won't react to a CSS variable changing on its own.
+ *
+ * `reducedMotion` (fix round 1): same reasoning as `buildAreaOptions`' own — without it, Chart.js's
+ * default ~1s draw-in animation means the bars can still be empty/mid-draw the instant something
+ * screenshots the page (`scripts/ui-screens.mjs` sets `reducedMotion: 'reduce'` on its pages
+ * expecting exactly this).
  */
-export function buildBarOptions(onCycleClick: (index: number) => void, tickColor: string, gridColor: string): ChartOptions<'bar'> {
+export function buildBarOptions(onCycleClick: (index: number) => void, tickColor: string, gridColor: string, reducedMotion = false): ChartOptions<'bar'> {
   return {
     maintainAspectRatio: false,
+    animation: reducedMotion ? false : undefined,
     plugins: { legend: { display: false } },
     scales: {
       x: { ticks: { color: tickColor }, grid: { color: gridColor } },
@@ -62,6 +80,83 @@ export function buildBarOptions(onCycleClick: (index: number) => void, tickColor
     onClick: (_e, els) => {
       const index = els[0]?.index
       if (index !== undefined) onCycleClick(index)
+    },
+  }
+}
+
+/**
+ * Options for the Dashboard's "Spending by category" donut (spec §4.1's `#spend-donut`-equivalent).
+ * A plain function, not a `useTheme()`-reading composable, for the same testability reason
+ * `buildBarOptions` already gives — `onHover`/`onClick` are plain callbacks rather than this module
+ * reaching into the dashboard's legend data or the router itself.
+ *
+ * `reducedMotion` (fix round 1): same as `buildBarOptions`/`buildAreaOptions` — otherwise the
+ * slices can still be empty/mid-draw the instant the page is screenshotted.
+ */
+export function buildDonutOptions(onHover: (index: number | null) => void, onClick: (index: number) => void, reducedMotion = false): ChartOptions<'doughnut'> {
+  return {
+    cutout: '70%',
+    animation: reducedMotion ? false : undefined,
+    plugins: { legend: { display: false } },
+    elements: { arc: { hoverOffset: 10 } },
+    // Chart.js already highlights the hovered slice itself (built-in canvas hover interaction);
+    // `onHover` just mirrors that index back to the caller, so it can highlight the matching
+    // legend row too.
+    onHover: (_e, active) => onHover(active[0]?.index ?? null),
+    onClick: (_e, els) => {
+      const index = els[0]?.index
+      if (index !== undefined) onClick(index)
+    },
+  }
+}
+
+/**
+ * The Accounts screen's net worth area chart (spec §4.1, mockup's `#nwchart`): a single filled
+ * line, `lineColor` for the stroke and a 28%-alpha tint of it for the fill (Chart.js's own `fill`
+ * option paints the dataset's `backgroundColor` under the line) — both resolved by the caller via
+ * `useTheme()` (same pattern as `barData`'s `primary` argument) so dark mode gets its own shade.
+ */
+export function areaData(labels: string[], values: number[], lineColor: string) {
+  return {
+    labels,
+    datasets: [{
+      data: values,
+      borderColor: lineColor,
+      backgroundColor: withAlpha(lineColor, 0.28),
+      fill: true,
+      tension: 0.2,
+      // A lone value has no line segment to draw (Chart.js needs 2+ points for a line), so with
+      // points hidden (0) a single-cycle chart rendered nothing at all (final review finding 3) —
+      // the point marker itself becomes the visible mark in that one-point case.
+      pointRadius: values.length === 1 ? 4 : 0,
+      pointHoverRadius: 4,
+      pointBackgroundColor: lineColor,
+      borderWidth: 2.5,
+    }],
+  }
+}
+
+/**
+ * Options for the net worth area chart. `formatValue` lets the caller switch the y-axis/tooltip
+ * between yen and rupees (the Accounts screen's "In ¥ / In ₹" toggle re-expresses the whole
+ * chart, not just the headline total) without this module knowing about currencies at all.
+ *
+ * `reducedMotion` (fix round 1): the caller passes `window.matchMedia('(prefers-reduced-motion:
+ * reduce)').matches` — Chart.js's default ~1s draw-in animation otherwise means the chart can
+ * still be mid-animation (or, worse, not yet started) when something screenshots the page the
+ * instant it settles, same as any other browser user who asked for reduced motion.
+ */
+export function buildAreaOptions(tickColor: string, gridColor: string, formatValue: (n: number) => string, reducedMotion = false): ChartOptions<'line'> {
+  return {
+    maintainAspectRatio: false,
+    animation: reducedMotion ? false : undefined,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: (ctx) => formatValue(Number(ctx.parsed.y)) } },
+    },
+    scales: {
+      x: { ticks: { color: tickColor }, grid: { display: false } },
+      y: { ticks: { color: tickColor, callback: (v) => formatValue(Number(v)) }, grid: { color: gridColor } },
     },
   }
 }

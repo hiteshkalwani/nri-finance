@@ -135,6 +135,23 @@ describe('/api/transactions', () => {
     expect((await resAcc.json()).error.code).toBe('VALIDATION_FAILED')
   })
 
+  it('saves an edit when the unchanged account has since been archived; still refuses switching to an archived account', async () => {
+    const x = await (await call(a, 'POST', '/api/accounts', { name: 'Archived-X', country: 'JP', type: 'bank' })).json()
+    const t = await (await post(a, base({ amountJpy: 500, description: 'edit-archived-account', accountId: x.id }))).json()
+    expect((await call(a, 'PATCH', `/api/accounts/${x.id}`, { archived: true })).status).toBe(200)
+
+    const first = await call(a, 'PATCH', `/api/transactions/${t.id}`, { description: 'new' })
+    expect(first.status).toBe(200)
+
+    const second = await call(a, 'PATCH', `/api/transactions/${t.id}`, { accountId: x.id, description: 'again' })
+    expect(second.status).toBe(200)
+
+    const y = await (await call(a, 'POST', '/api/accounts', { name: 'Archived-Y', country: 'JP', type: 'bank' })).json()
+    expect((await call(a, 'PATCH', `/api/accounts/${y.id}`, { archived: true })).status).toBe(200)
+    const third = await call(a, 'PATCH', `/api/transactions/${t.id}`, { accountId: y.id })
+    expect(third.status).toBe(400)
+  })
+
   describe('POST /api/transactions/restore (I2: Undo after delete)', () => {
     it('restores a deleted ₹ row with its original ¥ and rate, even after the planning rate has since changed', async () => {
       const created = await (await post(a, base({ amountInrPaise: 200000, description: 'restore-inr' }))).json()

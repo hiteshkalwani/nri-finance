@@ -22,6 +22,12 @@ export function cycleLabel(cycle: string, startDay: number): string {
   return dateRangeLabel(start, end)
 }
 
+/** "Oct 2026" for a cycle string "YYYY-MM" — the Accounts screen builds every cycle label client-side (controller ruling, spec §3). */
+export function monthYearLabel(cycle: string): string {
+  const [y, m] = cycle.split('-').map(Number) as [number, number]
+  return `${MONTHS[m - 1]} ${y}`
+}
+
 /**
  * Quick-add's amount-card date hint (spec §4.3): "Today · Mon 5 Oct" when `occurredOn` is `today`
  * (both already local calendar dates from `todayIn`), else just "Mon 5 Oct". Built from the date's
