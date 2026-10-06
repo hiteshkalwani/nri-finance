@@ -12,3 +12,6 @@ export async function requireProfile(tx: Tx, userId: string) {
   if (!row) throw new ApiError(409, 'CONFLICT', 'Set up your profile first')
   return row
 }
+
+// numeric(12,6) comes back as "1.694915"; trim trailing zeros but keep at least one decimal digit.
+export const rateOut = (s: string): string => s.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '.0')
