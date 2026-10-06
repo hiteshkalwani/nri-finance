@@ -104,8 +104,12 @@ const THEME_OPTIONS = [
         >
           Drop <b>finance-data.json</b> here, or <span class="link">choose a file</span>
           <br /><span class="hint">Importing twice never creates duplicates.</span>
+          <!-- Nested (not a sibling) so `.drop:focus-within` below actually triggers when this
+               visually-hidden input is focused via keyboard (Tab + Enter/Space, or arriving via a
+               screen reader) — a `for`/`id` association alone doesn't put the input "within" the
+               label for `:focus-within`'s purposes. -->
+          <input id="import-file" type="file" accept="application/json" class="visually-hidden" @change="onInputChange" />
         </label>
-        <input id="import-file" type="file" accept="application/json" class="visually-hidden" @change="onInputChange" />
         <v-alert v-if="importMessage" type="success" variant="tonal" class="mx-5 mb-3">{{ importMessage }}</v-alert>
         <v-alert v-if="importError || runImport.error.value" type="error" variant="tonal" class="mx-5 mb-3">
           {{ importError || runImport.error.value?.message }}
@@ -113,7 +117,11 @@ const THEME_OPTIONS = [
       </v-card>
       <v-card class="mb-6">
         <div class="tx-hd"><h2>Account</h2></div>
-        <div class="kv"><span class="text-medium-emphasis">Signed in as</span><b>{{ me.data.value?.email ?? '—' }}</b></div>
+        <div class="kv">
+          <span class="text-medium-emphasis">Signed in as</span>
+          <b v-if="me.isLoading.value" class="text-medium-emphasis">Loading…</b>
+          <b v-else>{{ me.data.value?.email ?? '—' }}</b>
+        </div>
         <div class="account-actions"><v-btn variant="outlined" @click="signOut">Sign out</v-btn></div>
       </v-card>
       <v-card>
@@ -198,6 +206,17 @@ const THEME_OPTIONS = [
 .drop.dragover {
   border-color: rgb(var(--v-theme-primary-accent));
   background: rgba(var(--v-theme-primary-accent), 0.06);
+}
+/* Fix round 1, item 4: the real focus target (#import-file) is visually hidden at 1x1px, so a
+   ring drawn directly on it would be invisible — show it on the visible drop zone instead when
+   the input is focused (e.g. Tab + Enter/Space, or arriving via a screen reader), and suppress
+   the redundant ring the input would otherwise draw on itself. */
+.drop:focus-within {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+.drop .visually-hidden:focus-visible {
+  outline: none;
 }
 .drop .link {
   color: rgb(var(--v-theme-primary));
