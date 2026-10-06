@@ -65,3 +65,45 @@ export function buildBarOptions(onCycleClick: (index: number) => void, tickColor
     },
   }
 }
+
+/**
+ * The Accounts screen's net worth area chart (spec §4.1, mockup's `#nwchart`): a single filled
+ * line, `lineColor` for the stroke and a 28%-alpha tint of it for the fill (Chart.js's own `fill`
+ * option paints the dataset's `backgroundColor` under the line) — both resolved by the caller via
+ * `useTheme()` (same pattern as `barData`'s `primary` argument) so dark mode gets its own shade.
+ */
+export function areaData(labels: string[], values: number[], lineColor: string) {
+  return {
+    labels,
+    datasets: [{
+      data: values,
+      borderColor: lineColor,
+      backgroundColor: withAlpha(lineColor, 0.28),
+      fill: true,
+      tension: 0.2,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      pointBackgroundColor: lineColor,
+      borderWidth: 2.5,
+    }],
+  }
+}
+
+/**
+ * Options for the net worth area chart. `formatValue` lets the caller switch the y-axis/tooltip
+ * between yen and rupees (the Accounts screen's "In ¥ / In ₹" toggle re-expresses the whole
+ * chart, not just the headline total) without this module knowing about currencies at all.
+ */
+export function buildAreaOptions(tickColor: string, gridColor: string, formatValue: (n: number) => string): ChartOptions<'line'> {
+  return {
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: (ctx) => formatValue(Number(ctx.parsed.y)) } },
+    },
+    scales: {
+      x: { ticks: { color: tickColor }, grid: { display: false } },
+      y: { ticks: { color: tickColor, callback: (v) => formatValue(Number(v)) }, grid: { color: gridColor } },
+    },
+  }
+}

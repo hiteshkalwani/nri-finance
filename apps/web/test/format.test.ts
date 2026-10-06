@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { cycleLabel, dateHint, dateRangeLabel, rupees, yen } from '../src/lib/format'
+import { cycleLabel, dateHint, dateRangeLabel, monthYearLabel, rupees, yen } from '../src/lib/format'
 
 it('formats yen and rupees', () => {
   expect(yen(500000)).toBe('￥500,000')
@@ -15,6 +15,11 @@ it('labels a cycle by its dates', () => {
 it('labels a date range directly from two ISO dates (same year, and crossing a year boundary)', () => {
   expect(dateRangeLabel('2026-09-25', '2026-10-24')).toBe('25 Sep – 24 Oct 2026')
   expect(dateRangeLabel('2025-12-25', '2026-01-24')).toBe('25 Dec 2025 – 24 Jan 2026')
+})
+
+it('labels a cycle string as "Mon YYYY" (the Accounts screen builds every cycle label client-side)', () => {
+  expect(monthYearLabel('2026-10')).toBe('Oct 2026')
+  expect(monthYearLabel('2025-01')).toBe('Jan 2025')
 })
 
 it('hints the quick-add date, "Today · " only when it matches today (spec §4.3)', () => {

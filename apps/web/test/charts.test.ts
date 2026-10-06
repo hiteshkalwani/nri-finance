@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { barData, buildBarOptions, donutData } from '../src/lib/charts'
+import { areaData, barData, buildAreaOptions, buildBarOptions, donutData } from '../src/lib/charts'
 
 const d = {
   cycle: '2026-10', start: '2026-09-25', end: '2026-10-24', incomeJpy: 1, spentJpy: 2500, sentJpy: 0, feesJpy: 0, keptJpy: 0, savingsRatePct: 0,
@@ -46,4 +46,26 @@ it('still formats the y-axis ticks as yen and wires the click-through to the led
   expect(opts.scales!.y!.ticks!.callback!.call({} as never, 2500, 0, [])).toBe('￥2,500')
   opts.onClick!({} as never, [{ index: 0 } as never], {} as never)
   expect(onCycleClick).toHaveBeenCalledWith(0)
+})
+
+// Accounts screen's net worth chart (spec §4.1): a single filled line/area, the fill a 28%-alpha
+// tint of the given line colour (Chart.js's `fill: true` paints `backgroundColor` under the line).
+it('builds a single filled area dataset from the series, with a translucent tint of the given colour', () => {
+  const a = areaData(['Sep 2026', 'Oct 2026'], [620000, 1429069], '#f0682e')
+  expect(a.labels).toEqual(['Sep 2026', 'Oct 2026'])
+  expect(a.datasets[0]!.data).toEqual([620000, 1429069])
+  expect(a.datasets[0]!.borderColor).toBe('#f0682e')
+  expect(a.datasets[0]!.backgroundColor).toBe('#f0682e47')
+  expect(a.datasets[0]!.fill).toBe(true)
+})
+
+it("area options read tick/grid colours from the given theme tokens and format values through the caller's formatter (the Accounts screen's In ¥ / In ₹ toggle)", () => {
+  const formatValue = vi.fn((n: number) => `¥${n}`)
+  const opts = buildAreaOptions('#efece6', '#2e2c29', formatValue)
+  expect(opts.scales!.y!.ticks!.color).toBe('#efece6')
+  expect(opts.scales!.x!.ticks!.color).toBe('#efece6')
+  expect(opts.scales!.y!.grid!.color).toBe('#2e2c29')
+  expect(opts.scales!.y!.ticks!.callback!.call({} as never, 1000, 0, [])).toBe('¥1000')
+  const tooltipLabel = (opts.plugins!.tooltip as { callbacks: { label: (ctx: unknown) => string } }).callbacks.label
+  expect(tooltipLabel({ parsed: { y: 2000 } })).toBe('¥2000')
 })
