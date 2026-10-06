@@ -109,4 +109,27 @@ describe('QuickAddPage autofocus', () => {
 
     wrapper.unmount()
   })
+
+  // Fix round 1: the first guard (`document.activeElement === document.body`) assumed "nothing
+  // focused yet" was the only way to arrive here un-focused — but the real "Add expense" link
+  // lives in App.vue's persistent sidebar/bottom-nav, *outside* this page's `<router-view>`, and
+  // keeps its own focus across the route change (Vue Router doesn't blur it). That left
+  // `document.activeElement` pointing at that link, not `document.body`, so the old guard wrongly
+  // skipped focusing #amount on every real in-app navigation to quick-add — only a fresh page
+  // load (activeElement genuinely `body`) ever got it. Simulates that link with a plain focused
+  // button living outside anything this component renders.
+  it('focuses #amount on mount even when something outside the page is already focused (e.g. the persistent nav link)', async () => {
+    const navLink = document.createElement('button')
+    navLink.textContent = 'Add expense'
+    document.body.appendChild(navLink)
+    navLink.focus()
+    expect(document.activeElement).toBe(navLink)
+
+    const wrapper = await mountQuickAdd()
+    const amount = wrapper.get('#amount').element as HTMLInputElement
+    expect(document.activeElement).toBe(amount)
+
+    wrapper.unmount()
+    navLink.remove()
+  })
 })
