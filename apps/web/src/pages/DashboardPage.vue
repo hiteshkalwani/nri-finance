@@ -127,7 +127,9 @@ const donutOptions = computed(() => ({
   },
 }))
 
-const barChartData = computed(() => (d.value ? barData(d.value, themeHex('primary')) : { labels: [], datasets: [] }))
+// `primary-accent`, not `primary`: the bars are a non-text use and must stay the bright mockup
+// accent in both themes (theme.ts) — `primary` in light theme is now the deeper button-fill shade.
+const barChartData = computed(() => (d.value ? barData(d.value, themeHex('primary-accent')) : { labels: [], datasets: [] }))
 const barOptions = {
   maintainAspectRatio: false,
   plugins: { legend: { display: false } },
@@ -164,7 +166,7 @@ const barOptions = {
         <div class="l">Spent</div>
         <div class="v num" data-testid="spent">{{ yen(d.spentJpy) }}</div>
         <div v-if="spentPct !== null" class="s">{{ spentPct }}% of income</div>
-        <div v-if="spentPct !== null" class="bar-mini"><i :style="{ width: `${Math.min(spentPct, 100)}%`, background: 'rgb(var(--v-theme-primary))' }" /></div>
+        <div v-if="spentPct !== null" class="bar-mini"><i :style="{ width: `${Math.min(spentPct, 100)}%`, background: 'rgb(var(--v-theme-primary-accent))' }" /></div>
       </v-card>
       <v-card class="kpi">
         <div class="l">Sent home</div>

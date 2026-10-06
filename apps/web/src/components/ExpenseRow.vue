@@ -56,7 +56,8 @@ const avatarCategory = computed(() => props.category ?? { name: 'Uncategorised',
   cursor: pointer;
 }
 .row:focus-visible {
-  outline: 2px solid rgb(var(--v-theme-primary));
+  /* `primary-accent`, not `primary`: a non-text ring, must stay the bright accent (theme.ts). */
+  outline: 2px solid rgb(var(--v-theme-primary-accent));
   outline-offset: 2px;
 }
 .d {
@@ -83,12 +84,15 @@ const avatarCategory = computed(() => props.category ?? { name: 'Uncategorised',
   white-space: nowrap;
 }
 .chip.want {
-  border-color: rgb(var(--v-theme-primary));
-  /* Not --v-theme-primary: the bright accent fails spec §7's 4.5:1 text-contrast minimum against
-     this same tint in light theme (2.74:1 rest / 2.36:1 hover) — primary-darken-1 is a darker
-     shade of the same hue that clears it in both themes (see src/theme.ts, apps/web/test/theme.test.ts). */
+  /* `primary-accent`, not `primary`: this chip's border/tint are a non-text accent use, which must
+     stay the bright mockup colour in both themes — `primary` in light theme is now the deeper
+     button-fill shade (theme.ts). The text itself still can't use `primary-accent` directly: it
+     fails spec §7's 4.5:1 text-contrast minimum against this same tint in light theme (2.74:1 rest
+     / 2.36:1 hover) — `primary-darken-1` is a darker shade of the same hue that clears it in both
+     themes (see src/theme.ts, apps/web/test/theme.test.ts). */
+  border-color: rgb(var(--v-theme-primary-accent));
   color: rgb(var(--v-theme-primary-darken-1));
-  background: rgba(var(--v-theme-primary), 0.12);
+  background: rgba(var(--v-theme-primary-accent), 0.12);
 }
 .amt {
   text-align: right;

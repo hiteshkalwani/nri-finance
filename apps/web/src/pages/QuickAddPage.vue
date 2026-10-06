@@ -236,20 +236,19 @@ function submit() {
   color: rgb(var(--v-theme-on-surface-variant));
   background: rgb(var(--v-theme-surface));
 }
-/* White-on-`primary` fails spec §7's 4.5:1 text-contrast minimum in both themes (measured
-   3.12:1 light, 2.53:1 dark — `primary` is a bright/light accent in both). `primary-darken-1`
-   (src/theme.ts) is a darker shade of the same hue for light theme (6.72:1 with white here); dark
-   theme's `primary` is already light enough that dark text reads cleanly against it instead
-   (6.65:1) — there's no "on-primary" token for that in theme.ts, so it's the one hardcoded value
-   here, matching light theme's own on-surface/on-background hex exactly (verified in
-   theme.test.ts, not just eyeballed). */
+/* White-on-`primary` used to fail spec §7's 4.5:1 text-contrast minimum in both themes (measured
+   3.12:1 light, 2.53:1 dark — `primary` was a bright/light accent in both). Light theme now uses
+   `primary-darken-1` (src/theme.ts), a darker shade of the same hue (6.72:1 with white here); dark
+   theme's `primary` is already light enough that its own `on-primary` token (dark text, 6.65:1)
+   reads cleanly against it instead (controller ruling, task 8 — verified in theme.test.ts, not
+   just eyeballed). */
 .cur :deep(.v-btn--active.v-theme--light) {
   background: rgb(var(--v-theme-primary-darken-1));
   color: #fff;
 }
 .cur :deep(.v-btn--active.v-theme--dark) {
   background: rgb(var(--v-theme-primary));
-  color: #1d1d1f;
+  color: rgb(var(--v-theme-on-primary));
 }
 .preview,
 .hint {
@@ -335,8 +334,11 @@ function submit() {
 }
 .cat-group :deep(.v-chip--selected) {
   background: rgb(var(--v-theme-surface)) !important;
-  border-color: rgb(var(--v-theme-primary));
-  box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.16);
+  /* `primary-accent`, not `primary`: this ring is a non-text accent use, which must stay the
+     bright mockup colour in both themes — `primary` in light theme is now the deeper button-fill
+     shade (theme.ts). */
+  border-color: rgb(var(--v-theme-primary-accent));
+  box-shadow: 0 0 0 2px rgba(var(--v-theme-primary-accent), 0.16);
 }
 /* The chip's own `.v-chip__overlay` paints `currentColor` over the chip at some opacity for its
    interaction states (hover/focus/selected) — independent of the `background` above, which it
@@ -351,7 +353,7 @@ function submit() {
   position: absolute;
   top: 4px;
   right: 4px;
-  color: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-primary-accent));
 }
 
 .chip-row :deep(.v-slide-group__container) {

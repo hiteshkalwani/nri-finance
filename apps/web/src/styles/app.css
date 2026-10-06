@@ -75,7 +75,10 @@
   border-radius: 14px;
 }
 
+/* `primary-accent`, not `primary`: the focus ring is a non-text use (a ring, not text painted on
+   a fill), and `primary` in light theme is now the deeper shade used for button fills/text
+   (theme.ts) — the ring should stay the mockup's bright accent in both themes. */
 :focus-visible {
-  outline: 2px solid rgb(var(--v-theme-primary));
+  outline: 2px solid rgb(var(--v-theme-primary-accent));
   outline-offset: 2px;
 }
