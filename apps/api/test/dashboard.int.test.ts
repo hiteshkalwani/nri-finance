@@ -70,9 +70,10 @@ describe('/api/dashboard', () => {
 })
 
 describe('/api/accounts', () => {
-  it('lists my active accounts by name', async () => {
+  it('lists my active accounts grouped by country then type then name', async () => {
     const { items } = await (await call(a, 'GET', '/api/accounts')).json()
-    expect(items.map((x: { name: string }) => x.name)).toEqual(['Alpha bank', 'Zeta bank'])
+    // Order is country (JP before IN), then type, then name — 'Closed' (JP, cash, archived) is excluded.
+    expect(items.map((x: { name: string }) => x.name)).toEqual(['Zeta bank', 'Alpha bank'])
     expect((await (await call(b, 'GET', '/api/accounts')).json()).items).toEqual([])
   })
 })
