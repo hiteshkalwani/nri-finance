@@ -30,6 +30,9 @@ const ID1 = '11111111-1111-4111-8111-111111111111'
 const ID2 = '22222222-2222-4222-8222-222222222222'
 const ID3 = '33333333-3333-4333-8333-333333333333'
 const ID4 = '44444444-4444-4444-8444-444444444444'
+const ID5 = '55555555-5555-4555-8555-555555555555'
+const ID6 = '66666666-6666-4666-8666-666666666666'
+const ID7 = '77777777-7777-4777-8777-777777777777'
 const account = (id: string, name: string, country: 'JP' | 'IN', type: 'bank' | 'cash' | 'card' | 'fd' | 'investment', opts: Partial<{ isEmergencyFund: boolean; archived: boolean }> = {}) => ({
   id, name, country, currency: country === 'JP' ? ('JPY' as const) : ('INR' as const), type,
   isEmergencyFund: opts.isEmergencyFund ?? false, archived: opts.archived ?? false, hasBalances: true,
@@ -39,6 +42,9 @@ const ACCOUNTS = [
   account(ID2, 'MUFG savings', 'JP', 'bank'),
   account(ID3, 'Shinsei emergency fund', 'JP', 'bank', { isEmergencyFund: true }),
   account(ID4, 'HDFC savings', 'IN', 'bank'),
+  account(ID5, 'Second card', 'JP', 'card'),
+  account(ID6, 'Zero change bank', 'JP', 'bank'),
+  account(ID7, 'A very long account name that should not be truncated in the dom', 'JP', 'bank'),
 ]
 const NETWORTH = {
   rate: '1.694915', cycle: '2026-10',
@@ -51,6 +57,9 @@ const NETWORTH = {
     { accountId: ID2, amount: 1240000, source: 'this' as const, fromCycle: '2026-10', changeAmount: 40000 },
     { accountId: ID3, amount: 2000000, source: 'carried' as const, fromCycle: '2026-09', changeAmount: null },
     { accountId: ID4, amount: null, source: 'none' as const, fromCycle: null, changeAmount: null },
+    { accountId: ID5, amount: 5000, source: 'this' as const, fromCycle: '2026-10', changeAmount: -1000 },
+    { accountId: ID6, amount: 500000, source: 'this' as const, fromCycle: '2026-10', changeAmount: 0 },
+    { accountId: ID7, amount: 100000, source: 'this' as const, fromCycle: '2026-10', changeAmount: 1000 },
   ],
   emergencyFund: { balanceJpy: 2000000, goalJpy: 2400000, monthsCovered: 6.1, avgSpendJpy: 327000 },
 }
@@ -113,6 +122,41 @@ describe('AccountsPage', () => {
   it('shows the empty state when there are no accounts yet', async () => {
     const wrapper = await mountAccounts([])
     expect(wrapper.text()).toContain('No accounts yet.')
+    wrapper.unmount()
+  })
+
+  // Fix round 1 (review finding 2): an increase in what's owed on a card is bad, a decrease is
+  // good — the opposite of an asset row, where more is good.
+  it('inverts the change colour for a card (liability) row: more owed is the error colour, less owed is success', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const rows = wrapper.findAll('.acct')
+    const increasedCard = rows.find((r) => r.text().includes('Japan credit card'))!
+    expect(increasedCard.find('.text-error').exists()).toBe(true)
+    expect(increasedCard.find('.text-success').exists()).toBe(false)
+    const paidDownCard = rows.find((r) => r.text().includes('Second card'))!
+    expect(paidDownCard.find('.text-success').exists()).toBe(true)
+    expect(paidDownCard.find('.text-error').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  // Fix round 1 (review finding 3): a literal "↑ ¥0" claims a direction that didn't happen.
+  it('shows "No change" (no arrow, no colour) for a zero change', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const row = wrapper.findAll('.acct').find((r) => r.text().includes('Zero change bank'))!
+    expect(row.text()).toContain('No change')
+    expect(row.find('.chg').text()).not.toContain('↑')
+    expect(row.find('.chg').text()).not.toContain('↓')
+    wrapper.unmount()
+  })
+
+  // Fix round 1 (review finding 4): the name must render in full in the markup — only CSS
+  // (an ellipsis on `.nm-text` alone) may visually clip it — and the tag/badge must not be fused
+  // onto the same line/text node as the name.
+  it('renders a long account name in full, with its tag on a separate line from the name', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const row = wrapper.findAll('.acct').find((r) => r.text().includes('A very long account name'))!
+    expect(row.find('.nm-text').text()).toBe('A very long account name that should not be truncated in the dom')
+    expect(row.find('.sub-row .tag').exists()).toBe(true)
     wrapper.unmount()
   })
 })

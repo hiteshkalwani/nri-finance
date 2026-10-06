@@ -69,3 +69,12 @@ it("area options read tick/grid colours from the given theme tokens and format v
   const tooltipLabel = (opts.plugins!.tooltip as { callbacks: { label: (ctx: unknown) => string } }).callbacks.label
   expect(tooltipLabel({ parsed: { y: 2000 } })).toBe('¥2000')
 })
+
+// Fix round 1: Chart.js's default ~1s draw-in animation raced the screenshot script's 450ms
+// settle wait, catching the net worth chart empty or mid-draw. `reducedMotion` (the caller passes
+// `window.matchMedia('(prefers-reduced-motion: reduce)').matches`) turns it off outright.
+it('disables animation when reducedMotion is set, and leaves it alone otherwise', () => {
+  expect(buildAreaOptions('#000', '#000', (n) => `${n}`, true).animation).toBe(false)
+  expect(buildAreaOptions('#000', '#000', (n) => `${n}`, false).animation).toBeUndefined()
+  expect(buildAreaOptions('#000', '#000', (n) => `${n}`).animation).toBeUndefined()
+})

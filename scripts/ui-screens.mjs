@@ -162,7 +162,11 @@ function trackErrors(page, label) {
 
 async function shoot(browser, user, screen, viewport, colorScheme) {
   const label = `${screen.slug}-${viewport.width}-${colorScheme}`
-  const page = await browser.newPage({ viewport, colorScheme })
+  // `reducedMotion: 'reduce'` (fix round 1): Chart.js's default ~1s draw-in animation on the
+  // Accounts net worth chart raced `settle()`'s 450ms wait — the app's own `NetWorthChart.vue`
+  // checks `prefers-reduced-motion` and skips the animation when it matches, so the chart renders
+  // complete immediately instead of mid-animation (or, on a slow run, still empty).
+  const page = await browser.newPage({ viewport, colorScheme, reducedMotion: 'reduce' })
   trackErrors(page, label)
   const routePath = screen.path.split('?')[0]
   await signIn(page, user, screen.path)
