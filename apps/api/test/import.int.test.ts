@@ -30,7 +30,9 @@ describe('POST /api/import/v1', () => {
 
   it('creates the profile from v1 settings', async () => {
     const me = await (await app.request('/api/me', json(u.accessToken, 'GET'))).json()
-    expect(me.profile).toEqual({ salaryJpy: 670000, planningRateJpyPerInr: '1.694915', cycleStartDay: 25, timezone: 'Asia/Tokyo' })
+    expect(me.profile).toEqual({
+      salaryJpy: 670000, planningRateJpyPerInr: '1.694915', cycleStartDay: 25, timezone: 'Asia/Tokyo', emergencyFundGoalJpy: 1500000,
+    })
   })
 
   it('is idempotent: a second import inserts nothing', async () => {
@@ -109,5 +111,26 @@ describe('POST /api/import/v1', () => {
   it('rejects a document that is not a v1 export', async () => {
     const res = await app.request('/api/import/v1', json(u.accessToken, 'POST', { hello: 'world' }))
     expect(res.status).toBe(400)
+  })
+
+  it('imports the v1 emergency-fund goal into a new profile and reports profileKept on a re-import', async () => {
+    const fresh = await createTestUser('import-ef-goal')
+    const doc = { ...seed, settings: { ...seed.settings, emergencyFundTargetJPY: 1500000 } }
+    const first = await (await app.request('/api/import/v1', json(fresh.accessToken, 'POST', doc))).json()
+    expect(first.profileKept).toBe(false)
+    const me = await (await app.request('/api/me', json(fresh.accessToken, 'GET'))).json()
+    expect(me.profile.emergencyFundGoalJpy).toBe(1500000)
+    const again = await (await app.request('/api/import/v1', json(fresh.accessToken, 'POST', doc))).json()
+    expect(again.profileKept).toBe(true)
+    await deleteTestUser(fresh.id)
+  })
+
+  it('treats a v1 goal of 0 as no goal', async () => {
+    const fresh = await createTestUser('import-ef-zero')
+    const doc = { ...seed, settings: { ...seed.settings, emergencyFundTargetJPY: 0 } }
+    await app.request('/api/import/v1', json(fresh.accessToken, 'POST', doc))
+    const me = await (await app.request('/api/me', json(fresh.accessToken, 'GET'))).json()
+    expect(me.profile.emergencyFundGoalJpy).toBeNull()
+    await deleteTestUser(fresh.id)
   })
 })

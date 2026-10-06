@@ -1,4 +1,4 @@
-import type { Category, NeedWant, PaymentMethod, Transaction } from '@nri/contracts'
+import type { Account, Category, NeedWant, PaymentMethod, Transaction } from '@nri/contracts'
 import { jpyFromInrPaise, paiseFromDecimal } from '@nri/core'
 
 export type Currency = 'JPY' | 'INR'
@@ -40,6 +40,19 @@ export function parseAmount(text: string, currency: Currency): { amountJpy: numb
 export function previewJpy(text: string, rate: string): number | null {
   const a = parseAmount(text, 'INR')
   return a && 'amountInrPaise' in a ? jpyFromInrPaise(a.amountInrPaise, rate) : null
+}
+
+/**
+ * Edit page's account select options (M1 fix): active accounts, plus the expense's current
+ * account when that one has since been archived, titled "<name> (archived)" — otherwise an edit
+ * of an older expense shows a blank account field. `all` is `/api/accounts?include=archived`.
+ * QuickAddPage doesn't use this; it keeps the plain active-only list.
+ */
+export function accountOptionsFor(all: Account[], currentAccountId: string | null | undefined): Account[] {
+  const active = all.filter((a) => !a.archived)
+  if (currentAccountId == null || active.some((a) => a.id === currentAccountId)) return active
+  const current = all.find((a) => a.id === currentAccountId && a.archived)
+  return current ? [...active, { ...current, name: `${current.name} (archived)` }] : active
 }
 
 /**

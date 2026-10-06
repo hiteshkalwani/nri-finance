@@ -37,7 +37,7 @@ async function mountLedger(items: ReturnType<typeof txn>[], total = items.length
     if (url === '/api/me') {
       return jsonResponse({
         userId: '99999999-9999-4999-8999-999999999999', email: 'me@example.test',
-        profile: { salaryJpy: 500000, planningRateJpyPerInr: '1.7', cycleStartDay: 25, timezone: 'Asia/Tokyo' },
+        profile: { salaryJpy: 500000, planningRateJpyPerInr: '1.7', cycleStartDay: 25, timezone: 'Asia/Tokyo', emergencyFundGoalJpy: null },
       })
     }
     throw new Error(`unexpected fetch(${url})`)

@@ -1,0 +1,317 @@
+import { describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+
+vi.hoisted(() => {
+  class FakeResizeObserver { observe() {} unobserve() {} disconnect() {} }
+  globalThis.ResizeObserver = FakeResizeObserver as unknown as typeof ResizeObserver
+  // jsdom has no `visualViewport` global at all (not even `undefined` as an own property), so the
+  // bare identifier Vuetify's VOverlay location strategy reads (`visualViewport?.addEventListener`)
+  // throws a ReferenceError before optional chaining ever gets a chance to short-circuit it — this
+  // only surfaces once a test actually opens an overlay (here, the "Balances saved" snackbar).
+  if (!('visualViewport' in globalThis)) (globalThis as { visualViewport?: unknown }).visualViewport = undefined
+})
+vi.mock('../src/lib/supabase', () => ({
+  supabase: { auth: { getSession: async () => ({ data: { session: { access_token: 'tok-123' } } }) } },
+}))
+
+import { createVuetify } from 'vuetify'
+import { flash } from '../src/lib/flash'
+import AccountsPage from '../src/pages/AccountsPage.vue'
+
+const vuetify = createVuetify()
+
+function jsonResponse(body: unknown) {
+  return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })
+}
+
+const ME = {
+  userId: '99999999-9999-4999-8999-999999999999', email: 'me@example.test',
+  profile: { salaryJpy: 500000, planningRateJpyPerInr: '1.694915', cycleStartDay: 25, timezone: 'Asia/Tokyo', emergencyFundGoalJpy: 2400000 },
+}
+// Account.id and NetWorthResponse.accounts[].accountId are both z.uuid() — real-looking UUIDs,
+// not bare 'a1'/'a2', or the networth fetch's schema parse throws and the query never settles.
+const ID1 = '11111111-1111-4111-8111-111111111111'
+const ID2 = '22222222-2222-4222-8222-222222222222'
+const ID3 = '33333333-3333-4333-8333-333333333333'
+const ID4 = '44444444-4444-4444-8444-444444444444'
+const ID5 = '55555555-5555-4555-8555-555555555555'
+const ID6 = '66666666-6666-4666-8666-666666666666'
+const ID7 = '77777777-7777-4777-8777-777777777777'
+const account = (id: string, name: string, country: 'JP' | 'IN', type: 'bank' | 'cash' | 'card' | 'fd' | 'investment', opts: Partial<{ isEmergencyFund: boolean; archived: boolean }> = {}) => ({
+  id, name, country, currency: country === 'JP' ? ('JPY' as const) : ('INR' as const), type,
+  isEmergencyFund: opts.isEmergencyFund ?? false, archived: opts.archived ?? false, hasBalances: true,
+})
+const ACCOUNTS = [
+  account(ID1, 'Japan credit card', 'JP', 'card'),
+  account(ID2, 'MUFG savings', 'JP', 'bank'),
+  account(ID3, 'Shinsei emergency fund', 'JP', 'bank', { isEmergencyFund: true }),
+  account(ID4, 'HDFC savings', 'IN', 'bank'),
+  account(ID5, 'Second card', 'JP', 'card'),
+  account(ID6, 'Zero change bank', 'JP', 'bank'),
+  account(ID7, 'A very long account name that should not be truncated in the dom', 'JP', 'bank'),
+]
+const NETWORTH = {
+  rate: '1.694915', cycle: '2026-10',
+  current: { japanJpy: 1240000, indiaPaise: 42000000, combinedJpy: 1949069, changeJpy: 212300, changePct: 17.4 },
+  assets: { japanJpy: 1268000, indiaPaise: 42000000 },
+  liabilities: { japanJpy: 28000, indiaPaise: 0 },
+  series: [{ cycle: '2026-09', combinedJpy: 1216769 }, { cycle: '2026-10', combinedJpy: 1949069 }],
+  accounts: [
+    { accountId: ID1, amount: 28000, source: 'this' as const, fromCycle: '2026-10', changeAmount: 3000 },
+    { accountId: ID2, amount: 1240000, source: 'this' as const, fromCycle: '2026-10', changeAmount: 40000 },
+    { accountId: ID3, amount: 2000000, source: 'carried' as const, fromCycle: '2026-09', changeAmount: null },
+    { accountId: ID4, amount: null, source: 'none' as const, fromCycle: null, changeAmount: null },
+    { accountId: ID5, amount: 5000, source: 'this' as const, fromCycle: '2026-10', changeAmount: -1000 },
+    { accountId: ID6, amount: 500000, source: 'this' as const, fromCycle: '2026-10', changeAmount: 0 },
+    { accountId: ID7, amount: 100000, source: 'this' as const, fromCycle: '2026-10', changeAmount: 1000 },
+  ],
+  emergencyFund: { balanceJpy: 2000000, goalJpy: 2400000, monthsCovered: 6.1, avgSpendJpy: 327000 },
+}
+
+async function mountAccounts(accountItems: typeof ACCOUNTS, vuetifyInstance: ReturnType<typeof createVuetify> = vuetify) {
+  const fetchMock = vi.fn(async (input: unknown) => {
+    const url = String(input)
+    if (url.startsWith('/api/accounts')) return jsonResponse({ items: accountItems })
+    if (url.startsWith('/api/networth')) return jsonResponse(NETWORTH)
+    if (url === '/api/me') return jsonResponse(ME)
+    throw new Error(`unexpected fetch(${url})`)
+  })
+  vi.stubGlobal('fetch', fetchMock)
+
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/accounts', component: AccountsPage },
+      { path: '/accounts/balances', component: { template: '<div/>' } },
+      { path: '/settings', component: { template: '<div/>' } },
+    ],
+  })
+  router.push('/accounts')
+  await router.isReady()
+  const queryClient = new QueryClient()
+  const wrapper = mount(AccountsPage, { global: { plugins: [router, vuetifyInstance, [VueQueryPlugin, { queryClient }]] }, attachTo: document.body })
+  for (let i = 0; i < 6; i++) await flushPromises()
+  return wrapper
+}
+
+/** A Vuetify instance whose `useDisplay().xs` reads true from the moment it's created — display
+ * width is captured once at `createDisplay()` time (vuetify/lib/composables/display.js), so
+ * `window.innerWidth` must already be 390 before this runs. */
+function createMobileVuetify() {
+  const original = window.innerWidth
+  Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 390 })
+  const mobile = createVuetify()
+  Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: original })
+  return mobile
+}
+
+describe('AccountsPage', () => {
+  it('groups accounts by TYPE_ORDER (Bank before Cards)', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const headings = wrapper.findAll('.grp-hd h3').map((h) => h.text())
+    expect(headings).toEqual(['Bank', 'Cards'])
+    expect(wrapper.text()).toContain('MUFG savings')
+    expect(wrapper.text()).toContain('Shinsei emergency fund')
+    wrapper.unmount()
+  })
+
+  it('shows "updated Sep 2026" for a carried balance', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    expect(wrapper.text()).toContain('updated Sep 2026')
+    wrapper.unmount()
+  })
+
+  // Final whole-branch review finding 2: at phone width (`xs`) the row's change/"updated <Mon
+  // YYYY>" block used to be dropped entirely (`v-if="!xs"`), not just relaid out — it must still
+  // render, as the row's own extra compact-layout line.
+  it('still shows the change and the "updated <Mon YYYY>" stale marker at phone width', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS, createMobileVuetify())
+
+    expect(wrapper.text()).toContain('updated Sep 2026')
+    const changedRow = wrapper.findAll('.acct').find((r) => r.text().includes('MUFG savings'))!
+    expect(changedRow.find('.chg').exists()).toBe(true)
+    expect(changedRow.find('.chg').text()).toContain('￥40,000')
+
+    wrapper.unmount()
+  })
+
+  it('shows "owed" on a card row', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    expect(wrapper.text()).toContain('owed')
+    wrapper.unmount()
+  })
+
+  it('gives every row an accessible "More actions for <name>" menu button', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    expect(wrapper.find('[aria-label="More actions for MUFG savings"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="More actions for Japan credit card"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('shows the empty state when there are no accounts yet', async () => {
+    const wrapper = await mountAccounts([])
+    expect(wrapper.text()).toContain('No accounts yet.')
+    wrapper.unmount()
+  })
+
+  // Fix round 1 (review finding 2): an increase in what's owed on a card is bad, a decrease is
+  // good — the opposite of an asset row, where more is good.
+  it('inverts the change colour for a card (liability) row: more owed is the error colour, less owed is success', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const rows = wrapper.findAll('.acct')
+    const increasedCard = rows.find((r) => r.text().includes('Japan credit card'))!
+    expect(increasedCard.find('.text-error').exists()).toBe(true)
+    expect(increasedCard.find('.text-success').exists()).toBe(false)
+    const paidDownCard = rows.find((r) => r.text().includes('Second card'))!
+    expect(paidDownCard.find('.text-success').exists()).toBe(true)
+    expect(paidDownCard.find('.text-error').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  // Fix round 1 (review finding 3): a literal "↑ ¥0" claims a direction that didn't happen.
+  it('shows "No change" (no arrow, no colour) for a zero change', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const row = wrapper.findAll('.acct').find((r) => r.text().includes('Zero change bank'))!
+    expect(row.text()).toContain('No change')
+    expect(row.find('.chg').text()).not.toContain('↑')
+    expect(row.find('.chg').text()).not.toContain('↓')
+    wrapper.unmount()
+  })
+
+  // Fix round 1 (review finding 4): the name must render in full in the markup — only CSS
+  // (an ellipsis on `.nm-text` alone) may visually clip it — and the tag/badge must not be fused
+  // onto the same line/text node as the name.
+  it('renders a long account name in full, with its tag on a separate line from the name', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const row = wrapper.findAll('.acct').find((r) => r.text().includes('A very long account name'))!
+    expect(row.find('.nm-text').text()).toBe('A very long account name that should not be truncated in the dom')
+    expect(row.find('.sub-row .tag').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
+  // Update balances (Task 8) hands this page a one-shot message via the shared `flash` ref rather
+  // than a route query — it must show once, as a snackbar, and not resurface on a later mount.
+  it('shows and consumes a pending "Balances saved" flash message as a snackbar', async () => {
+    flash.message.value = 'Balances saved for Oct 2026'
+    const wrapper = await mountAccounts(ACCOUNTS)
+
+    // The snackbar teleports its content to a `.v-overlay-container` appended to `document.body`,
+    // outside `wrapper`'s own element tree — same reason `wrapper.text()` wouldn't see it either.
+    expect(document.body.textContent).toContain('Balances saved for Oct 2026')
+    expect(flash.message.value).toBeNull()
+
+    wrapper.unmount()
+  })
+})
+
+// Final whole-branch review finding 4: the emergency-fund goal dialog used to be a bare
+// `type="number"` field parsed with `Number()` — commas rejected, a negative value silently did
+// nothing (Save just never mutated), "1.5" went to the server as a raw 400, and the error stuck
+// around after the dialog was closed and reopened. It must instead use `parseAmount(text, 'JPY')`
+// (the same parser Settings uses, lib/balancesForm.ts), with a field-level error and a reset on
+// open.
+describe('AccountsPage emergency-fund goal dialog', () => {
+  function findButtonByText(text: string): HTMLButtonElement {
+    // The dialog teleports its content to a `.v-overlay-container` on `document.body`, outside
+    // `wrapper`'s own element tree (same reasoning as the snackbar test above).
+    return Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes(text)) as HTMLButtonElement
+  }
+  function goalInput(): HTMLInputElement {
+    return document.querySelector('#ef-goal') as HTMLInputElement
+  }
+  async function setGoal(wrapper: Awaited<ReturnType<typeof mountAccounts>>, text: string) {
+    findButtonByText('Edit emergency-fund goal').click()
+    await flushPromises()
+    const input = goalInput()
+    input.value = text
+    input.dispatchEvent(new Event('input'))
+    await flushPromises()
+  }
+
+  it('accepts a comma-grouped goal, parsed the same way Settings does', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const fetchMock = (globalThis.fetch as unknown) as ReturnType<typeof vi.fn>
+    fetchMock.mockClear()
+
+    await setGoal(wrapper, '3,000,000')
+    findButtonByText('Save').click()
+    await flushPromises()
+
+    const putCall = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
+    expect(putCall).toBeDefined()
+    const body = JSON.parse(String((putCall![1] as RequestInit).body))
+    expect(body.emergencyFundGoalJpy).toBe(3000000)
+
+    wrapper.unmount()
+  })
+
+  it('rejects a negative goal with a field error, instead of silently doing nothing', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const fetchMock = (globalThis.fetch as unknown) as ReturnType<typeof vi.fn>
+    fetchMock.mockClear()
+
+    await setGoal(wrapper, '-100')
+    findButtonByText('Save').click()
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('Enter a whole number of yen, 0 or more.')
+    const putCall = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
+    expect(putCall).toBeUndefined()
+
+    wrapper.unmount()
+  })
+
+  it('rejects a decimal goal with a field error rather than sending it to the server', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const fetchMock = (globalThis.fetch as unknown) as ReturnType<typeof vi.fn>
+    fetchMock.mockClear()
+
+    await setGoal(wrapper, '1.5')
+    findButtonByText('Save').click()
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('Enter a whole number of yen, 0 or more.')
+    const putCall = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
+    expect(putCall).toBeUndefined()
+
+    wrapper.unmount()
+  })
+
+  it('clears the field error when the dialog is reopened', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+
+    await setGoal(wrapper, '1.5')
+    findButtonByText('Save').click()
+    await flushPromises()
+    expect(document.body.textContent).toContain('Enter a whole number of yen, 0 or more.')
+
+    findButtonByText('Cancel').click()
+    await flushPromises()
+
+    findButtonByText('Edit emergency-fund goal').click()
+    await flushPromises()
+
+    expect(document.body.textContent).not.toContain('Enter a whole number of yen, 0 or more.')
+
+    wrapper.unmount()
+  })
+
+  it('sends null (clears the goal) when the field is left blank', async () => {
+    const wrapper = await mountAccounts(ACCOUNTS)
+    const fetchMock = (globalThis.fetch as unknown) as ReturnType<typeof vi.fn>
+    fetchMock.mockClear()
+
+    await setGoal(wrapper, '')
+    findButtonByText('Save').click()
+    await flushPromises()
+
+    const putCall = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === 'PUT')
+    expect(putCall).toBeDefined()
+    const body = JSON.parse(String((putCall![1] as RequestInit).body))
+    expect(body.emergencyFundGoalJpy).toBeNull()
+
+    wrapper.unmount()
+  })
+})

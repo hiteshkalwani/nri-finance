@@ -108,7 +108,7 @@ export async function updateTransaction(tx: Tx, userId: string, id: string, inpu
   const [existing] = await tx.select().from(transactions).where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
   if (!existing) throw new ApiError(404, 'NOT_FOUND', 'That expense no longer exists')
   if (input.categoryId !== undefined && input.categoryId !== existing.categoryId) await checkCategory(tx, userId, input.categoryId, true)
-  if (input.accountId !== undefined) await checkAccount(tx, userId, input.accountId)
+  if (input.accountId !== undefined && input.accountId !== existing.accountId) await checkAccount(tx, userId, input.accountId)
   const rest = omitAmounts(input)
   const [row] = await tx.update(transactions)
     .set({ ...rest, ...(await amountFields(tx, userId, input)), updatedAt: sql`now()` })

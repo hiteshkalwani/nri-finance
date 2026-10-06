@@ -52,6 +52,13 @@ When you are done: `pnpm stack:down` (keeps your data) or `pnpm stack:reset` (wi
 - **Add expense** (`/spend/new`) — quick-add from the phone's bottom nav. Enter the amount in ¥ or ₹ (converted and
   stored at the planning rate), pick a category (payment method and need/want default from that category's last
   use), and a date that defaults to today in JST unless you change it.
+- **Accounts** (`/accounts`) — every bank, cash, fixed-deposit, investment and card account, grouped by type, with
+  net worth (Japan + India, combined at the planning rate) and its trend over 6/12/all cycles; add, edit or archive
+  an account from here. The emergency fund card shows its balance against your goal and months of spending covered
+  (3-cycle average).
+- **Update balances** (`/accounts/balances`) — your review-day screen: one field per account, prefilled from last
+  cycle, ₹ accounts showing their ¥ value at the planning rate; a blank field keeps the current balance rather than
+  zeroing it. Saving updates net worth and the emergency fund everywhere they're shown.
 - **Settings** — update your profile, manage categories (add, rename, pick one of 12 colours or an emoji icon,
   reorder with the up/down buttons, archive, or delete when unused), import from v1, and choose the theme under
   Appearance (System, Light or Dark — remembered per device; System follows the OS).

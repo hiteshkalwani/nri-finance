@@ -35,18 +35,38 @@ const dashboardBody = {
   byCycle: [{ cycle: '2026-10', spentJpy: 10000 }],
 }
 
-async function mountDashboard(recentItems: ReturnType<typeof txn>[], recentTotal: number) {
+const NETWORTH = {
+  rate: '1.7', cycle: '2026-10',
+  current: { japanJpy: 1240000, indiaPaise: 0, combinedJpy: 1240000, changeJpy: 40000, changePct: 3.3 },
+  assets: { japanJpy: 1240000, indiaPaise: 0 },
+  liabilities: { japanJpy: 0, indiaPaise: 0 },
+  series: [{ cycle: '2026-09', combinedJpy: 1200000 }, { cycle: '2026-10', combinedJpy: 1240000 }],
+  accounts: [],
+  emergencyFund: { balanceJpy: 900000, goalJpy: 1200000, monthsCovered: 2.8, avgSpendJpy: 320000 },
+}
+const NETWORTH_EMPTY = {
+  rate: '1.7', cycle: '2026-10',
+  current: { japanJpy: 0, indiaPaise: 0, combinedJpy: 0, changeJpy: null, changePct: null },
+  assets: { japanJpy: 0, indiaPaise: 0 },
+  liabilities: { japanJpy: 0, indiaPaise: 0 },
+  series: [],
+  accounts: [],
+  emergencyFund: { balanceJpy: 0, goalJpy: null, monthsCovered: null, avgSpendJpy: null },
+}
+
+async function mountDashboard(recentItems: ReturnType<typeof txn>[], recentTotal: number, networth: unknown = NETWORTH) {
   const fetchMock = vi.fn(async (input: unknown) => {
     const url = String(input)
     if (url.startsWith('/api/dashboard')) return jsonResponse(dashboardBody)
     if (url.startsWith('/api/transactions')) {
       return jsonResponse({ items: recentItems, total: recentTotal, page: 1, pageSize: 5, totalJpy: 0, needJpy: 0, wantJpy: 0 })
     }
+    if (url.startsWith('/api/networth')) return jsonResponse(networth)
     if (url === '/api/categories') return jsonResponse({ items: [] })
     if (url === '/api/me') {
       return jsonResponse({
         userId: '99999999-9999-4999-8999-999999999999', email: 'me@example.test',
-        profile: { salaryJpy: 500000, planningRateJpyPerInr: '1.7', cycleStartDay: 25, timezone: 'Asia/Tokyo' },
+        profile: { salaryJpy: 500000, planningRateJpyPerInr: '1.7', cycleStartDay: 25, timezone: 'Asia/Tokyo', emergencyFundGoalJpy: null },
       })
     }
     throw new Error(`unexpected fetch(${url})`)
@@ -61,6 +81,8 @@ async function mountDashboard(recentItems: ReturnType<typeof txn>[], recentTotal
       { path: '/spend/new', component: { template: '<div/>' } },
       { path: '/spend/:id', component: { template: '<div/>' } },
       { path: '/settings', component: { template: '<div/>' } },
+      { path: '/accounts', component: { template: '<div/>' } },
+      { path: '/accounts/balances', component: { template: '<div/>' } },
     ],
   })
   router.push('/')
@@ -114,6 +136,33 @@ describe('DashboardPage recent-expenses partial-page total (finding 3)', () => {
     const dayRows = wrapper.findAll('.day-row')
     expect(dayRows.length).toBeGreaterThan(0)
     for (const row of dayRows) expect(row.text()).not.toContain('latest 5')
+
+    wrapper.unmount()
+  })
+})
+
+describe('DashboardPage net worth and emergency fund cards (Task 9)', () => {
+  it('shows net worth and emergency fund figures from the networth endpoint', async () => {
+    const wrapper = await mountDashboard([], 0)
+
+    const nwEl = wrapper.get('[data-testid="networth"]')
+    expect(nwEl.text()).toContain('￥1,240,000')
+    const efEl = wrapper.get('[data-testid="emergency-fund"]')
+    expect(efEl.text()).toContain('￥900,000')
+    expect(efEl.text()).toContain('of ￥1,200,000 goal')
+    expect(efEl.text()).toContain('2.8 months')
+
+    wrapper.unmount()
+  })
+
+  it('shows "Update balances to see this" for both cards when there are no balances yet', async () => {
+    const wrapper = await mountDashboard([], 0, NETWORTH_EMPTY)
+    for (let i = 0; i < 2; i++) await flushPromises()
+
+    expect(wrapper.find('[data-testid="networth"]').exists()).toBe(false)
+    const links = wrapper.findAll('a').filter((a) => a.text() === 'Update balances to see this.')
+    expect(links.length).toBe(2)
+    for (const link of links) expect(link.attributes('href')).toBe('/accounts/balances')
 
     wrapper.unmount()
   })

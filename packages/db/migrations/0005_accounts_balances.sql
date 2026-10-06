@@ -1,0 +1,3 @@
+ALTER TABLE "profiles" ADD COLUMN "emergency_fund_goal_jpy" integer;--> statement-breakpoint
+ALTER TABLE "balance_snapshots" ADD CONSTRAINT "balance_snapshots_non_negative" CHECK (coalesce("balance_snapshots"."balance_jpy", 0) >= 0 and coalesce("balance_snapshots"."balance_inr", 0) >= 0);--> statement-breakpoint
+ALTER TABLE "profiles" ADD CONSTRAINT "profiles_ef_goal" CHECK ("profiles"."emergency_fund_goal_jpy" is null or "profiles"."emergency_fund_goal_jpy" >= 0);
