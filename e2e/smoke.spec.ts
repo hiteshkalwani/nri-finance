@@ -109,4 +109,43 @@ test.describe('on a laptop', () => {
     await page.getByRole('link', { name: 'Spend' }).click()
     await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(0)
   })
+
+  test('add an account, update its balance, see net worth on Accounts and the Dashboard (ACC-1, BAL-1, BAL-2, DASH-5, DASH-6)', async ({ page }) => {
+    await signIn(page, '/accounts')
+    expect(page.viewportSize()?.width).toBe(1280) // still the Desktop Chrome viewport
+    await page.getByRole('button', { name: 'Add account' }).click()
+    await page.locator('#account-name').fill('e2e Wise')
+    await page.getByRole('button', { name: 'JP', exact: true }).click()
+    // The Type field's own text/input area is a Vuetify "no activator" zone (it supports text
+    // selection), so only its dropdown icon actually opens the menu.
+    await page.locator('.v-select__menu-icon').click()
+    await page.getByRole('option', { name: 'Bank' }).click()
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('e2e Wise')).toBeVisible() // saved row visible back on Accounts
+
+    await page.getByRole('link', { name: 'Update balances' }).click()
+    await expect(page).toHaveURL(/\/accounts\/balances$/)
+    // The e2e user's other imported starter accounts (Japan bank, Japan emergency fund, India
+    // bank) have no balances, so this is the only figure feeding the net-worth total below.
+    await page.getByLabel('Balance for e2e Wise').fill('100000')
+    await page.getByRole('button', { name: 'Save balances' }).click()
+
+    await expect(page).toHaveURL(/\/accounts$/)
+    await expect(page.getByText(/Balances saved for/)).toBeVisible()
+    await expect(page.getByTestId('net-worth-total')).toContainText('100,000')
+
+    await page.getByRole('link', { name: 'Dashboard' }).click()
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.getByTestId('networth')).toContainText('100,000')
+  })
+})
+
+test('bottom-nav "More" opens a menu with Accounts, and it navigates to /accounts', async ({ page }) => {
+  await signIn(page, '/')
+  expect(page.viewportSize()?.width).toBe(412) // still the config's Pixel 7 phone viewport
+  await page.getByRole('button', { name: 'More' }).click()
+  // `exact: true`: by now the Dashboard's own net-worth card (populated by the previous laptop
+  // test's saved balance) also has a "View accounts" link, which would otherwise substring-match.
+  await page.getByRole('link', { name: 'Accounts', exact: true }).click()
+  await expect(page).toHaveURL(/\/accounts$/)
 })
