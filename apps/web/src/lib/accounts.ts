@@ -42,3 +42,27 @@ export function saveShowIn(v: ShowIn): void {
 export function inOtherCurrency(amount: number, currency: 'JPY' | 'INR', rate: string): number {
   return currency === 'JPY' ? inrPaiseFromJpy(amount, rate) : jpyFromInrPaise(amount, rate)
 }
+
+/**
+ * A net-worth change's "↑/↓ <amount> (<pct>%)" display text and up/down flag — shared by the
+ * Accounts and Dashboard net-worth cards (spec §4.1, §4.4). `null` when either half is null
+ * (first cycle, or no prior total to compare against). `amountLabel` formats the absolute ¥
+ * amount in whichever currency/representation the caller wants shown (Accounts re-expresses it
+ * via `showIn`; the Dashboard always shows ¥). Colour is never the only signal (spec §5): the
+ * caller still applies the up/down colour class itself, alongside this text's own ↑/↓ glyph.
+ */
+export function netWorthChangeDisplay(
+  changeJpy: number | null,
+  changePct: number | null,
+  amountLabel: (absJpy: number) => string,
+): { up: boolean; text: string } | null {
+  if (changeJpy === null || changePct === null) return null
+  const up = changeJpy >= 0
+  return { up, text: `${up ? '↑' : '↓'} ${amountLabel(Math.abs(changeJpy))} (${Math.abs(changePct).toFixed(1)}%)` }
+}
+
+/** Emergency-fund progress toward its ¥ goal, 0–100 (clamped); `null` when there's no goal (or it's 0). */
+export function emergencyFundPct(balanceJpy: number, goalJpy: number | null): number | null {
+  if (goalJpy === null || goalJpy <= 0) return null
+  return Math.min(100, Math.round((balanceJpy / goalJpy) * 100))
+}

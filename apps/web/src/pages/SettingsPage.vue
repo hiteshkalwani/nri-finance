@@ -6,6 +6,7 @@ import { ImportResult, MeResponse, ProfileInput, type V1Document } from '@nri/co
 import CategoriesSettings from '../components/CategoriesSettings.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { apiFetch } from '../lib/api'
+import { parseAmount } from '../lib/balancesForm'
 import { parseV1File } from '../lib/importFile'
 import { useProfile } from '../lib/profile'
 import { useSignOut } from '../lib/session'
@@ -16,7 +17,16 @@ const qc = useQueryClient()
 const signOut = useSignOut()
 const me = useProfile()
 const form = ref({ salaryJpy: 0, planningRateJpyPerInr: '1.7', cycleStartDay: 25, timezone: 'Asia/Tokyo' })
-watch(() => me.data.value?.profile, (p) => { if (p) form.value = { ...p } }, { immediate: true })
+// The emergency-fund goal lives in its own text field, not `form` (spec §4.5) — it must accept
+// commas while typing, like the balances form's own ¥ fields (`parseAmount`), which a Vuetify
+// `type="number"` field (everything else in `form`) can't do.
+const efGoalInput = ref('')
+const efGoalError = ref('')
+watch(() => me.data.value?.profile, (p) => {
+  if (!p) return
+  form.value = { salaryJpy: p.salaryJpy, planningRateJpyPerInr: p.planningRateJpyPerInr, cycleStartDay: p.cycleStartDay, timezone: p.timezone }
+  efGoalInput.value = p.emergencyFundGoalJpy !== null ? String(p.emergencyFundGoalJpy) : ''
+}, { immediate: true })
 const formError = ref('')
 
 const save = useMutation({
@@ -24,8 +34,19 @@ const save = useMutation({
   onSuccess: (data) => qc.setQueryData(['me'], data),
 })
 function submitProfile() {
+  // Empty → null (unchanged→cleared is the server's distinction between omitted and explicit
+  // null; the form always sends the field, so this is always an explicit value); anything that
+  // isn't a blank field or a whole non-negative yen amount is a field-level error, not a silent
+  // fallback — and blocks the whole save, same as the zod errors below.
+  const parsedGoal = parseAmount(efGoalInput.value, 'JPY')
+  if (parsedGoal === 'invalid') {
+    efGoalError.value = 'Enter a whole number of yen, 0 or more.'
+    return
+  }
+  efGoalError.value = ''
   const parsed = ProfileInput.safeParse({
     ...form.value, salaryJpy: Number(form.value.salaryJpy), cycleStartDay: Number(form.value.cycleStartDay),
+    emergencyFundGoalJpy: parsedGoal,
   })
   formError.value = parsed.success ? '' : parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')
   if (parsed.success) save.mutate(parsed.data)
@@ -40,7 +61,8 @@ const runImport = useMutation({
     const i = r.inserted
     importMessage.value =
       `Imported ${i.transactions} transactions, ${i.remittances} remittances, ${i.categories} categories, ${i.accounts} accounts.` +
-      (r.skippedRows.length ? ` Skipped ${r.skippedRows.length}: ${r.skippedRows.join(', ')}` : '')
+      (r.skippedRows.length ? ` Skipped ${r.skippedRows.length}: ${r.skippedRows.join(', ')}` : '') +
+      (r.profileKept ? ' Profile kept: settings from the file were not imported.' : '')
     void Promise.all(['me', 'categories', 'transactions', 'dashboard'].map((k) => qc.invalidateQueries({ queryKey: [k] })))
   },
 })
@@ -106,6 +128,10 @@ const THEME_OPTIONS = [
           <v-text-field id="rate" v-model="form.planningRateJpyPerInr" label="Planning rate (¥ per ₹1)" />
           <v-text-field id="start-day" v-model.number="form.cycleStartDay" label="Cycle start day" type="number" />
           <v-text-field id="timezone" v-model="form.timezone" label="Timezone" />
+          <v-text-field
+            id="ef-goal" v-model="efGoalInput" label="Emergency-fund goal (¥)"
+            :error-messages="efGoalError ? [efGoalError] : []"
+          />
         </v-form>
         <v-alert v-if="formError || save.error.value" type="error" variant="tonal" class="mx-5 mb-3">
           {{ formError || save.error.value?.message }}
