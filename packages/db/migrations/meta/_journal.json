@@ -36,6 +36,13 @@
       "when": 1791209005902,
       "tag": "0004_category_icon",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791269916285,
+      "tag": "0005_accounts_balances",
+      "breakpoints": true
     }
   ]
 }

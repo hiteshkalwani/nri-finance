@@ -33,10 +33,12 @@ export const profiles = pgTable('profiles', {
   planningRateJpyPerInr: rate('planning_rate_jpy_per_inr').notNull(),
   cycleStartDay: smallint('cycle_start_day').notNull().default(25),
   timezone: text('timezone').notNull().default('Asia/Tokyo'),
+  emergencyFundGoalJpy: integer('emergency_fund_goal_jpy'),
   ...stamps,
 }, (t) => [
   check('profiles_start_day', sql`${t.cycleStartDay} between 1 and 28`),
   check('profiles_rate_positive', sql`${t.planningRateJpyPerInr} > 0`),
+  check('profiles_ef_goal', sql`${t.emergencyFundGoalJpy} is null or ${t.emergencyFundGoalJpy} >= 0`),
 ])
 
 export const accounts = pgTable('accounts', {
@@ -141,6 +143,7 @@ export const balanceSnapshots = pgTable('balance_snapshots', {
 }, (t) => [
   unique('balance_snapshots_account_cycle').on(t.accountId, t.cycle),
   check('balance_snapshots_one_amount', sql`(${t.balanceJpy} is null) <> (${t.balanceInr} is null)`),
+  check('balance_snapshots_non_negative', sql`coalesce(${t.balanceJpy}, 0) >= 0 and coalesce(${t.balanceInr}, 0) >= 0`),
   check('balance_snapshots_cycle', cycleCheck('cycle')),
   foreignKey({ name: 'balance_snapshots_account_owner', columns: [t.userId, t.accountId], foreignColumns: [accounts.userId, accounts.id] }),
 ])

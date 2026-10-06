@@ -5,6 +5,7 @@ import {
   accounts, categories, cycleTargets, loanPlannedPrepayments, loans, profiles, remittances, sipAllocations, sipPlans,
   transactions, type Tx,
 } from '@nri/db'
+import { getProfileRow } from './profile'
 
 const PAYMENT: Record<string, 'bank' | 'cash' | 'credit_card' | 'ic_card'> = {
   bank: 'bank', cash: 'cash', 'credit card': 'credit_card', 'ic card': 'ic_card',
@@ -19,12 +20,14 @@ export async function importV1(tx: Tx, userId: string, doc: V1Document): Promise
     categories: 0, accounts: 0, transactions: 0, remittances: 0, loans: 0, plannedPrepayments: 0, sipPlans: 0, cycleTargets: 0,
   }
 
+  const kept = (await getProfileRow(tx, userId)) !== null
   await tx.insert(profiles).values({
     userId,
     salaryJpy: Math.round(doc.settings.salaryJPY),
     planningRateJpyPerInr: rate,
     cycleStartDay: doc.settings.cycleStartDay,
     timezone: 'Asia/Tokyo',
+    emergencyFundGoalJpy: doc.settings.emergencyFundTargetJPY > 0 ? Math.round(doc.settings.emergencyFundTargetJPY) : null,
   }).onConflictDoNothing()
 
   const starter = [
@@ -130,5 +133,5 @@ export async function importV1(tx: Tx, userId: string, doc: V1Document): Promise
       .onConflictDoNothing().returning({ id: remittances.id })).length
   }
 
-  return { inserted, skippedRows }
+  return { inserted, skippedRows, profileKept: kept }
 }
