@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -61,5 +63,23 @@ describe('ExpenseRow', () => {
     const wrapper = await mountRow(baseT, undefined)
     expect(wrapper.text()).toContain('Uncategorised')
     expect(wrapper.text()).toContain('U')
+  })
+
+  // Finding 7: the focus ring used `outline-offset: 2px` (positive — draws it *outside* the
+  // element's border box) inside a `v-card` that clips overflow, so the ring's bottom/right edges
+  // were cut off by the card's own boundary; it also used `primary-accent`, which only clears
+  // 2.65:1 against the row's hover fill (surface-variant) in light theme — under WCAG 1.4.11's
+  // 3:1 non-text minimum (theme.test.ts covers the actual contrast numbers; this just pins the
+  // CSS that makes that fix real). `outline-offset: -2px` draws the ring *inside* the border box
+  // instead, same as the app's own global ring (app.css), and `primary` is the token theme.ts
+  // documents as cleared for exactly this non-text "ring against its surroundings" use.
+  it('draws the focus ring inset (not clipped by an ancestor v-card) with the primary token, not primary-accent', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/components/ExpenseRow.vue'), 'utf-8')
+    const rule = /\.row:focus-visible\s*{([^}]*)}/.exec(source)
+    expect(rule, 'expected a .row:focus-visible rule in ExpenseRow.vue').toBeTruthy()
+    const body = rule![1]!
+    expect(body).toMatch(/outline-offset:\s*-2px/)
+    expect(body).toMatch(/outline:\s*2px solid rgb\(var\(--v-theme-primary\)\)/)
+    expect(body).not.toMatch(/--v-theme-primary-accent/)
   })
 })

@@ -77,17 +77,18 @@ async function settle(page) {
   await page.waitForTimeout(450)
 }
 
-// Chromium logs this at `error` severity on every single page load here, purely because our CSP
-// (scripts/vercel-headers.mjs) deliberately omits `script-src` and relies on the `default-src
-// 'self'` fallback (verified correct in scripts/vercel-headers.test.ts) — it's advisory noise
-// about that intentional policy shape, not a real page problem, so it's the one console message
-// this script doesn't fail on.
-const KNOWN_BENIGN_CONSOLE_TEXT = /'script-src' was not explicitly set/
-
+// Used to unconditionally exclude every console message mentioning 'script-src' — that was meant
+// to cover one specific, genuinely benign message (zod 4's `allowsEval` feature probe, `new
+// Function('')`, blocked under our CSP's lack of `unsafe-eval`; the violation report's own text
+// happens to note that `script-src` falls back to `default-src` here), but matched *any*
+// script-related CSP violation, benign or not. `@nri/contracts` (packages/contracts/src/zodConfig.ts)
+// now sets `z.config({ jitless: true })` before any schema is constructed, which skips that probe
+// entirely — so there's nothing left here to carve out, and a real script-src violation (CSP
+// misconfigured some other way) now correctly fails this script instead of being silently eaten.
 let failed = false
 function trackErrors(page, label) {
   page.on('console', (msg) => {
-    if (msg.type() === 'error' && !KNOWN_BENIGN_CONSOLE_TEXT.test(msg.text())) {
+    if (msg.type() === 'error') {
       failed = true
       console.error(`! console error on ${label}: ${msg.text()}`)
     }
@@ -114,8 +115,9 @@ async function shoot(browser, user, screen, viewport, colorScheme) {
 }
 
 const user = await createTestUser('ui-screens')
+let browser
 try {
-  const browser = await chromium.launch({ channel: 'chrome' })
+  browser = await chromium.launch({ channel: 'chrome' })
   await seed(browser, user)
   for (const screen of SCREENS) {
     for (const viewport of VIEWPORTS) {
@@ -124,8 +126,11 @@ try {
       }
     }
   }
-  await browser.close()
 } finally {
+  // Both cleanups always run, success or failure — `browser.close()` used to be the last
+  // statement of the try block, so an error anywhere above it (seed, or any one shot) leaked the
+  // browser process for the rest of the run.
+  await browser?.close()
   // Cheap (a single admin DELETE) — always clean up, success or failure.
   await deleteTestUser(user.id)
 }

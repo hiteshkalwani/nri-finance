@@ -4,10 +4,82 @@ import { nriDark, nriLight, vuetifyOptions } from '../src/theme'
 
 it('defines the light and dark palettes from the spec', () => {
   // `primary` in light theme is the deeper button-fill shade (task 8 contrast fix, below), not
-  // the mockup's bright accent directly — that value now lives at `primary-accent`.
-  expect(nriLight.colors).toMatchObject({ background: '#f6f4f1', surface: '#ffffff', primary: '#c2410c', 'primary-accent': '#f0682e', success: '#2f9a58', error: '#d64545' })
-  expect(nriDark.colors).toMatchObject({ background: '#141413', surface: '#1d1c1a', primary: '#f58450', 'primary-accent': '#f58450' })
+  // the mockup's bright accent directly — that value now lives at `primary-accent`. Likewise
+  // (finding 2 contrast fix, below): `success`/`error` in light theme are deepened text-safe
+  // shades, with the mockup's bright originals surviving at `success-accent`/`error-accent`.
+  expect(nriLight.colors).toMatchObject({
+    background: '#f6f4f1', surface: '#ffffff', primary: '#c2410c', 'primary-accent': '#f0682e',
+    success: '#226f3f', 'success-accent': '#2f9a58', error: '#a13434', 'error-accent': '#d64545',
+    secondary: '#116791', info: '#116791',
+  })
+  expect(nriDark.colors).toMatchObject({
+    background: '#141413', surface: '#1d1c1a', primary: '#f58450', 'primary-accent': '#f58450',
+    success: '#5cc787', 'success-accent': '#5cc787', error: '#f07070', 'error-accent': '#f07070',
+  })
   expect(nriDark.dark).toBe(true)
+})
+
+// Finding 2: light theme's success/error/link(secondary+info) text failed spec §7's 4.5:1 text
+// minimum — success #2f9a58 (3.57 on white), link #1683b8 (4.22 on white), error #d64545 (4.38 on
+// white, 3.73 on its own tonal tint). Mirrors the primary/primary-accent split (task 8): the
+// token itself is now the deepened, text-safe shade (used automatically wherever Vuetify paints
+// `success`/`error`/`secondary`/`info` as text — `.text-success`, `v-alert`'s tonal text, a tonal
+// button's text, a filled snackbar's `on-error` text), and the bright mockup originals survive at
+// `success-accent`/`error-accent` for the few places that paint them as a non-text fill (the
+// savings-rate mini-bar) rather than text.
+it('keeps success/error/link text at >=4.5:1 on white, on the page canvas, and on their own tonal tint (spec §7), in both themes', () => {
+  const canvasOf = (theme: typeof nriLight) => theme.colors!.background as string
+  const surfaceOf = (theme: typeof nriLight) => theme.colors!.surface as string
+
+  for (const theme of [nriLight, nriDark]) {
+    const canvas = canvasOf(theme)
+    const surface = surfaceOf(theme)
+    for (const key of ['success', 'error', 'secondary', 'info'] as const) {
+      const text = theme.colors![key] as string
+      // "On white" only matters for light theme, where white (`surface`) is an actual backdrop
+      // these colours sit on; dark theme's own light pastel values are read against its *dark*
+      // canvas/surface instead (checked below), never against white.
+      if (!theme.dark) expect(contrastRatio(text, '#ffffff')).toBeGreaterThanOrEqual(4.5)
+      expect(contrastRatio(text, canvas)).toBeGreaterThanOrEqual(4.5)
+      // The 12%-alpha tonal tint Vuetify's `tonal` variant paints behind this same text colour
+      // (vuetify/lib/composables/theme.js's `activated-opacity` default), over each backdrop the
+      // app actually places one on.
+      expect(contrastRatio(text, flattenOver(text, surface, 0.12))).toBeGreaterThanOrEqual(4.5)
+      expect(contrastRatio(text, flattenOver(text, canvas, 0.12))).toBeGreaterThanOrEqual(4.5)
+    }
+    // Edit's tonal Delete button is interactive (hover adds Vuetify's own hover-opacity on top of
+    // the tonal tint, deepening it further) — error must clear 4.5:1 even at that hover alpha.
+    const error = theme.colors!.error as string
+    expect(contrastRatio(error, flattenOver(error, canvas, 0.16))).toBeGreaterThanOrEqual(4.5)
+  }
+
+  // The bright mockup originals this replaced, as text — documents *why* the accent tokens exist.
+  expect(contrastRatio(nriLight.colors!['success-accent'] as string, '#ffffff')).toBeLessThan(4.5)
+  expect(contrastRatio(nriLight.colors!['error-accent'] as string, flattenOver(nriLight.colors!['error-accent'] as string, nriLight.colors!.surface as string, 0.12))).toBeLessThan(4.5)
+})
+
+// The savings-rate mini-bar (DashboardPage.vue) is a non-text fill, like the bars/rings `primary-
+// accent` already covers — it must keep painting the bright mockup colour, not the deepened text
+// shade, in both themes.
+it('keeps success-accent/error-accent at the bright mockup colour (non-text fills), same value as success/error where dark theme never needed to deepen them', () => {
+  expect(nriLight.colors!['success-accent']).toBe('#2f9a58')
+  expect(nriLight.colors!['error-accent']).toBe('#d64545')
+  expect(nriDark.colors!['success-accent']).toBe(nriDark.colors!.success)
+  expect(nriDark.colors!['error-accent']).toBe(nriDark.colors!.error)
+})
+
+// Every filled/snackbar use of success/error/secondary/info relies on Vuetify auto-deriving
+// `on-<color>` when it isn't set explicitly — an APCA-based heuristic the project doesn't trust
+// for WCAG compliance (see task 8's `on-primary` comment in theme.ts). Pin it explicitly instead,
+// same as `on-primary`, and verify it actually clears 4.5:1 against its own token.
+it('sets explicit on-success/on-error/on-secondary/on-info that clear 4.5:1 against their own colour, in both themes', () => {
+  for (const theme of [nriLight, nriDark]) {
+    for (const key of ['success', 'error', 'secondary', 'info'] as const) {
+      const on = theme.colors![`on-${key}`] as string | undefined
+      expect(on).toBeTruthy()
+      expect(contrastRatio(on!, theme.colors![key] as string)).toBeGreaterThanOrEqual(4.5)
+    }
+  }
 })
 
 it('follows the system theme and sets the component defaults', () => {
@@ -108,4 +180,29 @@ it('keeps the global focus ring at >=3:1 contrast against both the background an
 
   // The ring this replaced in light theme — documents *why* `primary-accent` wasn't kept here.
   expect(contrastRatio(nriLight.colors!['primary-accent'] as string, nriLight.colors!.background as string)).toBeLessThan(3)
+})
+
+// Finding 7: ExpenseRow's own focus ring (a separate rule from the global one above, since it
+// sits inside a `v-card` that clips an outside-offset ring) used `primary-accent`, which only
+// clears 2.65:1 against the row's hover fill (`surface-variant`) in light theme — under WCAG
+// 1.4.11's 3:1 non-text minimum. `primary` (the same token the global ring uses) must clear it
+// against both the row's resting background (`surface`) and its hover fill (`surface-variant`),
+// in both themes.
+it('keeps ExpenseRow\'s own focus ring at >=3:1 against the row background and its hover fill, in both themes (WCAG 1.4.11)', () => {
+  const ringContrast = (theme: typeof nriLight) => {
+    const colors = theme.colors!
+    return {
+      rest: contrastRatio(colors.primary as string, colors.surface as string),
+      hover: contrastRatio(colors.primary as string, colors['surface-variant'] as string),
+    }
+  }
+  const light = ringContrast(nriLight)
+  const dark = ringContrast(nriDark)
+  expect(light.rest).toBeGreaterThanOrEqual(3)
+  expect(light.hover).toBeGreaterThanOrEqual(3)
+  expect(dark.rest).toBeGreaterThanOrEqual(3)
+  expect(dark.hover).toBeGreaterThanOrEqual(3)
+
+  // The ring this replaced — documents *why* `primary-accent` wasn't kept here either.
+  expect(contrastRatio(nriLight.colors!['primary-accent'] as string, nriLight.colors!['surface-variant'] as string)).toBeLessThan(3)
 })

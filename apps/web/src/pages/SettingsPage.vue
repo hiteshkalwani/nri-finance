@@ -55,11 +55,33 @@ async function onFile(files: File | File[] | null) {
   runImport.mutate(parsed.doc)
 }
 function onInputChange(e: Event) {
-  void onFile((e.target as HTMLInputElement).files?.[0] ?? null)
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0] ?? null
+  // Reset *before* awaiting the read (not just "after reading" in the sense of after the import
+  // settles): the browser only fires `change` again on a genuine selection change, so without
+  // this, re-choosing the exact same file — e.g. to retry after fixing it, or just re-importing —
+  // silently does nothing. The already-captured `file` reference is unaffected by clearing the
+  // input's own value.
+  input.value = ''
+  void onFile(file)
 }
 function onDrop(e: DragEvent) {
   isDragOver.value = false
   void onFile(e.dataTransfer?.files?.[0] ?? null)
+}
+/**
+ * Ignores a `dragleave` fired while the pointer is still over the drop zone, just moving between
+ * its own children (the bold filename, the hint line) — the browser fires `dragleave` on the
+ * label itself the instant the pointer crosses into one of those descendants, with `relatedTarget`
+ * set to whatever it entered. Only a `relatedTarget` outside the zone (or none at all, e.g. the
+ * pointer left the window) means the drag genuinely left, which is the only case that should drop
+ * the dragover highlight — otherwise it visibly flickers off and straight back on.
+ */
+function onDragLeave(e: DragEvent) {
+  const zone = e.currentTarget as HTMLElement
+  const related = e.relatedTarget as Node | null
+  if (related && zone.contains(related)) return
+  isDragOver.value = false
 }
 
 const { pref: themePref, setThemePref } = useThemePref()
@@ -79,7 +101,7 @@ const THEME_OPTIONS = [
     <div class="col">
       <v-card class="mb-6">
         <div class="tx-hd"><h2>Profile</h2></div>
-        <v-form class="fgrid" @submit.prevent="submitProfile">
+        <v-form id="profile-form" class="fgrid" @submit.prevent="submitProfile">
           <v-text-field id="salary" v-model.number="form.salaryJpy" label="Monthly salary (¥)" type="number" />
           <v-text-field id="rate" v-model="form.planningRateJpyPerInr" label="Planning rate (¥ per ₹1)" />
           <v-text-field id="start-day" v-model.number="form.cycleStartDay" label="Cycle start day" type="number" />
@@ -89,7 +111,15 @@ const THEME_OPTIONS = [
           {{ formError || save.error.value?.message }}
         </v-alert>
         <div class="profile-actions">
-          <v-btn color="primary" :loading="save.isPending.value" @click="submitProfile">Save profile</v-btn>
+          <!-- `form="profile-form"` + `type="submit"`, not `@click`: this button lives outside the
+               `<v-form>` (so it can sit in its own padded footer, below the error alert, rather
+               than inside the form's own grid), but the HTML `form` attribute still makes it that
+               form's submit control — which is also what makes Enter in any of the fields above
+               submit the form at all (a multi-field <form> with no submit button doesn't submit on
+               Enter). Submitting goes through the form's own `@submit.prevent="submitProfile"`
+               either way (click or Enter), so this must not *also* call `submitProfile` itself —
+               that would double-submit on every click. -->
+          <v-btn type="submit" form="profile-form" color="primary" :loading="save.isPending.value">Save profile</v-btn>
           <span v-if="save.isSuccess.value" class="ml-3">Saved</span>
         </div>
       </v-card>
@@ -100,7 +130,7 @@ const THEME_OPTIONS = [
         <div class="tx-hd"><h2>Import from v1</h2></div>
         <label
           for="import-file" class="drop" :class="{ dragover: isDragOver }"
-          @dragover.prevent="isDragOver = true" @dragleave="isDragOver = false" @drop.prevent="onDrop"
+          @dragover.prevent="isDragOver = true" @dragleave="onDragLeave" @drop.prevent="onDrop"
         >
           Drop <b>finance-data.json</b> here, or <span class="link">choose a file</span>
           <br /><span class="hint">Importing twice never creates duplicates.</span>

@@ -29,9 +29,9 @@ function jsonResponse(body: unknown) {
 }
 
 async function mountCategoriesSettings() {
-  const fetchMock = vi.fn(async (input: unknown) => {
+  const fetchMock = vi.fn(async (input: unknown, init?: RequestInit) => {
     const url = String(input)
-    if (url === '/api/categories') {
+    if (url === '/api/categories' && (!init || init.method === undefined)) {
       return jsonResponse({
         items: [
           {
@@ -45,6 +45,13 @@ async function mountCategoriesSettings() {
         ],
       })
     }
+    if (url === '/api/categories' && init?.method === 'POST') {
+      const body = JSON.parse(String(init.body)) as { name: string; color: string; icon: string | null }
+      return jsonResponse({
+        id: '33333333-3333-4333-8333-333333333333', name: body.name, color: body.color, icon: body.icon, sortOrder: 2,
+        archived: false, inUse: false, lastPaymentMethod: null, lastNeedWant: null,
+      })
+    }
     throw new Error(`unexpected fetch(${url})`)
   })
   vi.stubGlobal('fetch', fetchMock)
@@ -54,8 +61,84 @@ async function mountCategoriesSettings() {
   // apiFetch awaits supabase.auth.getSession() before the fetch itself — two awaits before the
   // query settles, so a single flushPromises() isn't always enough to drain both.
   for (let i = 0; i < 5; i++) await flushPromises()
-  return wrapper
+  return Object.assign(wrapper, { fetchMock })
 }
+
+// Finding 6: `@keyup.enter="add.mutate()"` fired on an empty name (a blank POST) and could also
+// fire on the `keyup` that follows an IME composition's confirming Enter (e.g. finishing a
+// Japanese conversion) — a key a Japanese-locale user types routinely, not something exotic.
+describe('CategoriesSettings new-category Enter guards (finding 6)', () => {
+  const posted = (wrapper: Awaited<ReturnType<typeof mountCategoriesSettings>>) =>
+    wrapper.fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'POST')
+
+  it('does not submit when the name field is empty (or only whitespace)', async () => {
+    const wrapper = await mountCategoriesSettings()
+    const input = wrapper.get('#new-category')
+
+    // `keyup.enter` is today's actual (buggy) binding — dispatched here directly, so this fails
+    // red against the unfixed component (which calls `add.mutate()` unconditionally) and only
+    // passes once the fix both guards on an empty name *and* stops listening on `keyup` at all.
+    input.element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }))
+    await input.trigger('keydown.enter')
+    await flushPromises()
+    expect(posted(wrapper)).toHaveLength(0)
+
+    await input.setValue('   ')
+    input.element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }))
+    await input.trigger('keydown.enter')
+    await flushPromises()
+    expect(posted(wrapper)).toHaveLength(0) // still nothing — whitespace-only
+
+    wrapper.unmount()
+  })
+
+  it('does not submit on the keydown that confirms an IME composition (isComposing)', async () => {
+    const wrapper = await mountCategoriesSettings()
+    const input = wrapper.get('#new-category')
+    await input.setValue('寿司')
+
+    // The keydown that confirms an IME composition's conversion carries `isComposing: true` —
+    // must not be treated as "the user wants to submit now".
+    input.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true }))
+    await flushPromises()
+    expect(posted(wrapper)).toHaveLength(0)
+
+    wrapper.unmount()
+  })
+
+  // Some browsers still fire a plain `keyup` Enter right after an IME composition's confirming
+  // keydown, even though that `keyup` itself isn't the composition-confirming keystroke — if the
+  // submit guard only lived on `keyup`, that trailing event alone could still trigger it. The fix
+  // moves submission onto `keydown` (guarded) and leaves no `keyup.enter` handler to catch it, so
+  // this fails red against today's `@keyup.enter="add.mutate()"` binding (name is non-empty here,
+  // so the current code submits unconditionally) and passes once that binding is gone.
+  it('does not submit on a keyup Enter (guarded only on keydown, not also wired to keyup)', async () => {
+    const wrapper = await mountCategoriesSettings()
+    const input = wrapper.get('#new-category')
+    await input.setValue('寿司')
+
+    input.element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }))
+    await flushPromises()
+    expect(posted(wrapper)).toHaveLength(0)
+
+    wrapper.unmount()
+  })
+
+  it('does submit on a plain Enter keydown with a real name', async () => {
+    const wrapper = await mountCategoriesSettings()
+    const input = wrapper.get('#new-category')
+    await input.setValue('Transport')
+
+    await input.trigger('keydown.enter')
+    for (let i = 0; i < 5; i++) await flushPromises()
+
+    const postCalls = wrapper.fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'POST')
+    expect(postCalls.length).toBe(1)
+    expect(JSON.parse(String((postCalls[0]![1] as RequestInit).body))).toMatchObject({ name: 'Transport' })
+
+    wrapper.unmount()
+  })
+})
 
 describe('CategoriesSettings row action names (fix round 1, item 1)', () => {
   it('names each row\'s action buttons after its category, not a generic label', async () => {

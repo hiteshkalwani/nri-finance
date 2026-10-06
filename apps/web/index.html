@@ -3,6 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- Finding 8: before the Vue bundle loads and resolves the stored/system theme (main.ts),
+         the browser paints its own default canvas — light, regardless of the OS's colour scheme
+         — which flashes if the OS/stored theme is actually dark. `color-scheme` tells the browser
+         which native default (canvas, form-control chrome, scrollbars) to use meanwhile, and the
+         inline background below goes one step further, matching this app's *actual* light/dark
+         canvas (theme.ts's `background` token) rather than a generic dark grey. Both only read
+         `prefers-color-scheme` (the OS setting) — the stored per-user preference
+         (lib/themePref.ts) needs JS to read at all, so it can only take over once the bundle has
+         actually mounted; this is strictly the best-effort guess for the instant before that.
+         The production CSP's `style-src` allows `'unsafe-inline'` (scripts/vercel-headers.mjs,
+         for Vuetify's own inline theme <style>), so a plain inline <style> here is allowed — no
+         separate CSS file or nonce needed. -->
+    <meta name="color-scheme" content="light dark" />
+    <style>
+      html { background: #f6f4f1; }
+      @media (prefers-color-scheme: dark) {
+        html { background: #141413; }
+      }
+    </style>
     <title>NRI Finance</title>
   </head>
   <body>

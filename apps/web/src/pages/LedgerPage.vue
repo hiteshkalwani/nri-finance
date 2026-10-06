@@ -207,15 +207,18 @@ const restore = useMutation({
           <span class="num">{{ yen(g.totalJpy) }}{{ isPartialPageGroup(i, groups.length, totalPages, state().page) ? ' on this page' : '' }}</span>
         </div>
         <!-- Each day's rows are their own list — day-row headers sit outside it (role="heading"
-             above), so role="list" here only ever has role="listitem" children (valid ARIA). -->
+             above), so role="list" here only ever has role="listitem" children (valid ARIA). Each
+             listitem wraps (rather than *is*) its ExpenseRow: ExpenseRow's root is a router-link,
+             and passing role="listitem" straight onto it used to stomp its native link role
+             (`<a role="listitem">`), leaving the row undiscoverable as a link to assistive tech. -->
         <div role="list" :aria-label="`Expenses on ${g.label}`">
-          <ExpenseRow v-for="t in g.rows" :key="t.id" :t="t" :category="catOf(t.categoryId)" role="listitem" />
+          <div v-for="t in g.rows" :key="t.id" role="listitem"><ExpenseRow :t="t" :category="catOf(t.categoryId)" /></div>
         </div>
       </template>
     </template>
     <template v-else>
       <div role="list" aria-label="Expenses">
-        <ExpenseRow v-for="t in items" :key="t.id" :t="t" :category="catOf(t.categoryId)" role="listitem" />
+        <div v-for="t in items" :key="t.id" role="listitem"><ExpenseRow :t="t" :category="catOf(t.categoryId)" /></div>
       </div>
     </template>
   </v-card>

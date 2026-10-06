@@ -12,10 +12,10 @@ import ExpenseRow from '../components/ExpenseRow.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { apiFetch, ApiRequestError } from '../lib/api'
 import { useCategories } from '../lib/categories'
-import { barData, donutData } from '../lib/charts'
+import { barData, buildBarOptions, donutData } from '../lib/charts'
 import { safeColor } from '../lib/color'
 import { cycleLabel, dateRangeLabel, MONTHS, yen } from '../lib/format'
-import { groupByDate } from '../lib/groups'
+import { groupByDate, isPartialPageGroup, pageCount } from '../lib/groups'
 import { legendRows } from '../lib/legend'
 import { useProfile } from '../lib/profile'
 
@@ -48,14 +48,23 @@ const catOf = (id: string) => cats.data.value?.find((c) => c.id === id)
 // month-only x-axis tick, so the two stay visually consistent at the side column's 340px width.
 const monthOf = (cycle: string) => MONTHS[Number(cycle.slice(5)) - 1]
 
+const RECENT_PAGE_SIZE = 5
 const recentCycle = computed(() => d.value?.cycle ?? '')
 const recent = useQuery({
   queryKey: ['transactions', 'recent', recentCycle],
-  queryFn: () => apiFetch(`/api/transactions?cycle=${recentCycle.value}&pageSize=5`, {}, TransactionPage),
+  queryFn: () => apiFetch(`/api/transactions?cycle=${recentCycle.value}&pageSize=${RECENT_PAGE_SIZE}`, {}, TransactionPage),
   enabled: () => !!d.value,
   placeholderData: keepPreviousData,
 })
 const recentGroups = computed(() => groupByDate(recent.data.value?.items ?? []))
+// This card only ever shows the most recent `RECENT_PAGE_SIZE` rows (there's no pager here, unlike
+// the ledger) — when the cycle has more than that, the last day group on screen may be a partial
+// day, same risk Spend's own groups carry at a page boundary. Reuses `isPartialPageGroup` as if
+// this were "page 1 of N" over that same page size, which is exactly what it is.
+const recentTotalPages = computed(() => pageCount(recent.data.value?.total ?? 0, RECENT_PAGE_SIZE))
+function isPartialRecentGroup(i: number): boolean {
+  return isPartialPageGroup(i, recentGroups.value.length, recentTotalPages.value, 1)
+}
 
 // Summary card derived figures — guarded against a zero denominator rather than showing NaN/Infinity.
 const avgExpenseJpy = computed(() => (d.value && d.value.expenseCount > 0 ? Math.round(d.value.spentJpy / d.value.expenseCount) : null))
@@ -130,15 +139,26 @@ const donutOptions = computed(() => ({
 // `primary-accent`, not `primary`: the bars are a non-text use and must stay the bright mockup
 // accent in both themes (theme.ts) — `primary` in light theme is now the deeper button-fill shade.
 const barChartData = computed(() => (d.value ? barData(d.value, themeHex('primary-accent')) : { labels: [], datasets: [] }))
-const barOptions = {
-  maintainAspectRatio: false,
-  plugins: { legend: { display: false } },
-  scales: { y: { ticks: { callback: (v: string | number) => yen(Number(v)) } } },
-  onClick: (_e: unknown, els: { index: number }[]) => {
-    const c = d.value?.byCycle[els[0]?.index ?? -1]
+// `border-color` lives in the theme's `variables`, not its `colors` (theme.ts) — `variables` isn't
+// typed as holding colour strings generically (e.g. `border-opacity` is a number), so this is
+// narrowed the same defensive way `themeHex` narrows `colors`.
+const themeBorder = (): string => {
+  const v = theme.current.value.variables?.['border-color']
+  return typeof v === 'string' ? v : '#000000'
+}
+// A `computed`, not a plain object (finding 4): Chart.js reads `options` once at render and won't
+// react to a CSS variable changing on its own, so this must rebuild — with freshly-resolved hex
+// colours, not CSS var() references a canvas fillStyle can't reliably use — whenever the theme
+// flips. Ticks use the muted-text token and grid lines the border token so both stay legible
+// against dark mode's own canvas, instead of Chart.js's light-mode-only built-in defaults.
+const barOptions = computed(() => buildBarOptions(
+  (index) => {
+    const c = d.value?.byCycle[index]
     if (c) void router.push(ledgerLink(c.cycle))
   },
-}
+  themeHex('on-surface-variant'),
+  themeBorder(),
+))
 </script>
 
 <template>
@@ -183,7 +203,10 @@ const barOptions = {
           savings rate
         </div>
         <div v-if="d.savingsRatePct !== null" class="bar-mini">
-          <i :style="{ width: `${Math.min(Math.abs(d.savingsRatePct), 100)}%`, background: d.savingsRatePct >= 0 ? 'rgb(var(--v-theme-success))' : 'rgb(var(--v-theme-error))' }" />
+          <!-- `success-accent`/`error-accent`, not `success`/`error`: this bar is a non-text fill
+               and must stay the bright colour in both themes (theme.ts) — `success`/`error` are
+               the deeper text-safe shades used by the sub-line's text above (spec §7). -->
+          <i :style="{ width: `${Math.min(Math.abs(d.savingsRatePct), 100)}%`, background: d.savingsRatePct >= 0 ? 'rgb(var(--v-theme-success-accent))' : 'rgb(var(--v-theme-error-accent))' }" />
         </div>
       </v-card>
     </div>
@@ -240,10 +263,18 @@ const barOptions = {
         </div>
         <v-progress-linear v-if="recent.isLoading.value" indeterminate />
         <template v-if="recentGroups.length">
-          <template v-for="g in recentGroups" :key="g.date">
-            <div class="day-row"><span>{{ g.label }}</span><span class="num">{{ yen(g.totalJpy) }}</span></div>
-            <ExpenseRow v-for="t in g.rows" :key="t.id" :t="t" :category="catOf(t.categoryId)" />
-          </template>
+          <div role="list" aria-label="Recent expenses">
+            <template v-for="(g, i) in recentGroups" :key="g.date">
+              <div class="day-row">
+                <span>{{ g.label }}</span>
+                <span class="num">{{ yen(g.totalJpy) }}{{ isPartialRecentGroup(i) ? ' · latest 5' : '' }}</span>
+              </div>
+              <!-- See LedgerPage.vue's matching comment: wraps (rather than is) each ExpenseRow,
+                   so its router-link root keeps its native link role instead of having it
+                   overwritten by this list's own role="listitem". -->
+              <div v-for="t in g.rows" :key="t.id" role="listitem"><ExpenseRow :t="t" :category="catOf(t.categoryId)" /></div>
+            </template>
+          </div>
         </template>
         <p v-else class="pa-5 mb-0 text-medium-emphasis">No expenses recorded in this cycle yet.</p>
       </v-card>
