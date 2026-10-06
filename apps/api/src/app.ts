@@ -5,6 +5,7 @@ import { toErrorResponse } from './errors'
 import { authMiddleware } from './middleware/auth'
 import { dbMiddleware, type AppVars } from './middleware/db'
 import { accountRoutes } from './routes/accounts'
+import { balanceRoutes } from './routes/balances'
 import { categoryRoutes } from './routes/categories'
 import { dashboardRoutes } from './routes/dashboard'
 import { importRoutes } from './routes/import'
@@ -39,6 +40,7 @@ export function createApp(deps: AppDeps) {
   app.route('/api/categories', categoryRoutes)
   app.route('/api/transactions', transactionRoutes)
   app.route('/api/accounts', accountRoutes)
+  app.route('/api/balances', balanceRoutes)
   app.route('/api/dashboard', dashboardRoutes)
 
   return app

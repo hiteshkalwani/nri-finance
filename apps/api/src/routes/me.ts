@@ -4,10 +4,9 @@ import { MeResponse, ProfileInput, type Profile } from '@nri/contracts'
 import { profiles } from '@nri/db'
 import { parseJson } from '../errors'
 import type { AppVars } from '../middleware/db'
+import { rateOut } from '../services/profile'
 
 type Row = typeof profiles.$inferSelect
-// numeric(12,6) comes back as "1.694915"; trim trailing zeros but keep at least one decimal digit.
-const rateOut = (s: string) => s.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '.0')
 const toProfile = (r: Row): Profile => ({
   salaryJpy: r.salaryJpy,
   planningRateJpyPerInr: rateOut(r.planningRateJpyPerInr),
