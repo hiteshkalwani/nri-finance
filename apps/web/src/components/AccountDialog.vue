@@ -40,7 +40,14 @@ function close() {
   emit('update:modelValue', false)
 }
 
-const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ['accounts'] }), qc.invalidateQueries({ queryKey: ['networth'] })])
+// Includes `['balances']` (final review finding 1): adding or editing an account changes the
+// rows Update balances should show — without invalidating it too, that page's own cached GET for
+// the current cycle keeps whatever row set it had before this account existed/changed.
+const refresh = () => Promise.all([
+  qc.invalidateQueries({ queryKey: ['accounts'] }),
+  qc.invalidateQueries({ queryKey: ['networth'] }),
+  qc.invalidateQueries({ queryKey: ['balances'] }),
+])
 
 const create = useMutation({
   mutationFn: (body: AccountCreate) => apiFetch('/api/accounts', { method: 'POST', body: JSON.stringify(body) }, Account),
