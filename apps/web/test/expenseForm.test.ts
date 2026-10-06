@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
-import { amountPatchFor, defaultsFor, lastUsedNeedWantHint, lastUsedPaymentHint, parseAmount, previewJpy } from '../src/lib/expenseForm'
+import type { Account } from '@nri/contracts'
+import { accountOptionsFor, amountPatchFor, defaultsFor, lastUsedNeedWantHint, lastUsedPaymentHint, parseAmount, previewJpy } from '../src/lib/expenseForm'
 
 it('pre-fills payment method and need/want from the category’s last use, else bank / need', () => {
   expect(defaultsFor({ lastPaymentMethod: 'ic_card', lastNeedWant: 'want' } as never)).toEqual({ paymentMethod: 'ic_card', needWant: 'want' })
@@ -43,4 +44,18 @@ it('sends no amount for an unchanged ₹ row, the amount when it changed, and th
   expect(amountPatchFor(jpy, 'JPY', { amountJpy: 1280 })).toEqual({})
   expect(amountPatchFor(jpy, 'JPY', { amountJpy: 1281 })).toEqual({ amountJpy: 1281 })
   expect(amountPatchFor(jpy, 'INR', { amountInrPaise: 100000 })).toEqual({ amountInrPaise: 100000 })
+})
+
+// M1 fix: editing an expense whose account was archived must not show a blank account field.
+it('lists active accounts plus the expense’s current account when it has since been archived, titled "(archived)"', () => {
+  const activeAcc: Account = { id: 'a1', name: 'JP bank', country: 'JP', currency: 'JPY', type: 'bank', isEmergencyFund: false, archived: false, hasBalances: true }
+  const archivedAcc: Account = { id: 'a2', name: 'Old wallet', country: 'JP', currency: 'JPY', type: 'cash', isEmergencyFund: false, archived: true, hasBalances: true }
+  const otherArchived: Account = { id: 'a3', name: 'Unrelated', country: 'JP', currency: 'JPY', type: 'cash', isEmergencyFund: false, archived: true, hasBalances: true }
+  const all = [activeAcc, archivedAcc, otherArchived]
+
+  expect(accountOptionsFor(all, null)).toEqual([activeAcc])
+  expect(accountOptionsFor(all, 'a1')).toEqual([activeAcc])
+  expect(accountOptionsFor(all, 'a2')).toEqual([activeAcc, { ...archivedAcc, name: 'Old wallet (archived)' }])
+  // an account that no longer exists at all: just the active list, no crash
+  expect(accountOptionsFor(all, 'missing')).toEqual([activeAcc])
 })
