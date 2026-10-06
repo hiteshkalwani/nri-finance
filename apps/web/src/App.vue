@@ -123,7 +123,7 @@ async function signOut() {
   height: 28px;
   border-radius: 8px;
   background: rgb(var(--v-theme-primary));
-  color: #fff;
+  color: rgb(var(--v-theme-on-primary));
   display: grid;
   place-items: center;
   font-size: 11px;
@@ -148,7 +148,9 @@ async function signOut() {
   padding: 0 !important;
   border-radius: 50% !important;
   background: rgb(var(--v-theme-primary)) !important;
-  color: #fff;
+  /* `on-primary`, not a hardcoded white: white-on-`primary` used to fail spec §7's 4.5:1 minimum
+     in both themes (controller ruling, task 8 — see theme.ts). */
+  color: rgb(var(--v-theme-on-primary));
   margin-top: -14px;
   box-shadow: 0 4px 12px rgba(240, 104, 46, 0.35);
 }

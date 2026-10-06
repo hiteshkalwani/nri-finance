@@ -184,16 +184,16 @@ const remove = useMutation({
   color: rgb(var(--v-theme-on-surface-variant));
   background: rgb(var(--v-theme-surface));
 }
-/* See QuickAddPage.vue's matching rule: white-on-`primary` fails spec §7's 4.5:1 minimum in both
-   themes (3.12:1 light, 2.53:1 dark); `primary-darken-1` + white clears it in light (6.72:1), and
-   dark theme's own `primary` is light enough that dark text clears it there instead (6.65:1). */
+/* See QuickAddPage.vue's matching rule: white-on-`primary` used to fail spec §7's 4.5:1 minimum in
+   both themes (3.12:1 light, 2.53:1 dark); `primary-darken-1` + white clears it in light (6.72:1),
+   and dark theme's own `on-primary` token (dark text, 6.65:1) clears it there instead. */
 .cur :deep(.v-btn--active.v-theme--light) {
   background: rgb(var(--v-theme-primary-darken-1));
   color: #fff;
 }
 .cur :deep(.v-btn--active.v-theme--dark) {
   background: rgb(var(--v-theme-primary));
-  color: #1d1d1f;
+  color: rgb(var(--v-theme-on-primary));
 }
 
 .lbl {

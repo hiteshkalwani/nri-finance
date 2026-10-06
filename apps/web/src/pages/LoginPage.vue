@@ -44,7 +44,7 @@ async function submit() {
   height: 40px;
   border-radius: 12px;
   background: rgb(var(--v-theme-primary));
-  color: #fff;
+  color: rgb(var(--v-theme-on-primary));
   display: grid;
   place-items: center;
   font-size: 15px;
