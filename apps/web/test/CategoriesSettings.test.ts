@@ -85,9 +85,12 @@ describe('CategoriesSettings row action names (fix round 1, item 1)', () => {
     wrapper.unmount()
   })
 
-  // jsdom's default window.innerWidth (1024) is above Vuetify's `xs` breakpoint (<600), so this
-  // exercises the "wide screen" branch — move up/down inline, not just in the overflow menu
-  // (fix round 1, item 2: this was an M1 regression once they moved into the menu for every width).
+  // jsdom's default window.innerWidth (1024) is at or above Vuetify's `md` breakpoint (840, this
+  // app's default thresholds — see theme.ts), i.e. `mdAndUp`, so this exercises the "wide screen"
+  // branch — move up/down inline, not just in the overflow menu (fix round 1, item 2: this was an
+  // M1 regression once they moved into the menu for every width; fix round 2, controller ruling:
+  // the cutoff moved from `!xs` (600) to `mdAndUp` (840) because 600-700px, where the sidebar is
+  // still present, squeezed the name column to ~45px).
   it('shows inline, per-category Move up/down buttons on wide screens', async () => {
     const wrapper = await mountCategoriesSettings()
 
@@ -100,5 +103,28 @@ describe('CategoriesSettings row action names (fix round 1, item 1)', () => {
     expect(down.attributes('disabled')).toBeUndefined()
 
     wrapper.unmount()
+  })
+
+  // Fix round 2, controller ruling: at 700px (sidebar still present, so not `xs`) the name column
+  // squeezed to ~45px under the old `!xs` cutoff. Below `md` (840), the inline buttons must move
+  // into the "More actions" menu — same as on a phone — leaving the name column room to breathe.
+  it('hides the inline Move up/down buttons between 600-840px, where the name column is tight', async () => {
+    const original = window.innerWidth
+    window.innerWidth = 700
+    window.dispatchEvent(new Event('resize'))
+    try {
+      const wrapper = await mountCategoriesSettings()
+
+      expect(wrapper.find('button[aria-label="Move Groceries up"]').exists()).toBe(false)
+      expect(wrapper.find('button[aria-label="Move Groceries down"]').exists()).toBe(false)
+      // They still exist, just moved — inside the "More actions" menu (teleported to <body> once
+      // opened), alongside archive/delete.
+      expect(wrapper.find('button[aria-label="More actions for Groceries"]').exists()).toBe(true)
+
+      wrapper.unmount()
+    } finally {
+      window.innerWidth = original
+      window.dispatchEvent(new Event('resize'))
+    }
   })
 })
