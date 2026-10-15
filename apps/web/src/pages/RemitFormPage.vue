@@ -314,7 +314,12 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
 .chip-row :deep(.v-slide-group__container) {
   overflow: visible;
 }
+/* Same fix as RemitPage.vue's own copy of this rule: Vuetify's slide-group content keeps
+   `flex: none` so it never shrinks to its container, which otherwise leaves `flex-wrap: wrap`
+   unable to take effect once the Purpose row's 7 labels no longer fit one line. */
 .chip-row :deep(.v-slide-group__content) {
+  flex: 1 1 100%;
+  min-width: 0;
   flex-wrap: wrap;
   gap: 6px;
 }
