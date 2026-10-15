@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { IsoDateString, PG_INT_MAX, RateString } from './common'
+import { CycleString, IsoDateString, PG_INT_MAX, RateString } from './common'
 
 export const RemittancePurpose = z.enum(['family', 'india_savings', 'sip', 'loan_emi', 'loan_prepayment', 'other'])
 export type RemittancePurpose = z.infer<typeof RemittancePurpose>
@@ -91,8 +91,22 @@ export const RemittanceRates = z.object({
 })
 export type RemittanceRates = z.infer<typeof RemittanceRates>
 
+export const RemittanceQuery = z.object({
+  cycle: CycleString.optional(),
+  purpose: RemittancePurpose.optional(),
+})
+export type RemittanceQuery = z.infer<typeof RemittanceQuery>
+
+export const RemittanceRatesQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(60).default(12),
+})
+export type RemittanceRatesQuery = z.infer<typeof RemittanceRatesQuery>
+
 export const Loan = z.object({ id: z.uuid(), name: z.string(), closedAt: z.string().nullable() })
 export type Loan = z.infer<typeof Loan>
 
 export const CycleIncomeInput = z.strictObject({ incomeJpy: z.number().int().min(0).max(PG_INT_MAX).nullable() })
 export type CycleIncomeInput = z.infer<typeof CycleIncomeInput>
+
+export const CycleIncome = z.object({ cycle: CycleString, incomeJpy: z.number().int().nullable() })
+export type CycleIncome = z.infer<typeof CycleIncome>
