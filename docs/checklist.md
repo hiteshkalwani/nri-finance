@@ -5,7 +5,7 @@ Requirement IDs come from [prd.md](prd.md); milestones from PRD §7. Updated at 
 
 Legend: ✅ done · 🟡 partly done (see note) · 🔨 in progress · ⬜ pending
 
-Last updated: 2026-10-06 (M2a accounts, balances, emergency fund)
+Last updated: 2026-10-16 (M2b remittances)
 
 ## Progress by milestone
 
@@ -13,7 +13,7 @@ Last updated: 2026-10-06 (M2a accounts, balances, emergency fund)
 |---|---|---|---|
 | M0 Foundation | Repo, CI, schema + RLS, sign-in, profile, v1 import, deploy | 🟡 code + local stack done; cloud deploy ⬜ | I can sign in on phone and laptop and see my imported data |
 | M1 Spending | Ledger, categories, quick-add, basic dashboard | 🟡 built locally; cut-over (re-import, stop using v1) ⬜ | I stop using the v1 app for daily logging |
-| M2 Remittances & balances | Remittances, accounts, snapshots, emergency fund | 🟡 M2a done (accounts, balances, EF); M2b remittances next | First real cycle review done in v2 |
+| M2 Remittances & balances | Remittances, accounts, snapshots, emergency fund | ✅ M2 done (M2a accounts/balances/EF, M2b remittances) | First real cycle review done in v2 |
 | M3 Loan & SIP | Loan schedule with actuals, SIP plan / actuals / projection | ⬜ | Payoff month reflects real payments |
 | M4 Budgets & review | Budgets, targets, review flow | ⬜ | A full 25th review takes under 5 minutes |
 | M5 Reports & polish | Reports, exports, PWA | ⬜ | v1 retired to `legacy/` |
@@ -84,7 +84,7 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 | Health, JWT check via JWKS (ES256), per-request transaction with rollback on error | ✅ | |
 | Error mapping: 400 validation, 401, 404, 503 when the database is down or paused | ✅ | |
 | JWKS fetch failure → 503 (today it signs you out with 401) | ✅ | A bad/unknown-key token still gets 401; only an unreachable key server is 503 `AUTH_UNAVAILABLE` |
-| Exchange rates returned with 6 decimals as the TRD says (today trailing zeros trimmed) | ⬜ | Decide: fix code or TRD |
+| Exchange rates returned with 6 decimals as the TRD says (today trailing zeros trimmed) | ✅ | `formatRate` (M2b) pads every rate in the JSON to 6 decimals; the UI still shows 4 |
 
 ---
 
@@ -127,7 +127,7 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 | DASH-1 | Cycle picker, default current cycle (JST) | ✅ | M1 |
 | DASH-2 | Income, spent, kept, savings rate (¥) | ✅ | M1 |
 | DASH-3 | Spending by category (donut), spend per cycle (bar, 12 cycles) | ✅ | M1 |
-| DASH-4 | Sent home this cycle: ¥ sent, ₹ received, by purpose | ⬜ | M2 |
+| DASH-4 | Sent home this cycle: ¥ sent, ₹ received, by purpose | ✅ | M2 — "Sent home" card plus a "Sent home by purpose" breakdown |
 | DASH-5 | Net worth: Japan ¥, India ₹, combined, change since last cycle | ✅ | M2 (P1) — the Dashboard shows the combined total and its change; the Japan/India split is on Accounts |
 | DASH-6 | Emergency fund balance, goal, months covered | ✅ | M2 |
 | DASH-7 | Home loan balance and projected payoff month | ⬜ | M3 |
@@ -138,11 +138,11 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 
 | ID | Requirement | Status | Notes |
 |---|---|---|---|
-| REM-1 | Add / edit / delete: date, ¥ sent, ₹ received, fee, service, accounts, purpose, notes | ⬜ | Fees kept separate from spending (decided) |
-| REM-2 | Purposes; EMI and prepayment require a loan | ⬜ | Auto-link to the loan (decided) |
-| REM-3 | Effective rate while typing vs the planning rate | ⬜ | |
-| REM-4 | Filters by cycle and purpose; totals per purpose | ⬜ | |
-| REM-5 | Rate history chart | ⬜ | P1 |
+| REM-1 | Add / edit / delete: date, ¥ sent, ₹ received, fee, service, accounts, purpose, notes | ✅ | `/remit/new`, `/remit/:id`; fees kept separate from spending |
+| REM-2 | Purposes; EMI and prepayment require a loan | ✅ | Auto-linked to the single open loan, or a picker when more than one; disabled with no loan |
+| REM-3 | Effective rate while typing vs the planning rate | ✅ | Live rate + "better/worse/at plan" panel on the form |
+| REM-4 | Filters by cycle and purpose; totals per purpose | ✅ | `/remit`'s purpose chip filter and "Sent by purpose" breakdown |
+| REM-5 | Rate history chart | ✅ | Last 12 transfers vs the planning rate, with a text/keyboard equivalent |
 
 ### 6. Accounts and balances — M2
 
@@ -152,7 +152,7 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 | BAL-1 | Review-day balance entry per account, prefilled from last cycle | ✅ | Snapshots (decided); blank field keeps the current value, never zero |
 | BAL-2 | Change since last cycle per account and side | ✅ | Arrow + ¥/₹ delta, colour-aware (a card's increase reads as bad, not good) |
 | EF-1 | Emergency fund total and months covered (3-cycle average spend) | ✅ | Adds the EF goal column; re-import picks it up |
-| — | Per-cycle income override (bonus, overtime) | ⬜ | Decided for M2 (PRD open question 3) |
+| — | Per-cycle income override (bonus, overtime) | ✅ | M2b — dialog on the Dashboard's Income card; "Use salary" clears it back to the profile salary |
 
 ### 7. Home loan — M3
 
@@ -210,6 +210,6 @@ Picked up in the milestone noted; each moves into the module table above when do
 | ~~JWKS fetch failure → 503 instead of sign-out~~ ✅ | M1 |
 | ~~e2e deletes its test user; unit test for the 401 → `?next=` redirect~~ ✅ | Local stack |
 | ~~Import: warn when the profile already exists instead of silently keeping it~~ ✅ | M2 (with EF goal) |
-| Rate decimals: code vs TRD wording | M2 (with remittance rate display) |
+| ~~Rate decimals: code vs TRD wording~~ ✅ | M2b (with remittance rate display) |
 | Long-term cache header for `/assets/*` | M5 (PWA) |
 | Revoke default broad Postgres grants | Before cloud deploy |

@@ -77,3 +77,35 @@ describe('/api/accounts', () => {
     expect((await (await call(b, 'GET', '/api/accounts')).json()).items).toEqual([])
   })
 })
+
+describe('PUT /api/cycles/:cycle/income + dashboard override', () => {
+  const putIncome = (u: TestUser, cycle: string, incomeJpy: number | null) =>
+    call(u, 'PUT', `/api/cycles/${cycle}/income`, { incomeJpy })
+
+  it('overrides income for a cycle; clearing it with null reverts to salary', async () => {
+    const before = await (await call(a, 'GET', '/api/dashboard?cycle=2026-12')).json()
+    expect(before).toMatchObject({ salaryJpy: 300000, incomeJpy: 300000, incomeOverridden: false })
+
+    const put = await putIncome(a, '2026-12', 350000)
+    expect(put.status).toBe(200)
+    expect(await put.json()).toEqual({ cycle: '2026-12', incomeJpy: 350000 })
+
+    const overridden = await (await call(a, 'GET', '/api/dashboard?cycle=2026-12')).json()
+    expect(overridden).toMatchObject({ salaryJpy: 300000, incomeJpy: 350000, incomeOverridden: true })
+
+    const cleared = await putIncome(a, '2026-12', null)
+    expect(cleared.status).toBe(200)
+    expect(await cleared.json()).toEqual({ cycle: '2026-12', incomeJpy: null })
+
+    const after = await (await call(a, 'GET', '/api/dashboard?cycle=2026-12')).json()
+    expect(after).toMatchObject({ salaryJpy: 300000, incomeJpy: 300000, incomeOverridden: false })
+  })
+
+  it('never overrides another user’s cycle, and rejects a bad cycle (400)', async () => {
+    await putIncome(a, '2026-12', 999999)
+    const bDashboard = await (await call(b, 'GET', '/api/dashboard?cycle=2026-12')).json()
+    expect(bDashboard).toMatchObject({ incomeOverridden: false, incomeJpy: 300000 })
+
+    expect((await putIncome(a, '2026-13', 1000)).status).toBe(400)
+  })
+})

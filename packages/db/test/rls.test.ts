@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { eq, sql } from 'drizzle-orm'
 import { createTestUser, deleteTestUser, type TestUser } from '@nri/test-utils'
 import {
-  accounts, balanceSnapshots, categories, categoryBudgets, createDb, loanPlannedPrepayments, loans, profiles,
-  remittances, sipAllocations, sipPlans, transactions, withUser, type Tx,
+  accounts, balanceSnapshots, categories, categoryBudgets, createDb, cycleIncomes, loanPlannedPrepayments, loans,
+  profiles, remittances, sipAllocations, sipPlans, transactions, withUser, type Tx,
 } from '../src/index'
 
 const { db, close } = createDb(process.env.DATABASE_URL!)
@@ -80,6 +80,17 @@ describe('withUser + RLS', () => {
         withUser(db, { sub: a.id }, (tx) => tx.insert(categories).values({ userId: a.id, name: 'groceries', color: '#111' })),
       ),
     ).toMatch(/categories_user_name/)
+  })
+
+  it('lets a user set their own cycle income but never another user’s, and rejects a duplicate cycle', async () => {
+    await withUser(db, { sub: a.id }, (tx) => tx.insert(cycleIncomes).values({ userId: a.id, cycle: '2026-10', incomeJpy: 700000 }))
+    const seenByA = await withUser(db, { sub: a.id }, (tx) => tx.select().from(cycleIncomes))
+    const seenByB = await withUser(db, { sub: b.id }, (tx) => tx.select().from(cycleIncomes))
+    expect(seenByA.map((r) => r.cycle)).toContain('2026-10')
+    expect(seenByB).toHaveLength(0)
+    expect(
+      await pgError(withUser(db, { sub: a.id }, (tx) => tx.insert(cycleIncomes).values({ userId: a.id, cycle: '2026-10', incomeJpy: 1 }))),
+    ).toMatch(/cycle_incomes_cycle/)
   })
 })
 

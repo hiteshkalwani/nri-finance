@@ -12,6 +12,9 @@ export const router = createRouter({
     { path: '/spend/new', component: () => import('./pages/QuickAddPage.vue') },
     { path: '/spend', component: () => import('./pages/LedgerPage.vue') },
     { path: '/spend/:id', component: () => import('./pages/EditTransactionPage.vue') },
+    { path: '/remit/new', component: () => import('./pages/RemitFormPage.vue') },
+    { path: '/remit', component: () => import('./pages/RemitPage.vue') },
+    { path: '/remit/:id', component: () => import('./pages/RemitFormPage.vue') },
     { path: '/:pathMatch(.*)*', component: () => import('./pages/NotFoundPage.vue'), meta: { public: true } },
   ],
 })

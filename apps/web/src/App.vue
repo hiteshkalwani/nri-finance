@@ -12,6 +12,7 @@ const signedInPage = computed(() => !route.meta.public)
 const nav = [
   { title: 'Dashboard', icon: 'mdi-home-outline', to: '/' },
   { title: 'Spend', icon: 'mdi-credit-card-outline', to: '/spend' },
+  { title: 'Remit', icon: 'mdi-send-outline', to: '/remit' },
   { title: 'Accounts', icon: 'mdi-bank-outline', to: '/accounts' },
   { title: 'Settings', icon: 'mdi-cog-outline', to: '/settings' },
 ]
@@ -93,6 +94,7 @@ const signOut = useSignOut()
         <v-btn icon to="/spend/new" aria-label="Add expense" class="add-expense-fab">
           <v-icon>mdi-plus</v-icon>
         </v-btn>
+        <v-btn to="/remit"><v-icon>mdi-send-outline</v-icon><span>Remit</span></v-btn>
         <v-menu>
           <template #activator="{ props: menuProps }">
             <v-btn v-bind="menuProps" :active="moreActive"><v-icon>mdi-dots-horizontal</v-icon><span>More</span></v-btn>
