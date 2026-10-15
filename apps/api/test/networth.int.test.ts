@@ -64,7 +64,7 @@ describe('/api/networth', () => {
     // combinedJpy = 480,000 + 51,000 = 531,000.
     // Previous cycle (2026-09): Japan 450,000 − 15,000 = 435,000; India 2,000,000p → ¥34,000; combined 469,000.
     // changeJpy = 531,000 − 469,000 = 62,000; changePct = round(62,000 × 1000 / 469,000) / 10 = 13.2.
-    expect(body.rate).toBe('1.7')
+    expect(body.rate).toBe('1.700000')
     expect(body.cycle).toBe('2026-10')
     expect(body.current).toEqual({ japanJpy: 480000, indiaPaise: 3_000_000, combinedJpy: 531000, changeJpy: 62000, changePct: 13.2 })
     expect(body.assets).toEqual({ japanJpy: 500000, indiaPaise: 3_000_000 })
@@ -110,7 +110,7 @@ describe('/api/networth', () => {
     })
     const body = await (await get(a, '?cycle=2026-10&span=12')).json()
 
-    expect(body.rate).toBe('2.0')
+    expect(body.rate).toBe('2.000000')
     // At rate 2.0: 1,000,000p→¥20,000; 2,000,000p→¥40,000; 3,000,000p→¥60,000. Japan side is unchanged.
     expect(body.series).toEqual([
       { cycle: '2026-08', combinedJpy: 390000 + 20000 },

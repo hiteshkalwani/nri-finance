@@ -1,5 +1,8 @@
 import { ref } from 'vue'
-import type { TransactionRestore } from '@nri/contracts'
+import type { RemittanceInput, TransactionRestore } from '@nri/contracts'
 
-/** The last deleted expense, offered for Undo on the ledger for a few seconds. */
-export const undo = { pending: ref<TransactionRestore | null>(null) }
+/**
+ * The last deleted expense/transfer, offered for Undo on the ledger/Remit list for a few seconds.
+ * A transfer's undo re-POSTs `pendingRemittance` verbatim (design decision: no restore route).
+ */
+export const undo = { pending: ref<TransactionRestore | null>(null), pendingRemittance: ref<RemittanceInput | null>(null) }

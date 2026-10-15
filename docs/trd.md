@@ -167,9 +167,12 @@ No policies for `anon`, so Supabase's auto-generated REST API exposes nothing to
 | `GET /api/dashboard?cycle` | Computed cycle summary (sections grow per milestone) | DASH-* | M1→M4 |
 | `GET /api/accounts` | List accounts (read-only in M1, for the account picker) | ACC-1 | M1 |
 | `POST /api/accounts` · `PATCH /:id` | Create / archive accounts | ACC-1 | M2 |
-| `GET /api/remittances?cycle&purpose&page&pageSize` · `POST` · `PATCH /:id` · `DELETE /:id` | Remittances | REM-1..4 | M2 |
+| `GET /api/remittances?cycle&purpose` · `GET /:id` · `POST` · `PATCH /:id` · `DELETE /:id` | Remittances | REM-1..4 | M2b |
+| `GET /api/remittances/rates?limit` | Rate history for the rate chart (last N transfers + planning rate) | REM-5 | M2b |
+| `PUT /api/cycles/:cycle/income` | Income override for a cycle, or clear it with `null` | DASH-4 | M2b |
 | `GET /api/balances/:cycle` · `PUT /api/balances/:cycle` | Snapshots for a cycle, bulk upsert | BAL-1,2 | M2 |
-| `GET /api/loans` · `POST` · `PATCH /:id` | Loans | LOAN-1 | M3 |
+| `GET /api/loans` | List loans (read-only, for the remittance loan picker) | LOAN-1 | M2b |
+| `POST /api/loans` · `PATCH /:id` | Create / edit loans | LOAN-1 | M3 |
 | `GET /api/loans/:id/schedule` | Planned vs actual schedule, payoff, interest | LOAN-2..4 | M3 |
 | `PUT /api/loans/:id/planned-prepayments` | Replace planned extras | LOAN-3 | M3 |
 | `GET /api/sip` · `PUT /api/sip` | Plan + allocations | SIP-1,2 | M3 |
