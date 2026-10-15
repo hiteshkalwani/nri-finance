@@ -146,6 +146,36 @@ export function areaData(labels: string[], values: number[], lineColor: string) 
  * still be mid-animation (or, worse, not yet started) when something screenshots the page the
  * instant it settles, same as any other browser user who asked for reduced motion.
  */
+/**
+ * Remit's rate-history chart (mockup `#ratechart`): the actual effective rate of each of the last
+ * N transfers, plus a second, dashed, flat series at the planning rate — same two-dataset shape
+ * as the mockup's own `lineChart` helper, built as plain Chart.js data rather than a new
+ * abstraction. `lineColor` is the actual-rate line; `dashColor` the planning line.
+ */
+export function rateHistoryData(points: { sentOn: string; rate: string }[], planningRate: string, lineColor: string, dashColor: string) {
+  const vals = points.map((p) => Number(p.rate))
+  return {
+    labels: points.map((p) => p.sentOn),
+    datasets: [
+      { data: vals, borderColor: lineColor, backgroundColor: lineColor, tension: 0.15, pointRadius: vals.length === 1 ? 4 : 2, borderWidth: 2.5 },
+      { data: vals.map(() => Number(planningRate)), borderColor: dashColor, borderDash: [5, 4], borderWidth: 1.6, pointRadius: 0 },
+    ],
+  }
+}
+
+/** Options for `rateHistoryData`'s chart; tooltip/y-axis show 4 decimals, matching the rest of the UI. */
+export function buildRateHistoryOptions(tickColor: string, gridColor: string, reducedMotion = false): ChartOptions<'line'> {
+  return {
+    maintainAspectRatio: false,
+    animation: reducedMotion ? false : undefined,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `¥${Number(ctx.parsed.y).toFixed(4)}` } } },
+    scales: {
+      x: { ticks: { color: tickColor }, grid: { display: false } },
+      y: { ticks: { color: tickColor, callback: (v) => `¥${Number(v).toFixed(2)}` }, grid: { color: gridColor } },
+    },
+  }
+}
+
 export function buildAreaOptions(tickColor: string, gridColor: string, formatValue: (n: number) => string, reducedMotion = false): ChartOptions<'line'> {
   return {
     maintainAspectRatio: false,
