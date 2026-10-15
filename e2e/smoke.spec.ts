@@ -50,6 +50,31 @@ test('quick-add an expense on the phone and see it on the dashboard and in the l
   await expect(page.getByText('e2e quick-add')).toBeVisible()
 })
 
+test('record a transfer and see it on Remit and the Dashboard (REM-1..5, DASH-4)', async ({ page }) => {
+  await signIn(page, '/')
+  expect(page.viewportSize()?.width).toBe(412) // still the config's Pixel 7 phone viewport
+  const before = yen(await page.getByTestId('sent').textContent())
+  await page.getByRole('link', { name: 'Remit' }).click()
+  await expect(page).toHaveURL(/\/remit$/)
+  await page.getByRole('link', { name: 'Record transfer' }).click()
+  await expect(page).toHaveURL(/\/remit\/new$/)
+  await page.locator('#jpySent').fill('85000')
+  await page.locator('#inrPaise').fill('50000')
+  // Same Vuetify v-select quirk as AccountDialog's Type field (ACC-1): the field's own text area
+  // is a "no activator" zone, so only its dropdown icon opens the menu. Two selects on this page
+  // (From/To), so scope each click to its own field by its floating label text.
+  await page.locator('.v-select', { hasText: 'From (Japan account)' }).locator('.v-select__menu-icon').click()
+  await page.getByRole('option', { name: 'Japan bank' }).click()
+  await page.locator('.v-select', { hasText: 'To (India account)' }).locator('.v-select__menu-icon').click()
+  await page.getByRole('option', { name: 'India bank' }).click()
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page).toHaveURL(/\/remit$/)
+  await expect(page.getByText('Transfer recorded')).toBeVisible()
+  await expect(page.getByText('Japan bank → India bank')).toBeVisible()
+  await page.getByRole('link', { name: 'Dashboard' }).click()
+  await expect.poll(async () => yen(await page.getByTestId('sent').textContent())).toBe(before + 85000)
+})
+
 test.describe('on a laptop', () => {
   // Playwright 1.63 forbids test.use() of worker-scoped fixtures (e.g. defaultBrowserType, which
   // `devices['Desktop Chrome']` sets) inside a describe group — "forces a new worker" — so that
@@ -137,6 +162,15 @@ test.describe('on a laptop', () => {
     await page.getByRole('link', { name: 'Dashboard' }).click()
     await expect(page).toHaveURL(/\/$/)
     await expect(page.getByTestId('networth')).toContainText('100,000')
+  })
+
+  test('see the recorded transfer on Remit and the Dashboard at full width (REM-4, DASH-4)', async ({ page }) => {
+    await signIn(page, '/remit')
+    expect(page.viewportSize()?.width).toBe(1280) // still the Desktop Chrome viewport
+    await expect(page.getByText('Japan bank → India bank')).toBeVisible()
+    await expect(page.locator('.kpi', { hasText: 'Sent this cycle' })).toContainText('85,000')
+    await page.getByRole('link', { name: 'Dashboard' }).click()
+    await expect(page.getByTestId('sent')).toContainText('85,000')
   })
 })
 

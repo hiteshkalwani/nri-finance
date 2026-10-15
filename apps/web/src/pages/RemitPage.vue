@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { AccountList, Remittance, RemittanceList, RemittanceRates, type RemittancePurpose } from '@nri/contracts'
 import { cycleOf, nextCycle, previousCycle, todayIn } from '@nri/core'
@@ -19,6 +20,7 @@ const route = useRoute()
 const router = useRouter()
 const qc = useQueryClient()
 const me = useProfile()
+const { xs } = useDisplay()
 const startDay = computed(() => me.data.value?.profile?.cycleStartDay ?? 25)
 const current = computed(() => cycleOf(todayIn(me.data.value?.profile?.timezone ?? 'Asia/Tokyo'), startDay.value))
 const planningRate = computed(() => me.data.value?.profile?.planningRateJpyPerInr ?? '1')
@@ -164,15 +166,19 @@ onUnmounted(() => { undo.pendingRemittance.value = null })
               <div class="day-row"><span>{{ g.label }}</span><span class="num">{{ yen(g.totalJpy) }}</span></div>
               <div role="list" :aria-label="`Transfers on ${g.label}`">
                 <div v-for="r in g.rows" :key="r.id" role="listitem">
-                  <router-link :to="`/remit/${r.id}`" class="rrow">
+                  <!-- Phone (xs): the 3 fixed-width columns (fee/rate detail, 300px) don't fit a
+                       412px viewport alongside the two flexible columns' CSS grid minimum (0),
+                       collapsing the name/account column to literally 0 width (hidden, not just
+                       truncated) — same compact-on-phone pattern as ExpenseRow.vue. -->
+                  <router-link :to="`/remit/${r.id}`" class="rrow" :class="{ compact: xs }">
                     <div>
                       <b>{{ SERVICE_LABELS[r.service] }}</b>
                       <span class="sub">{{ accountName(r.fromAccountId) }} → {{ accountName(r.toAccountId) }}</span>
                     </div>
-                    <span class="c"><span class="dot" :style="{ background: purposeColor(r.purpose) }" />{{ PURPOSE_LABELS[r.purpose] }}</span>
+                    <span v-if="!xs" class="c"><span class="dot" :style="{ background: purposeColor(r.purpose) }" />{{ PURPOSE_LABELS[r.purpose] }}</span>
                     <b class="num">{{ yen(r.jpySent) }}</b>
-                    <span class="r">{{ rupees(r.inrPaise) }}<br />fee {{ yen(r.feeJpy) }}</span>
-                    <span class="r num">¥{{ Number(r.rate).toFixed(4) }}</span>
+                    <span v-if="!xs" class="r">{{ rupees(r.inrPaise) }}<br />fee {{ yen(r.feeJpy) }}</span>
+                    <span v-if="!xs" class="r num">¥{{ Number(r.rate).toFixed(4) }}</span>
                   </router-link>
                 </div>
               </div>
@@ -256,7 +262,13 @@ onUnmounted(() => { undo.pendingRemittance.value = null })
 .chip-row :deep(.v-slide-group__container) {
   overflow: visible;
 }
+/* Vuetify's slide-group content is built to scroll, not wrap: it keeps `flex: none` on its main
+   axis so its own content never shrinks, which left it wider than its container once the Purpose
+   filter's longer labels (all 7, "Loan prepayment" etc.) no longer fit one row — `flex-wrap: wrap`
+   alone can't take effect until the item is actually told to take the container's width. */
 .chip-row :deep(.v-slide-group__content) {
+  flex: 1 1 100%;
+  min-width: 0;
   flex-wrap: wrap;
   gap: 6px;
 }
@@ -377,6 +389,11 @@ onUnmounted(() => { undo.pendingRemittance.value = null })
   border-top: 1px solid rgb(var(--v-border-color));
   text-decoration: none;
   color: rgb(var(--v-theme-on-surface));
+}
+/* Phone (xs): only the name/accounts and the ¥ amount remain, same reasoning as ExpenseRow.vue's
+   own `.compact`. */
+.rrow.compact {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 .rrow:hover,
 .rrow:focus-visible {

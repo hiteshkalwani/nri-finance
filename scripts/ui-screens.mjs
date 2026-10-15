@@ -51,6 +51,8 @@ const SCREENS = [
   },
   { path: '/accounts', slug: 'accounts', ready: (page) => page.getByTestId('net-worth-total').waitFor() },
   { path: '/accounts/balances', slug: 'balances', ready: (page) => page.getByTestId('cycle-label').waitFor() },
+  { path: '/remit', slug: 'remit', ready: (page) => page.getByText('Sent this cycle').waitFor() },
+  { path: '/remit/new', slug: 'remit-new', ready: (page) => page.locator('#jpySent').waitFor() },
 ]
 const VIEWPORTS = [{ width: 1280, height: 900 }, { width: 390, height: 844 }]
 const SCHEMES = ['light', 'dark']
@@ -131,6 +133,22 @@ async function seedAccountsAndBalances(user) {
   })
 }
 
+// The v1 import's two 'family-india' rows (seed-data.json) both land in an August cycle, so
+// /remit's default (current-cycle) view would otherwise show "no transfers yet" — adds one
+// current-cycle transfer so the KPIs, purpose breakdown and rate chart all have something to show.
+async function seedRemittance(user) {
+  const { items } = await apiCall(user.accessToken, '/api/accounts?include=archived')
+  const byName = new Map(items.map((a) => [a.name, a]))
+  await apiCall(user.accessToken, '/api/remittances', {
+    method: 'POST',
+    body: JSON.stringify({
+      sentOn: todayIsoTokyo(), jpySent: 85000, inrPaise: 5000000, feeJpy: 500, service: 'wise',
+      fromAccountId: byName.get('Japan bank').id, toAccountId: byName.get('India bank').id,
+      purpose: 'family', loanId: null, notes: '',
+    }),
+  })
+}
+
 // Move the mouse away and drop focus before capturing an at-rest page, and wait past any ripple's
 // ~300ms fade-out — otherwise the last click's pointer position / ripple / focus ring shows up.
 async function settle(page) {
@@ -206,6 +224,7 @@ try {
   browser = await chromium.launch({ channel: 'chrome' })
   await seed(browser, user)
   await seedAccountsAndBalances(user)
+  await seedRemittance(user)
   for (const screen of SCREENS) {
     for (const viewport of VIEWPORTS) {
       for (const colorScheme of SCHEMES) {

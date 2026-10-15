@@ -52,6 +52,10 @@ When you are done: `pnpm stack:down` (keeps your data) or `pnpm stack:reset` (wi
 - **Add expense** (`/spend/new`) — quick-add from the phone's bottom nav. Enter the amount in ¥ or ₹ (converted and
   stored at the planning rate), pick a category (payment method and need/want default from that category's last
   use), and a date that defaults to today in JST unless you change it.
+- **Remit** (`/remit`) — a cycle's transfers to India: ¥ sent, ₹ received, average rate vs your planning rate, fees,
+  a purpose breakdown and a rate-history chart; filter by purpose. **Record transfer** (`/remit/new`, `/remit/:id`)
+  shows the effective rate and how it compares to plan while you type, and auto-links EMI / prepayment transfers to
+  your loan.
 - **Accounts** (`/accounts`) — every bank, cash, fixed-deposit, investment and card account, grouped by type, with
   net worth (Japan + India, combined at the planning rate) and its trend over 6/12/all cycles; add, edit or archive
   an account from here. The emergency fund card shows its balance against your goal and months of spending covered
