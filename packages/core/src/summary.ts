@@ -1,47 +1,65 @@
 import { cycleOf, type Cycle, type IsoDate } from './cycles'
 
 export type SpendRow = { occurredOn: IsoDate; amountJpy: number; categoryId: string; needWant: 'need' | 'want' }
-export type RemitRow = { sentOn: IsoDate; jpySent: number; feeJpy: number }
+export type RemitRow = { sentOn: IsoDate; jpySent: number; feeJpy: number; inrPaise: number; purpose: string }
+export type PurposeTotal = { purpose: string; jpySent: number; inrPaise: number; count: number }
 export type CycleSummary = {
   incomeJpy: number
   spentJpy: number
   sentJpy: number
   feesJpy: number
+  receivedPaise: number
   keptJpy: number
   savingsRatePct: number | null
   expenseCount: number
   largestJpy: number
   needJpy: number
   wantJpy: number
+  sentByPurpose: PurposeTotal[]
 }
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
+
+/** REM-3: totals sent/received per purpose for the cycle, largest ¥ sent first (ties by purpose name). */
+function sentByPurpose(sent: RemitRow[]): PurposeTotal[] {
+  const totals = new Map<string, PurposeTotal>()
+  for (const r of sent) {
+    const cur = totals.get(r.purpose) ?? { purpose: r.purpose, jpySent: 0, inrPaise: 0, count: 0 }
+    cur.jpySent += r.jpySent
+    cur.inrPaise += r.inrPaise
+    cur.count += 1
+    totals.set(r.purpose, cur)
+  }
+  return [...totals.values()].sort((x, y) => y.jpySent - x.jpySent || x.purpose.localeCompare(y.purpose))
+}
 
 /** DASH-2. Remittance fees are reported apart from money sent and are not spending (PRD open question 1). */
 export function summarizeCycle(input: {
   transactions: SpendRow[]
   remittances: RemitRow[]
-  salaryJpy: number
+  incomeJpy: number
   cycle: Cycle
   startDay: number
 }): CycleSummary {
-  const { cycle, startDay, salaryJpy } = input
+  const { cycle, startDay, incomeJpy } = input
   const spent = input.transactions.filter((t) => cycleOf(t.occurredOn, startDay) === cycle)
   const sent = input.remittances.filter((r) => cycleOf(r.sentOn, startDay) === cycle)
   const spentJpy = sum(spent.map((t) => t.amountJpy))
   const sentJpy = sum(sent.map((r) => r.jpySent))
-  const keptJpy = salaryJpy - spentJpy - sentJpy
+  const keptJpy = incomeJpy - spentJpy - sentJpy
   return {
-    incomeJpy: salaryJpy,
+    incomeJpy,
     spentJpy,
     sentJpy,
     feesJpy: sum(sent.map((r) => r.feeJpy)),
+    receivedPaise: sum(sent.map((r) => r.inrPaise)),
     keptJpy,
-    savingsRatePct: salaryJpy > 0 ? Math.round((keptJpy * 1000) / salaryJpy) / 10 : null,
+    savingsRatePct: incomeJpy > 0 ? Math.round((keptJpy * 1000) / incomeJpy) / 10 : null,
     expenseCount: spent.length,
     largestJpy: spent.reduce((m, t) => Math.max(m, t.amountJpy), 0),
     needJpy: sum(spent.filter((t) => t.needWant === 'need').map((t) => t.amountJpy)),
     wantJpy: sum(spent.filter((t) => t.needWant === 'want').map((t) => t.amountJpy)),
+    sentByPurpose: sentByPurpose(sent),
   }
 }
 

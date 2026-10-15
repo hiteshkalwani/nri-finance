@@ -13,10 +13,12 @@ it('shows a visible point when the series has exactly one value, and no points f
 })
 
 const d = {
-  cycle: '2026-10', start: '2026-09-25', end: '2026-10-24', incomeJpy: 1, spentJpy: 2500, sentJpy: 0, feesJpy: 0, keptJpy: 0, savingsRatePct: 0,
+  cycle: '2026-10', start: '2026-09-25', end: '2026-10-24', incomeJpy: 1, salaryJpy: 1, incomeOverridden: false,
+  spentJpy: 2500, sentJpy: 0, feesJpy: 0, receivedPaise: 0, keptJpy: 0, savingsRatePct: 0,
   expenseCount: 2, largestJpy: 2000, needJpy: 2500, wantJpy: 0,
   byCategory: [{ categoryId: 'a', name: 'Food', color: '#4caf50', spentJpy: 2000 }, { categoryId: 'b', name: 'Rent', color: '#2196f3', spentJpy: 500 }],
   byCycle: [{ cycle: '2026-09', spentJpy: 1000 }, { cycle: '2026-10', spentJpy: 2500 }],
+  sentByPurpose: [],
 }
 
 const rows = [

@@ -35,6 +35,14 @@ export function effectiveRate(jpySent: number, inrPaise: number): string {
   return formatRate(divRound(BigInt(jpySent) * 100n * MICRO, BigInt(inrPaise)))
 }
 
+/** REM-2: effective rate of a transfer vs the planning rate; positive inrDiffPaise = better than plan. */
+export function rateVsPlan(jpySent: number, inrPaise: number, planningRate: string): { rate: string; diffPct: number; inrDiffPaise: number } {
+  const rate = effectiveRate(jpySent, inrPaise)
+  const diffPct = Math.round((Number(parseRate(rate) - parseRate(planningRate)) * 10_000) / Number(parseRate(planningRate))) / 100
+  const inrDiffPaise = inrPaise - inrPaiseFromJpy(jpySent, planningRate)
+  return { rate, diffPct, inrDiffPaise }
+}
+
 export function paiseFromDecimal(s: string): number {
   const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(s)
   if (!m) throw new Error(`Invalid amount "${s}"`)
