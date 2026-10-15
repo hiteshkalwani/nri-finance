@@ -7,10 +7,13 @@ import { dbMiddleware, type AppVars } from './middleware/db'
 import { accountRoutes } from './routes/accounts'
 import { balanceRoutes } from './routes/balances'
 import { categoryRoutes } from './routes/categories'
+import { cycleRoutes } from './routes/cycles'
 import { dashboardRoutes } from './routes/dashboard'
 import { importRoutes } from './routes/import'
+import { loanRoutes } from './routes/loans'
 import { meRoutes } from './routes/me'
 import { networthRoutes } from './routes/networth'
+import { remittanceRoutes } from './routes/remittances'
 import { transactionRoutes } from './routes/transactions'
 
 export type AppDeps = { config: Config; getDb: () => Db }
@@ -44,6 +47,9 @@ export function createApp(deps: AppDeps) {
   app.route('/api/balances', balanceRoutes)
   app.route('/api/dashboard', dashboardRoutes)
   app.route('/api/networth', networthRoutes)
+  app.route('/api/remittances', remittanceRoutes)
+  app.route('/api/loans', loanRoutes)
+  app.route('/api/cycles', cycleRoutes)
 
   return app
 }

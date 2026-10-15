@@ -21,7 +21,7 @@ export type CycleSummary = {
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
 
 /** REM-3: totals sent/received per purpose for the cycle, largest ¥ sent first (ties by purpose name). */
-function sentByPurpose(sent: RemitRow[]): PurposeTotal[] {
+export function sentByPurpose(sent: RemitRow[]): PurposeTotal[] {
   const totals = new Map<string, PurposeTotal>()
   for (const r of sent) {
     const cur = totals.get(r.purpose) ?? { purpose: r.purpose, jpySent: 0, inrPaise: 0, count: 0 }

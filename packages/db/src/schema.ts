@@ -78,7 +78,7 @@ export const loans = pgTable('loans', {
   emiInr: inr('emi_inr').notNull(),
   tenureMonths: smallint('tenure_months').notNull(),
   startCycle: cycle('start_cycle').notNull(),
-  closedAt: timestamp('closed_at', { withTimezone: true }),
+  closedAt: timestamp('closed_at', { withTimezone: true, mode: 'string' }),
   legacyId: text('legacy_id'),
 }, (t) => [
   unique('loans_legacy').on(t.userId, t.legacyId),
@@ -131,6 +131,16 @@ export const remittances = pgTable('remittances', {
   foreignKey({ name: 'remittances_from_account_owner', columns: [t.userId, t.fromAccountId], foreignColumns: [accounts.userId, accounts.id] }),
   foreignKey({ name: 'remittances_to_account_owner', columns: [t.userId, t.toAccountId], foreignColumns: [accounts.userId, accounts.id] }),
   foreignKey({ name: 'remittances_loan_owner', columns: [t.userId, t.loanId], foreignColumns: [loans.userId, loans.id] }),
+])
+
+export const cycleIncomes = pgTable('cycle_incomes', {
+  ...owned,
+  cycle: cycle('cycle').notNull(),
+  incomeJpy: integer('income_jpy').notNull(),
+}, (t) => [
+  unique('cycle_incomes_cycle').on(t.userId, t.cycle),
+  check('cycle_incomes_amount', sql`${t.incomeJpy} >= 0`),
+  check('cycle_incomes_cycle_format', cycleCheck('cycle')),
 ])
 
 export const balanceSnapshots = pgTable('balance_snapshots', {
@@ -201,6 +211,6 @@ export const sipAllocations = pgTable('sip_allocations', {
 ])
 
 export const OWNED_TABLES = [
-  'profiles', 'accounts', 'categories', 'loans', 'transactions', 'remittances', 'balance_snapshots',
+  'profiles', 'accounts', 'categories', 'loans', 'transactions', 'remittances', 'cycle_incomes', 'balance_snapshots',
   'category_budgets', 'cycle_targets', 'loan_planned_prepayments', 'sip_plans', 'sip_allocations',
 ] as const

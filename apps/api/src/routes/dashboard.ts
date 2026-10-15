@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { and, between, eq } from 'drizzle-orm'
 import { CycleString, Dashboard } from '@nri/contracts'
 import { cycleBounds, cycleOf, lastCycles, paiseFromDecimal, spendByCategory, spendByCycle, summarizeCycle, todayIn } from '@nri/core'
-import { categories, remittances, transactions } from '@nri/db'
+import { categories, cycleIncomes, remittances, transactions } from '@nri/db'
 import { ApiError } from '../errors'
 import type { AppVars } from '../middleware/db'
 import { requireProfile } from '../services/profile'
@@ -35,12 +35,15 @@ export const dashboardRoutes = new Hono<{ Variables: AppVars }>().get('/', async
     (await db.select({ id: categories.id, name: categories.name, color: categories.color }).from(categories)
       .where(eq(categories.userId, userId))).map((r) => [r.id, r]),
   )
+  const [incomeRow] = await db.select({ incomeJpy: cycleIncomes.incomeJpy }).from(cycleIncomes)
+    .where(and(eq(cycleIncomes.userId, userId), eq(cycleIncomes.cycle, cycle)))
+  const incomeJpy = incomeRow?.incomeJpy ?? profile.salaryJpy
 
   return c.json(Dashboard.parse({
     cycle, start, end,
     salaryJpy: profile.salaryJpy,
-    incomeOverridden: false, // TODO(M2b task 2): cycle_incomes override
-    ...summarizeCycle({ transactions: spend, remittances: sent, incomeJpy: profile.salaryJpy, cycle, startDay }),
+    incomeOverridden: incomeRow !== undefined,
+    ...summarizeCycle({ transactions: spend, remittances: sent, incomeJpy, cycle, startDay }),
     byCategory: spendByCategory(spend, cycle, startDay).map((s) => ({ ...s, name: cats.get(s.categoryId)!.name, color: cats.get(s.categoryId)!.color })),
     byCycle: spendByCycle(spend, cycles, startDay),
   }))

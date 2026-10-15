@@ -43,6 +43,13 @@
       "when": 1791269916285,
       "tag": "0005_accounts_balances",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792056380653,
+      "tag": "0006_remittances_income",
+      "breakpoints": true
     }
   ]
 }
