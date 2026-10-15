@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  decimalFromPaise, effectiveRate, formatRate, inrPaiseFromJpy, jpyFromInrPaise, paiseFromDecimal, parseRate, rateFromNumber,
+  decimalFromPaise, effectiveRate, formatRate, inrPaiseFromJpy, jpyFromInrPaise, paiseFromDecimal, parseRate, rateFromNumber, rateVsPlan,
 } from '../src/index'
 
 describe('rates', () => {
@@ -8,6 +8,12 @@ describe('rates', () => {
     expect(parseRate('1.694915')).toBe(1_694_915n)
     expect(parseRate('2')).toBe(2_000_000n)
     expect(formatRate(1_694_915n)).toBe('1.694915')
+  })
+  it('always pads formatRate to exactly 6 decimals', () => {
+    expect(formatRate(2_000_000n)).toBe('2.000000')
+    expect(formatRate(1_690_000n)).toBe('1.690000')
+    expect(formatRate(1_000_000n)).toBe('1.000000')
+    expect(formatRate(50n)).toBe('0.000050')
   })
   it('rejects malformed rates', () => {
     expect(() => parseRate('1.2345678')).toThrow()
@@ -39,5 +45,17 @@ describe('decimal strings', () => {
     expect(paiseFromDecimal('0.5')).toBe(50)
     expect(decimalFromPaise(800_600)).toBe('8006.00')
     expect(decimalFromPaise(5)).toBe('0.05')
+  })
+})
+
+describe('rateVsPlan', () => {
+  it('reports a better-than-plan transfer (sent fewer ¥ per ₹ than planned)', () => {
+    expect(rateVsPlan(50_000, 29_500_00, '1.7')).toEqual({ rate: '1.694915', diffPct: -0.3, inrDiffPaise: 8_824 })
+  })
+  it('reports a worse-than-plan transfer (sent more ¥ per ₹ than planned)', () => {
+    expect(rateVsPlan(50_000, 29_000_00, '1.7')).toEqual({ rate: '1.724138', diffPct: 1.42, inrDiffPaise: -41_176 })
+  })
+  it('reports no difference when the effective rate equals the plan', () => {
+    expect(rateVsPlan(200, 100_00, '2')).toEqual({ rate: '2.000000', diffPct: 0, inrDiffPaise: 0 })
   })
 })

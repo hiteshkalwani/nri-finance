@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { and, between, eq } from 'drizzle-orm'
 import { CycleString, Dashboard } from '@nri/contracts'
-import { cycleBounds, cycleOf, lastCycles, spendByCategory, spendByCycle, summarizeCycle, todayIn } from '@nri/core'
+import { cycleBounds, cycleOf, lastCycles, paiseFromDecimal, spendByCategory, spendByCycle, summarizeCycle, todayIn } from '@nri/core'
 import { categories, remittances, transactions } from '@nri/db'
 import { ApiError } from '../errors'
 import type { AppVars } from '../middleware/db'
@@ -23,10 +23,14 @@ export const dashboardRoutes = new Hono<{ Variables: AppVars }>().get('/', async
     .select({ occurredOn: transactions.occurredOn, amountJpy: transactions.amountJpy, categoryId: transactions.categoryId, needWant: transactions.needWant })
     .from(transactions)
     .where(and(eq(transactions.userId, userId), between(transactions.occurredOn, historyStart, end)))
-  const sent = await db
-    .select({ sentOn: remittances.sentOn, jpySent: remittances.jpySent, feeJpy: remittances.feeJpy })
+  const sentRows = await db
+    .select({
+      sentOn: remittances.sentOn, jpySent: remittances.jpySent, feeJpy: remittances.feeJpy,
+      inrReceived: remittances.inrReceived, purpose: remittances.purpose,
+    })
     .from(remittances)
     .where(and(eq(remittances.userId, userId), between(remittances.sentOn, start, end)))
+  const sent = sentRows.map((r) => ({ ...r, inrPaise: paiseFromDecimal(r.inrReceived) }))
   const cats = new Map(
     (await db.select({ id: categories.id, name: categories.name, color: categories.color }).from(categories)
       .where(eq(categories.userId, userId))).map((r) => [r.id, r]),
@@ -34,7 +38,9 @@ export const dashboardRoutes = new Hono<{ Variables: AppVars }>().get('/', async
 
   return c.json(Dashboard.parse({
     cycle, start, end,
-    ...summarizeCycle({ transactions: spend, remittances: sent, salaryJpy: profile.salaryJpy, cycle, startDay }),
+    salaryJpy: profile.salaryJpy,
+    incomeOverridden: false, // TODO(M2b task 2): cycle_incomes override
+    ...summarizeCycle({ transactions: spend, remittances: sent, incomeJpy: profile.salaryJpy, cycle, startDay }),
     byCategory: spendByCategory(spend, cycle, startDay).map((s) => ({ ...s, name: cats.get(s.categoryId)!.name, color: cats.get(s.categoryId)!.color })),
     byCycle: spendByCycle(spend, cycles, startDay),
   }))

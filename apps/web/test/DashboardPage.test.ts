@@ -29,10 +29,12 @@ const txn = (id: string, occurredOn: string) => ({
 const ROW_IDS = [1, 2, 3, 4, 5, 6, 7].map((n) => `aaaaaaaa-0000-4000-8000-00000000000${n}`)
 
 const dashboardBody = {
-  cycle: '2026-10', start: '2026-09-25', end: '2026-10-24', incomeJpy: 500000, spentJpy: 10000, sentJpy: 0, feesJpy: 0, keptJpy: 490000,
+  cycle: '2026-10', start: '2026-09-25', end: '2026-10-24', incomeJpy: 500000, salaryJpy: 500000, incomeOverridden: false,
+  spentJpy: 10000, sentJpy: 0, feesJpy: 0, receivedPaise: 0, keptJpy: 490000,
   savingsRatePct: 98, expenseCount: 7, largestJpy: 5000, needJpy: 8000, wantJpy: 2000,
   byCategory: [{ categoryId: CATEGORY_ID, name: 'Food', color: '#4caf50', spentJpy: 10000 }],
   byCycle: [{ cycle: '2026-10', spentJpy: 10000 }],
+  sentByPurpose: [],
 }
 
 const NETWORTH = {
