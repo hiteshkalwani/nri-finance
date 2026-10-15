@@ -2,28 +2,31 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay, useTheme } from 'vuetify'
-import { keepPreviousData, useQuery } from '@tanstack/vue-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { Bar, Doughnut } from 'vue-chartjs'
 import { ArcElement, BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Tooltip } from 'chart.js'
 import type { ChartComponentRef } from 'vue-chartjs'
-import { Dashboard, NetWorthResponse, TransactionPage } from '@nri/contracts'
+import { CycleIncome, Dashboard, NetWorthResponse, TransactionPage } from '@nri/contracts'
 import { nextCycle, previousCycle } from '@nri/core'
 import ExpenseRow from '../components/ExpenseRow.vue'
 import NetWorthEmergencyFundCards from '../components/NetWorthEmergencyFundCards.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { apiFetch, ApiRequestError } from '../lib/api'
+import { parseAmount } from '../lib/balancesForm'
 import { useCategories } from '../lib/categories'
 import { barData, buildBarOptions, buildDonutOptions, donutData, prefersReducedMotion } from '../lib/charts'
 import { safeColor } from '../lib/color'
-import { cycleLabel, dateRangeLabel, MONTHS, yen } from '../lib/format'
+import { cycleLabel, dateRangeLabel, monthYearLabel, MONTHS, rupees, yen } from '../lib/format'
 import { groupByDate, isPartialPageGroup, pageCount } from '../lib/groups'
 import { legendRows } from '../lib/legend'
 import { useProfile } from '../lib/profile'
+import { PURPOSE_LABELS } from '../lib/remittanceForm'
 
 ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend)
 
 const route = useRoute()
 const router = useRouter()
+const qc = useQueryClient()
 const { xs } = useDisplay()
 const theme = useTheme()
 const me = useProfile()
@@ -172,6 +175,40 @@ const barOptions = computed(() => buildBarOptions(
   themeBorder(),
   reducedMotion,
 ))
+
+// Income KPI's "Edit income for <Mon YYYY>" dialog (DASH-4): a typed amount overrides the cycle's
+// income (profile salary); "Use salary" (PUT null) clears the override. Same field-error-free
+// shape as AccountsPage's own emergency-fund-goal dialog, since there's only ever this one field.
+const incomeDialogOpen = ref(false)
+const incomeInput = ref('')
+const incomeError = ref('')
+function openIncomeDialog() {
+  incomeInput.value = d.value?.incomeOverridden ? String(d.value.incomeJpy) : ''
+  incomeError.value = ''
+  saveIncome.reset()
+  incomeDialogOpen.value = true
+}
+const saveIncome = useMutation({
+  mutationFn: (incomeJpy: number | null) =>
+    apiFetch(`/api/cycles/${d.value!.cycle}/income`, { method: 'PUT', body: JSON.stringify({ incomeJpy }) }, CycleIncome),
+  onSuccess: async () => {
+    await qc.invalidateQueries({ queryKey: ['dashboard'] })
+    incomeDialogOpen.value = false
+  },
+})
+function submitIncome() {
+  const parsed = parseAmount(incomeInput.value, 'JPY')
+  if (parsed === 'invalid') {
+    incomeError.value = 'Enter a whole number of yen, 0 or more.'
+    return
+  }
+  incomeError.value = ''
+  saveIncome.mutate(parsed)
+}
+function useSalary() {
+  incomeError.value = ''
+  saveIncome.mutate(null)
+}
 </script>
 
 <template>
@@ -192,8 +229,15 @@ const barOptions = computed(() => buildBarOptions(
 
     <div class="kpis">
       <v-card class="kpi">
-        <div class="l">Income</div>
+        <div class="l">
+          Income
+          <v-btn
+            icon="mdi-pencil-outline" variant="text" size="x-small" density="compact" class="income-edit"
+            :aria-label="`Edit income for ${monthYearLabel(d.cycle)}`" @click="openIncomeDialog"
+          />
+        </div>
         <div class="v num" data-testid="income">{{ yen(d.incomeJpy) }}</div>
+        <div v-if="d.incomeOverridden" class="s">override</div>
       </v-card>
       <v-card class="kpi">
         <div class="l">Spent</div>
@@ -204,7 +248,7 @@ const barOptions = computed(() => buildBarOptions(
       <v-card class="kpi">
         <div class="l">Sent home</div>
         <div class="v num" data-testid="sent">{{ yen(d.sentJpy) }}</div>
-        <div v-if="d.feesJpy" class="s">fees {{ yen(d.feesJpy) }}</div>
+        <div v-if="d.sentJpy" class="s">{{ rupees(d.receivedPaise) }} received<span v-if="d.feesJpy"> · fees {{ yen(d.feesJpy) }}</span></div>
       </v-card>
       <v-card class="kpi">
         <div class="l">Kept</div>
@@ -308,6 +352,14 @@ const barOptions = computed(() => buildBarOptions(
           <div class="kv"><span>Average expense</span><b class="num">{{ avgExpenseJpy !== null ? yen(avgExpenseJpy) : '—' }}</b></div>
           <div class="kv"><span>Needs / wants</span><b class="num">{{ needPct !== null ? `${needPct}% / ${wantPct}%` : '—' }}</b></div>
         </v-card>
+        <!-- Hidden when nothing was sent this cycle (spec §4.4). -->
+        <v-card v-if="d.sentByPurpose.length">
+          <div class="tx-hd"><h2>Sent home by purpose</h2></div>
+          <div v-for="p in d.sentByPurpose" :key="p.purpose" class="kv">
+            <span>{{ PURPOSE_LABELS[p.purpose] }}</span>
+            <b class="num">{{ yen(p.jpySent) }}<small class="ml-1 text-medium-emphasis">{{ rupees(p.inrPaise) }}</small></b>
+          </div>
+        </v-card>
         <v-card>
           <div class="hd"><div><div class="eyebrow">Spend per cycle</div><div class="range" style="font-size: 15px">Last 12 cycles</div></div></div>
           <div class="bars-wrap">
@@ -325,6 +377,25 @@ const barOptions = computed(() => buildBarOptions(
         </v-card>
       </div>
     </div>
+
+    <v-dialog v-model="incomeDialogOpen" max-width="360">
+      <v-card>
+        <div class="tx-hd"><h2>Income for {{ monthYearLabel(d.cycle) }}</h2></div>
+        <v-form class="px-5" @submit.prevent="submitIncome">
+          <v-text-field
+            id="income-amount" v-model="incomeInput" label="Income (¥)" inputmode="decimal"
+            :error-messages="incomeError ? [incomeError] : []"
+          />
+        </v-form>
+        <v-alert v-if="saveIncome.error.value" type="error" variant="tonal" class="mx-5 mb-3">{{ saveIncome.error.value.message }}</v-alert>
+        <v-card-actions class="px-5 pb-5">
+          <v-btn variant="text" :loading="saveIncome.isPending.value" @click="useSalary">Use salary</v-btn>
+          <v-spacer />
+          <v-btn variant="outlined" @click="incomeDialogOpen = false">Cancel</v-btn>
+          <v-btn color="primary" :loading="saveIncome.isPending.value" @click="submitIncome">Save</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </template>
   <v-progress-linear v-else indeterminate />
 </template>
@@ -361,9 +432,15 @@ const barOptions = computed(() => buildBarOptions(
   padding: 16px 18px;
 }
 .kpi .l {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12.5px;
   color: rgb(var(--v-theme-on-surface-variant));
   font-weight: 500;
+}
+.income-edit {
+  opacity: var(--v-medium-emphasis-opacity);
 }
 .kpi .v {
   font-size: 22px;
