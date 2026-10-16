@@ -10,6 +10,7 @@ import { apiFetch, ApiRequestError } from '../lib/api'
 import { changedEntries, type FieldState, formatGrouped, isDirty, netWorthAfterSaving, parseAmount, toText } from '../lib/balancesForm'
 import { flash } from '../lib/flash'
 import { cycleLabel, dateRangeLabel, MONTHS, monthYearLabel, rupees, yen } from '../lib/format'
+import { safeNext } from '../lib/next'
 import { useProfile } from '../lib/profile'
 
 const route = useRoute()
@@ -225,7 +226,9 @@ const saveMut = useMutation({
       qc.invalidateQueries({ queryKey: ['accounts'] }),
     ])
     flash.message.value = `Balances saved for ${monthYearLabel(b.value!.cycle)}`
-    await router.push('/accounts')
+    // Cycle review's step 2 (REV-1) sends ?next= so saving here lands back on the review, rather
+    // than always going to Accounts — same `safeNext` guard LoginPage.vue uses for its own `?next=`.
+    await router.push(typeof route.query.next === 'string' ? safeNext(route.query.next) : '/accounts')
   },
   onError: applyApiError,
 })

@@ -8,6 +8,7 @@ import { ArcElement, BarElement, CategoryScale, Chart as ChartJS, Legend, Linear
 import type { ChartComponentRef } from 'vue-chartjs'
 import { CycleIncome, Dashboard, NetWorthResponse, TransactionPage } from '@nri/contracts'
 import { nextCycle, previousCycle } from '@nri/core'
+import BudgetsTargetsCards from '../components/BudgetsTargetsCards.vue'
 import ExpenseRow from '../components/ExpenseRow.vue'
 import NetWorthEmergencyFundCards from '../components/NetWorthEmergencyFundCards.vue'
 import PageHeader from '../components/PageHeader.vue'
@@ -272,6 +273,7 @@ function useSalary() {
          of everything else — the wide layout's own copies (below, in `.side-col`) are hidden here. -->
     <div v-if="xs" class="mobile-nw-ef">
       <NetWorthEmergencyFundCards :nw="nw" :loan="d.loan" :sip="d.sip" />
+      <BudgetsTargetsCards :budgets="d.budgets" :targets="d.targets" />
     </div>
 
     <v-card>
@@ -345,6 +347,7 @@ function useSalary() {
         <!-- Wide layout (spec §4.4): these cards sit above Summary; on phones they instead render
              right after the KPIs, above (see `.mobile-nw-ef`). -->
         <NetWorthEmergencyFundCards v-if="!xs" :nw="nw" :loan="d.loan" :sip="d.sip" />
+        <BudgetsTargetsCards v-if="!xs" :budgets="d.budgets" :targets="d.targets" />
         <v-card class="summary">
           <div class="tx-hd"><h2>Summary</h2></div>
           <div class="kv"><span>Expenses this cycle</span><b class="num">{{ d.expenseCount }}</b></div>

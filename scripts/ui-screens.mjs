@@ -54,11 +54,15 @@ const SCREENS = [
   { path: '/remit', slug: 'remit', ready: (page) => page.getByText('Sent this cycle').waitFor() },
   { path: '/remit/new', slug: 'remit-new', ready: (page) => page.locator('#jpySent').waitFor() },
   { path: '/sip', slug: 'sip', ready: (page) => page.getByText('Paid this cycle').waitFor() },
+  { path: '/budgets', slug: 'budgets', ready: (page) => page.getByText('Category budgets').waitFor() },
 ]
 // '/loans' bare redirects client-side to '/loans/<id>' (the first open loan) — that redirect
 // would never satisfy shoot()'s own waitForURL(routePath) below, so this screen's own path is
 // filled in once seedLoanAndSip() below knows the seeded loan's real id.
 const LOAN_SCREEN = { slug: 'loans', ready: (page) => page.getByText('Outstanding').waitFor() }
+// '/review' bare redirects client-side to '/review/<previous cycle>' — same reasoning as
+// '/loans' above; filled in once seedBudgetsAndTargets() below knows the previous cycle string.
+const REVIEW_SCREEN = { slug: 'review', ready: (page) => page.getByText('How the cycle went').waitFor() }
 const VIEWPORTS = [{ width: 1280, height: 900 }, { width: 390, height: 844 }]
 const SCHEMES = ['light', 'dark']
 
@@ -97,6 +101,20 @@ function previousCycle(cycle) {
 }
 function todayIsoTokyo() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+}
+// The first day of `cycle` (the 25th of the month before, per legacy/seed-data.json's startDay) —
+// used only to land a seeded transaction safely inside the *previous* cycle below.
+function cycleStartIso(cycle, startDay) {
+  const [y, m] = cycle.split('-').map(Number)
+  let year = y
+  let month = m - 1
+  if (month < 1) { month = 12; year -= 1 }
+  return `${year}-${String(month).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`
+}
+function addDaysIso(dateIso, days) {
+  const d = new Date(`${dateIso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
 }
 
 async function apiCall(token, path, init = {}) {
@@ -203,6 +221,43 @@ async function seedLoanAndSip(user) {
   return loan.id
 }
 
+// M4 task 3: a budget (one near, one over) effective from the previous cycle — so it carries
+// forward (BUD-1) to both /budgets (this cycle) and the review screen (the previous cycle) — plus
+// spend in both cycles, and targets for both cycles (the previous cycle's for REV-1's
+// target-vs-actual/highlights, this cycle's for the Budgets page and the review's "next cycle"
+// step prefill). Returns the previous cycle, so `/review/<that cycle>` can be shot directly.
+async function seedBudgetsAndTargets(user, thisCycle) {
+  const prevCycle = previousCycle(thisCycle)
+  const { items } = await apiCall(user.accessToken, '/api/categories')
+  const byName = new Map(items.map((c) => [c.name, c]))
+  const groceries = byName.get('Groceries')
+  const eatingOut = byName.get('Eating Out')
+
+  const prevDate = addDaysIso(cycleStartIso(thisCycle, 25), 5)
+  for (const [occurredOn, groceriesAmountJpy, eatingOutAmountJpy] of [[prevDate, 32400, 18900], [todayIsoTokyo(), 24000, 9500]]) {
+    await apiCall(user.accessToken, '/api/transactions', {
+      method: 'POST',
+      body: JSON.stringify({ amountJpy: groceriesAmountJpy, categoryId: groceries.id, occurredOn, paymentMethod: 'bank', needWant: 'need', description: '' }),
+    })
+    await apiCall(user.accessToken, '/api/transactions', {
+      method: 'POST',
+      body: JSON.stringify({ amountJpy: eatingOutAmountJpy, categoryId: eatingOut.id, occurredOn, paymentMethod: 'credit_card', needWant: 'want', description: '' }),
+    })
+  }
+
+  await apiCall(user.accessToken, '/api/budgets', {
+    method: 'PUT',
+    body: JSON.stringify({ cycle: prevCycle, items: [{ categoryId: groceries.id, amountJpy: 35000 }, { categoryId: eatingOut.id, amountJpy: 15000 }] }),
+  })
+  for (const cycle of [prevCycle, thisCycle]) {
+    await apiCall(user.accessToken, `/api/targets/${cycle}`, {
+      method: 'PUT',
+      body: JSON.stringify({ savingsJpy: 300000, emergencyFundJpy: 50000, remittanceJpy: 150000, prepaymentPaise: 5000000 }),
+    })
+  }
+  return prevCycle
+}
+
 // Move the mouse away and drop focus before capturing an at-rest page, and wait past any ripple's
 // ~300ms fade-out — otherwise the last click's pointer position / ripple / focus ring shows up.
 async function settle(page) {
@@ -281,6 +336,8 @@ try {
   await seedRemittance(user)
   const loanId = await seedLoanAndSip(user)
   SCREENS.push({ ...LOAN_SCREEN, path: `/loans/${loanId}` })
+  const reviewCycle = await seedBudgetsAndTargets(user, cycleOfTokyo(todayIsoTokyo(), 25))
+  SCREENS.push({ ...REVIEW_SCREEN, path: `/review/${reviewCycle}` })
   for (const screen of SCREENS) {
     for (const viewport of VIEWPORTS) {
       for (const colorScheme of SCHEMES) {

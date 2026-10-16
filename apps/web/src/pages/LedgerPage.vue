@@ -3,11 +3,12 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from 'vuetify'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { Transaction, TransactionPage, type NeedWant, type PaymentMethod } from '@nri/contracts'
+import { Budgets, Transaction, TransactionPage, type NeedWant, type PaymentMethod } from '@nri/contracts'
 import { cycleOf, lastCycles, todayIn } from '@nri/core'
 import ExpenseRow from '../components/ExpenseRow.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { apiFetch, ApiRequestError, retryUnlessClientError } from '../lib/api'
+import { quickAddHint } from '../lib/budgetsForm'
 import { useCategories } from '../lib/categories'
 import { NEED_LABELS, PAYMENT_LABELS } from '../lib/expenseForm'
 import { cycleLabel, yen } from '../lib/format'
@@ -56,6 +57,20 @@ const page = useQuery({
   // Explicit here too (main.ts sets the same as the app-wide default): a 4xx filter/sort/page
   // combination will never succeed by retrying it, so don't make the error message wait on it.
   retry: retryUnlessClientError,
+})
+
+// BUD-2: remaining budget for the filtered category, for the filtered cycle — only meaningful
+// once both are picked (an "all cycles"/no-category view has no single budget to show).
+const budgetCategoryId = computed(() => str(route.query.categoryId))
+const budgetsQ = useQuery({
+  queryKey: ['budgets', cycleParam],
+  queryFn: () => apiFetch(`/api/budgets?cycle=${cycleParam.value}`, {}, Budgets),
+  enabled: () => !!budgetCategoryId.value && cycleParam.value !== 'all',
+})
+const budgetHint = computed(() => {
+  if (!budgetCategoryId.value) return null
+  const row = budgetsQ.data.value?.rows.find((r) => r.categoryId === budgetCategoryId.value)
+  return row ? quickAddHint(row) : null
 })
 
 const items = computed(() => page.data.value?.items ?? [])
@@ -189,6 +204,7 @@ const restore = useMutation({
       <span><b class="num">{{ page.data.value?.total ?? 0 }}</b> expenses · <b class="num">{{ yen(page.data.value?.totalJpy ?? 0) }}</b></span>
       · <span>Needs <b class="num">{{ yen(page.data.value?.needJpy ?? 0) }}</b></span>
       · <span>Wants <b class="num">{{ yen(page.data.value?.wantJpy ?? 0) }}</b></span>
+      <span v-if="budgetHint">· Budget: <b class="num" :class="{ 'text-error': budgetHint.startsWith('Over') }">{{ budgetHint }}</b></span>
     </div>
     <v-progress-linear v-if="page.isFetching.value" indeterminate />
 

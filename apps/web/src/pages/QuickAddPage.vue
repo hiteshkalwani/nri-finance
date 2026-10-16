@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMutation, useQueryClient } from '@tanstack/vue-query'
-import { Transaction, type NeedWant, type PaymentMethod } from '@nri/contracts'
-import { todayIn } from '@nri/core'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import { Budgets, Transaction, type NeedWant, type PaymentMethod } from '@nri/contracts'
+import { cycleOf, todayIn } from '@nri/core'
 import CategoryAvatar from '../components/CategoryAvatar.vue'
 import { apiFetch, ApiRequestError } from '../lib/api'
+import { quickAddHint } from '../lib/budgetsForm'
 import { activeCategories, useCategories } from '../lib/categories'
 import {
   defaultsFor, lastUsedNeedWantHint, lastUsedPaymentHint, NEED_LABELS, PAYMENT_LABELS,
@@ -78,6 +79,20 @@ const preview = computed(() => (currency.value === 'INR' && profile.value ? prev
 const paymentHint = computed(() => lastUsedPaymentHint(selectedCategory.value, paymentMethod.value))
 const needWantHint = computed(() => lastUsedNeedWantHint(selectedCategory.value, needWant.value))
 
+// BUD-2: the selected category's remaining budget for the cycle this expense falls in (not
+// necessarily today's cycle, once the date is changed) — fetched lazily, only once a category's
+// actually been picked.
+const budgetCycle = computed(() => cycleOf(occurredOn.value, profile.value?.cycleStartDay ?? 25))
+const budgetsQ = useQuery({
+  queryKey: ['budgets', budgetCycle],
+  queryFn: () => apiFetch(`/api/budgets?cycle=${budgetCycle.value}`, {}, Budgets),
+  enabled: () => !!categoryId.value,
+})
+const budgetHint = computed(() => {
+  const row = budgetsQ.data.value?.rows.find((r) => r.categoryId === categoryId.value)
+  return row ? quickAddHint(row) : null
+})
+
 const save = useMutation({
   mutationFn: () =>
     apiFetch('/api/transactions', {
@@ -145,6 +160,7 @@ function submit() {
         <v-icon v-if="categoryId === c.id" size="13" class="cat-check" aria-hidden="true">mdi-check-circle</v-icon>
       </v-chip>
     </v-chip-group>
+    <div v-if="budgetHint" class="hint budget-hint" :class="{ 'text-error': budgetHint.startsWith('Over') }">{{ budgetHint }}</div>
 
     <v-text-field id="date" v-model="occurredOn" label="Date" type="date" class="mt-2" density="compact" />
 

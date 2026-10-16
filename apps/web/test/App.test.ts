@@ -42,6 +42,8 @@ async function mountAppAt(path: string) {
       { path: '/settings', component: stub },
       { path: '/loans', component: stub },
       { path: '/sip', component: stub },
+      { path: '/budgets', component: stub },
+      { path: '/review', component: stub },
       { path: '/login', component: stub, meta: { public: true } },
     ],
   })
@@ -81,6 +83,16 @@ describe('App bottom navigation "More" active state', () => {
     const sip = await mountAppAt('/sip')
     expect(moreButton().classList.contains('v-btn--active')).toBe(true)
     sip.unmount()
+  })
+
+  it('highlights More while on /budgets or /review (M4 task 3)', async () => {
+    const budgets = await mountAppAt('/budgets')
+    expect(moreButton().classList.contains('v-btn--active')).toBe(true)
+    budgets.unmount()
+
+    const review = await mountAppAt('/review')
+    expect(moreButton().classList.contains('v-btn--active')).toBe(true)
+    review.unmount()
   })
 
   it('does not highlight More on Dashboard or Spend', async () => {
@@ -148,6 +160,37 @@ describe('App navigation includes Loan and SIP (M3 task 3)', () => {
     const moreLinks = Array.from(document.querySelectorAll('.v-overlay-container a'))
     expect(moreLinks.some((a) => a.getAttribute('href') === '/loans')).toBe(true)
     expect(moreLinks.some((a) => a.getAttribute('href') === '/sip')).toBe(true)
+    wrapper.unmount()
+  })
+})
+
+describe('App navigation includes Budgets and Review (M4 task 3)', () => {
+  it('shows Budgets and Review entries in the desktop sidebar, linking to /budgets and /review', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })))
+    const stub = { template: '<div/>' }
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: stub }, { path: '/budgets', component: stub }, { path: '/review', component: stub }, { path: '/login', component: stub, meta: { public: true } }],
+    })
+    router.push('/')
+    await router.isReady()
+    const queryClient = new QueryClient()
+    const wrapper = mount(App, { global: { plugins: [router, createVuetify(), [VueQueryPlugin, { queryClient }]] }, attachTo: document.body })
+    await flushPromises()
+    const budgetsLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/budgets')
+    const reviewLink = wrapper.findAll('a').find((a) => a.attributes('href') === '/review')
+    expect(budgetsLink?.text()).toContain('Budgets')
+    expect(reviewLink?.text()).toContain('Review')
+    wrapper.unmount()
+  })
+
+  it('shows Budgets and Review in the phone "More" menu', async () => {
+    const wrapper = await mountAppAt('/')
+    moreButton().click()
+    await flushPromises()
+    const moreLinks = Array.from(document.querySelectorAll('.v-overlay-container a'))
+    expect(moreLinks.some((a) => a.getAttribute('href') === '/budgets')).toBe(true)
+    expect(moreLinks.some((a) => a.getAttribute('href') === '/review')).toBe(true)
     wrapper.unmount()
   })
 })
