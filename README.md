@@ -4,8 +4,8 @@ A personal finance app for someone earning in yen in Japan and sending money hom
 billing cycles that run from the 25th to the 24th, money sent home, an emergency fund, the Indian home loan and SIP
 investments, on phone and laptop.
 
-v2 is a Vue web app with a Node API, backed by Postgres with Supabase Auth. The original single-file app (v1) lives in
-[`legacy/`](legacy/), and its data can be imported into v2.
+v2 is a Vue web app with a Node API, backed by Postgres with Supabase Auth. Data from the original single-file app (v1)
+can be imported into v2.
 
 **Status:** M1 (spending) is built locally. What is built and what is pending, module by module:
 [`docs/checklist.md`](docs/checklist.md), or the visual version
@@ -35,7 +35,7 @@ curl -s -X POST "$SUPABASE_URL/auth/v1/admin/users" \
 ```
 
 Open http://localhost:5173, sign in, and go to **Settings → Import from v1** to load a `finance-data.json` exported by
-the old app (`legacy/seed-data.json` is a sample). Importing twice does not create duplicates.
+the old app (`fixtures/v1-sample.json` is a made-up sample). Importing twice does not create duplicates.
 
 When you are done: `pnpm stack:down` (keeps your data) or `pnpm stack:reset` (wipes the local database).
 
@@ -188,7 +188,7 @@ docker/              Local stack support: db init SQL, nginx gateway, app image
 docker-compose.yml   Local stack: Postgres, Auth, gateway, and the app (profile "app")
 scripts/             Build for Vercel, serve the build locally, stack commands, key generation
 e2e/                 Playwright smoke test
-legacy/              v1 single-file app and its tooling
+fixtures/            Made-up sample data (v1 import file) used by tests
 docs/                PRD, TRD, specs, plans, checklist, diagrams
 ```
 
@@ -218,7 +218,7 @@ docs/                PRD, TRD, specs, plans, checklist, diagrams
 - [`docs/diagrams/`](docs/diagrams/) — plan overview (WBS, roadmap), system map, cloud architecture, data model, money flow
 - [`docs/superpowers/specs/`](docs/superpowers/specs/) and [`docs/plans/`](docs/plans/) — designs and implementation plans per piece of work
 
-## v1 (legacy)
+## v1
 
-The original app is a single HTML file that reads and writes a local `finance-data.json`. It is kept in `legacy/` until
-v2 replaces it (milestone M5). Its data imports into v2 from **Settings → Import from v1**.
+The original app was a single HTML file that read and wrote a local `finance-data.json`. It is not part of this
+repository; its data imports into v2 from **Settings → Import from v1**.

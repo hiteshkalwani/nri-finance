@@ -6,7 +6,7 @@ import { parseV1File } from '../src/lib/importFile'
 describe('parseV1File', () => {
   it('accepts a real v1 export', () => {
     // vitest runs with apps/web as the working directory
-    const r = parseV1File(readFileSync(resolve(process.cwd(), '../../legacy/seed-data.json'), 'utf8'))
+    const r = parseV1File(readFileSync(resolve(process.cwd(), '../../fixtures/v1-sample.json'), 'utf8'))
     expect(r.ok).toBe(true)
   })
   it('explains a file that is not JSON at all, instead of throwing', () => {

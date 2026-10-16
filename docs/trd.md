@@ -58,7 +58,6 @@ Supabase Postgres via transaction pooler (port 6543)
 ├── packages/db/          Drizzle schema, migrations, RLS policies, request-scoped db helper
 ├── docker/               Local stack support: db init SQL, nginx gateway, app image
 ├── docker-compose.yml    Local stack: Supabase Postgres + Auth, gateway, app (profile)
-├── legacy/               v1 single-file app (moved here in M5)
 └── docs/                 prd.md, trd.md, plans/
 ```
 

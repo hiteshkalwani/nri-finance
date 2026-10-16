@@ -5,7 +5,7 @@
 // Creates a single disposable @example.test user via @nri/test-utils (same admin API the e2e
 // suite's global-setup.ts uses) and deletes it when done — it never touches your own local
 // account (e.g. me@local.test) or the e2e suite's own .e2e-user.json. The user is seeded through
-// the legacy v1 import (legacy/seed-data.json) so every screen has real data to show.
+// the legacy v1 import (fixtures/v1-sample.json) so every screen has real data to show.
 //
 // Before each shot: move the mouse away, blur focus, and wait past a ripple's ~300ms fade-out —
 // otherwise the last click's pointer position / ripple / focus ring shows up in the screenshot.
@@ -77,7 +77,7 @@ async function seed(browser, user) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
   await signIn(page, user, '/settings')
   await page.waitForURL(/\/settings$/)
-  await page.locator('#import-file').setInputFiles('legacy/seed-data.json')
+  await page.locator('#import-file').setInputFiles('fixtures/v1-sample.json')
   await page.getByText(/Imported \d+ transactions/).waitFor()
   await page.close()
 }
@@ -102,7 +102,7 @@ function previousCycle(cycle) {
 function todayIsoTokyo() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
 }
-// The first day of `cycle` (the 25th of the month before, per legacy/seed-data.json's startDay) —
+// The first day of `cycle` (the 25th of the month before, per fixtures/v1-sample.json's startDay) —
 // used only to land a seeded transaction safely inside the *previous* cycle below.
 function cycleStartIso(cycle, startDay) {
   const [y, m] = cycle.split('-').map(Number)
@@ -136,7 +136,7 @@ async function seedAccountsAndBalances(user) {
   const jpEf = byName.get('Japan emergency fund')
   const inBank = byName.get('India bank')
 
-  // The v1 import sets cycleStartDay to 25 (legacy/seed-data.json's settings.cycleStartDay).
+  // The v1 import sets cycleStartDay to 25 (fixtures/v1-sample.json's settings.cycleStartDay).
   const thisCycle = cycleOfTokyo(todayIsoTokyo(), 25)
   const prevCycle = previousCycle(thisCycle)
   const entriesFor = (amounts) => [

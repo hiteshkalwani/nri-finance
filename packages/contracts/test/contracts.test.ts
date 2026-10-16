@@ -38,7 +38,7 @@ describe('review fixes: values that used to reach Postgres and 500', () => {
   it('rejects an unknown timezone', () =>
     expect(ProfileInput.safeParse({ ...base, timezone: 'Mars/Base' }).success).toBe(false))
 
-  const raw = () => JSON.parse(readFileSync(new URL('../../../legacy/seed-data.json', import.meta.url), 'utf8'))
+  const raw = () => JSON.parse(readFileSync(new URL('../../../fixtures/v1-sample.json', import.meta.url), 'utf8'))
   it('rejects an impossible calendar date in a v1 transaction', () => {
     const doc = raw()
     doc.transactions[0].date = '2026-02-30'
@@ -57,9 +57,9 @@ describe('review fixes: values that used to reach Postgres and 500', () => {
 
 describe('V1Document', () => {
   it('parses the real v1 seed file', () => {
-    const raw = JSON.parse(readFileSync(new URL('../../../legacy/seed-data.json', import.meta.url), 'utf8'))
+    const raw = JSON.parse(readFileSync(new URL('../../../fixtures/v1-sample.json', import.meta.url), 'utf8'))
     const r = V1Document.safeParse(raw)
     expect(r.success).toBe(true)
-    expect(r.success && r.data.transactions.length).toBe(57)
+    expect(r.success && r.data.transactions.length).toBe(10)
   })
 })

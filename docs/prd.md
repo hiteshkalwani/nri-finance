@@ -1,7 +1,7 @@
 # NRI Finance — Product Requirements (PRD)
 
 Status: Draft for review · Owner: Hitesh · Date: 2026-10-02
-Companion: [Technical Requirements (TRD)](./trd.md) · Diagrams: `nri-system-map.png`, `nri-cloud-architecture.png`
+Companion: [Technical Requirements (TRD)](./trd.md) · Diagrams: `nri-system-map.html`, `nri-cloud-architecture.png`
 
 ## 1. Problem
 
@@ -14,7 +14,7 @@ One person (me), an NRI in Japan:
 - Earns ¥500,000 a month; review cycle runs from the 25th to the 24th.
 - Spends day to day in ¥ (rent, groceries, transport, wants), paying by bank, cash, credit card or IC card.
 - Keeps a JPY emergency fund (goal ¥1,000,000).
-- Sends money to India: family support, India savings, SIP (₹50,000/month, +10% a year), home loan (₹25,00,000 at 8.1%, EMI ₹42,000, 72 months left).
+- Sends money to India: family support, India savings, SIP (₹50,000 / month, +10% a year), home loan (₹25,00,000 at 8.1%, EMI ₹42,000, 72 months left).
 - Uses a phone during the day and a laptop for the monthly review.
 
 ## 3. Goals

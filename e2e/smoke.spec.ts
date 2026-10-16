@@ -19,7 +19,7 @@ test('sign in, import v1 data, see the profile', async ({ page }) => {
   await expect(page).toHaveURL(/\/login\?next=(%2F|\/)settings/)
   await signIn(page, page.url())
   await expect(page).toHaveURL(/\/settings$/) // returned to where the guard stopped us (AUTH-2)
-  await page.locator('#import-file').setInputFiles('legacy/seed-data.json')
+  await page.locator('#import-file').setInputFiles('fixtures/v1-sample.json')
   await expect(page.getByText(/Imported \d+ transactions/)).toBeVisible()
   // The Categories card must refetch after import, not just show whatever it had cached (I3).
   await expect(page.getByText('Groceries')).toBeVisible()
