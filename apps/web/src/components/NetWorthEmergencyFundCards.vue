@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { NetWorthResponse } from '@nri/contracts'
+import type { Dashboard, NetWorthResponse } from '@nri/contracts'
 import { emergencyFundPct, netWorthChangeDisplay } from '../lib/accounts'
-import { yen } from '../lib/format'
+import { monthYearLabel, rupees, yen } from '../lib/format'
 
 // `null` while the Dashboard's own `/api/networth` query is still loading (or errored) — both
-// cards then show their own indeterminate bar rather than any figures.
-const props = defineProps<{ nw: NetWorthResponse | null }>()
+// cards then show their own indeterminate bar rather than any figures. `loan`/`sip` (DASH-7/8)
+// are `null` whenever there's no open loan / no SIP plan set up yet — those two cards are hidden
+// entirely rather than showing an empty state, same as "Sent home by purpose" on DashboardPage.
+const props = defineProps<{ nw: NetWorthResponse | null; loan?: Dashboard['loan']; sip?: Dashboard['sip'] }>()
 
 // Spec §4.4: an empty `series` means the user has never saved a balance — neither card's figures
 // mean anything yet, so both show the same "Update balances to see this." empty state instead.
@@ -60,6 +62,32 @@ const efPct = computed(() => (props.nw ? emergencyFundPct(props.nw.emergencyFund
       <router-link to="/accounts/balances">Update balances to see this.</router-link>
     </p>
   </v-card>
+
+  <!-- DASH-7: hidden when there's no open loan. -->
+  <v-card v-if="loan" class="nwc" data-testid="loan-card">
+    <div class="hd"><div class="eyebrow">Home loan</div></div>
+    <div class="nw-body">
+      <b class="num">{{ rupees(loan.outstandingPaise) }}</b>
+      <span class="muted">outstanding · {{ loan.name }}</span>
+    </div>
+    <div class="card-ft">
+      <span v-if="loan.payoffCycle" class="muted" style="font-size: 12.5px">Payoff {{ monthYearLabel(loan.payoffCycle) }}</span>
+      <v-btn to="/loans" variant="text" size="small" class="ml-auto">View loan</v-btn>
+    </div>
+  </v-card>
+
+  <!-- DASH-8: hidden when there's no SIP plan set up yet. -->
+  <v-card v-if="sip" class="nwc" data-testid="sip-card">
+    <div class="hd"><div class="eyebrow">SIP</div></div>
+    <div class="nw-body">
+      <b class="num">{{ rupees(sip.paidPaise) }}</b>
+      <span class="muted">of {{ rupees(sip.plannedPaise) }} this cycle</span>
+    </div>
+    <div class="card-ft">
+      <span class="muted" style="font-size: 12.5px">Projected corpus {{ rupees(sip.projectedCorpusPaise) }}</span>
+      <v-btn to="/sip" variant="text" size="small" class="ml-auto">View SIP</v-btn>
+    </div>
+  </v-card>
 </template>
 
 <style scoped>
@@ -85,6 +113,9 @@ const efPct = computed(() => (props.nw ? emergencyFundPct(props.nw.emergencyFund
 }
 .card-ft {
   padding: 0 20px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .ef {
   padding: 2px 20px 18px;

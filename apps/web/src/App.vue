@@ -13,14 +13,16 @@ const nav = [
   { title: 'Dashboard', icon: 'mdi-home-outline', to: '/' },
   { title: 'Spend', icon: 'mdi-credit-card-outline', to: '/spend' },
   { title: 'Remit', icon: 'mdi-send-outline', to: '/remit' },
+  { title: 'Loan', icon: 'mdi-home-city-outline', to: '/loans' },
+  { title: 'SIP', icon: 'mdi-chart-line', to: '/sip' },
   { title: 'Accounts', icon: 'mdi-bank-outline', to: '/accounts' },
   { title: 'Settings', icon: 'mdi-cog-outline', to: '/settings' },
 ]
 // The phone bottom nav's "More" button (unlike Dashboard/Spend above) has no `to`, so it never
 // gets Vuetify's own router-link active-state for free — it opens a menu, not a route, but it
-// still needs to read as the active tab while sitting on either page that menu leads to (final
-// review finding 6).
-const moreActive = computed(() => route.path.startsWith('/accounts') || route.path.startsWith('/settings'))
+// still needs to read as the active tab while sitting on any page that menu leads to (final
+// review finding 6; M3 task 3 adds Loan/SIP to that same menu).
+const moreActive = computed(() => ['/loans', '/sip', '/accounts', '/settings'].some((p) => route.path.startsWith(p)))
 
 const { pref: themePref, cycleThemePref } = useThemePref()
 const themeWord = computed(() => (themePref.value === 'system' ? 'System' : themePref.value === 'light' ? 'Light' : 'Dark'))
@@ -100,6 +102,8 @@ const signOut = useSignOut()
             <v-btn v-bind="menuProps" :active="moreActive"><v-icon>mdi-dots-horizontal</v-icon><span>More</span></v-btn>
           </template>
           <v-list density="compact">
+            <v-list-item to="/loans" prepend-icon="mdi-home-city-outline" title="Loan" />
+            <v-list-item to="/sip" prepend-icon="mdi-chart-line" title="SIP" />
             <v-list-item to="/accounts" prepend-icon="mdi-bank-outline" title="Accounts" />
             <v-list-item to="/settings" prepend-icon="mdi-cog-outline" title="Settings" />
           </v-list>

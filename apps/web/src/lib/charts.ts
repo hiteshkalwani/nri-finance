@@ -1,7 +1,8 @@
 import type { ChartOptions } from 'chart.js'
 import type { Dashboard } from '@nri/contracts'
+import type { SipYear } from '@nri/core'
 import type { LegendRow } from './legend'
-import { yen } from './format'
+import { rupees, yen } from './format'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
@@ -172,6 +173,66 @@ export function buildRateHistoryOptions(tickColor: string, gridColor: string, re
     scales: {
       x: { ticks: { color: tickColor }, grid: { display: false } },
       y: { ticks: { color: tickColor, callback: (v) => `¥${Number(v).toFixed(2)}` }, grid: { color: gridColor } },
+    },
+  }
+}
+
+/**
+ * Loan page's "Balance · plan vs actual" chart (mockup's `#loanchart`): the original plan's
+ * closing balance against the projected (actual-to-date + plan for the rest) schedule's, both
+ * keyed by month index from `startCycle` so they line up even once the projected line pays off
+ * sooner — the shorter series is padded with `null`s (a real gap Chart.js just stops drawing at,
+ * same convention the mockup's own SVG trails with `null`s) rather than extended with zeros,
+ * which would misread as "still owing nothing" past payoff.
+ */
+export function loanBalanceData(planRows: { cycle: string; closingPaise: number }[], projectedRows: { cycle: string; closingPaise: number }[], planColor: string, actualColor: string) {
+  const labels = (planRows.length >= projectedRows.length ? planRows : projectedRows).map((r) => r.cycle)
+  const pad = (rows: { closingPaise: number }[]) => labels.map((_, i) => rows[i]?.closingPaise ?? null)
+  return {
+    labels,
+    datasets: [
+      { label: 'Original plan', data: pad(planRows), borderColor: planColor, borderDash: [6, 5], borderWidth: 2, pointRadius: 0 },
+      { label: 'Actual + plan', data: pad(projectedRows), borderColor: actualColor, borderWidth: 2.5, pointRadius: 0 },
+    ],
+  }
+}
+
+/** Options for `loanBalanceData`'s chart; the y-axis/tooltip show ₹, and ticks are thinned since a multi-year loan has many months. */
+export function buildLoanBalanceOptions(tickColor: string, gridColor: string, reducedMotion = false): ChartOptions<'line'> {
+  return {
+    maintainAspectRatio: false,
+    animation: reducedMotion ? false : undefined,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => rupees(Number(ctx.parsed.y)) } } },
+    scales: {
+      x: { ticks: { color: tickColor, maxTicksLimit: 12 }, grid: { display: false } },
+      y: { ticks: { color: tickColor, callback: (v) => rupees(Number(v)) }, grid: { color: gridColor } },
+    },
+  }
+}
+
+/**
+ * SIP page's "Projection" stacked bar (mockup's `#sipbars`): SIP corpus and EMI-redirected corpus
+ * per year, stacked so their sum reads as the year's total projected corpus.
+ */
+export function sipProjectionData(years: SipYear[], sipColor: string, emiColor: string) {
+  return {
+    labels: years.map((y) => String(y.year)),
+    datasets: [
+      { label: 'SIP', data: years.map((y) => y.sipCorpusPaise), backgroundColor: sipColor },
+      { label: 'EMI redirected', data: years.map((y) => y.emiCorpusPaise), backgroundColor: emiColor },
+    ],
+  }
+}
+
+/** Options for `sipProjectionData`'s stacked bar; both axes stacked, y-axis/tooltip in ₹. */
+export function buildSipProjectionOptions(tickColor: string, gridColor: string, reducedMotion = false): ChartOptions<'bar'> {
+  return {
+    maintainAspectRatio: false,
+    animation: reducedMotion ? false : undefined,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${rupees(Number(ctx.parsed.y))}` } } },
+    scales: {
+      x: { stacked: true, ticks: { color: tickColor }, grid: { display: false } },
+      y: { stacked: true, ticks: { color: tickColor, callback: (v) => rupees(Number(v)) }, grid: { color: gridColor } },
     },
   }
 }

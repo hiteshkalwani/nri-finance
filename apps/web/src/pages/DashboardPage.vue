@@ -271,7 +271,7 @@ function useSalary() {
     <!-- Phones (spec §4.4): the net worth / emergency fund cards sit right after the KPIs, ahead
          of everything else — the wide layout's own copies (below, in `.side-col`) are hidden here. -->
     <div v-if="xs" class="mobile-nw-ef">
-      <NetWorthEmergencyFundCards :nw="nw" />
+      <NetWorthEmergencyFundCards :nw="nw" :loan="d.loan" :sip="d.sip" />
     </div>
 
     <v-card>
@@ -344,7 +344,7 @@ function useSalary() {
       <div class="side-col">
         <!-- Wide layout (spec §4.4): these cards sit above Summary; on phones they instead render
              right after the KPIs, above (see `.mobile-nw-ef`). -->
-        <NetWorthEmergencyFundCards v-if="!xs" :nw="nw" />
+        <NetWorthEmergencyFundCards v-if="!xs" :nw="nw" :loan="d.loan" :sip="d.sip" />
         <v-card class="summary">
           <div class="tx-hd"><h2>Summary</h2></div>
           <div class="kv"><span>Expenses this cycle</span><b class="num">{{ d.expenseCount }}</b></div>
