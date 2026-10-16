@@ -109,3 +109,24 @@ describe('PUT /api/cycles/:cycle/income + dashboard override', () => {
     expect((await putIncome(a, '2026-13', 1000)).status).toBe(400)
   })
 })
+
+describe('DASH-7/8: loan and sip', () => {
+  it('is null with no open loan or SIP plan, then shows both once set up', async () => {
+    const before = await (await call(b, 'GET', '/api/dashboard?cycle=2026-10')).json()
+    expect(before).toMatchObject({ loan: null, sip: null })
+
+    // 2099 start keeps this deterministic: "today" is always before the loan starts, so outstanding = principal.
+    await call(b, 'POST', '/api/loans', {
+      name: 'Future loan', principalPaise: 100_000_000, annualRatePct: '12.000', emiPaise: 2_224_445, tenureMonths: 60, startCycle: '2099-01',
+    })
+    await call(b, 'PUT', '/api/sip', {
+      startingMonthlyPaise: 5_000_000, stepUpPct: '10.00', expectedReturnPct: '12.00', startYear: 2026, endYear: 2036,
+      redirectEmiAfterPayoff: true, allocations: [{ fundName: 'Index fund', pct: '100.00' }],
+    })
+
+    const after = await (await call(b, 'GET', '/api/dashboard?cycle=2026-10')).json()
+    expect(after.loan).toEqual({ name: 'Future loan', outstandingPaise: 100_000_000, payoffCycle: '2103-12' })
+    expect(after.sip.plannedPaise).toBeGreaterThan(0)
+    expect(after.sip.projectedCorpusPaise).toBeGreaterThan(0)
+  })
+})

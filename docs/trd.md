@@ -171,7 +171,7 @@ No policies for `anon`, so Supabase's auto-generated REST API exposes nothing to
 | `GET /api/remittances/rates?limit` | Rate history for the rate chart (last N transfers + planning rate) | REM-5 | M2b |
 | `PUT /api/cycles/:cycle/income` | Income override for a cycle, or clear it with `null` | DASH-4 | M2b |
 | `GET /api/balances/:cycle` · `PUT /api/balances/:cycle` | Snapshots for a cycle, bulk upsert | BAL-1,2 | M2 |
-| `GET /api/loans` | List loans (read-only, for the remittance loan picker) | LOAN-1 | M2b |
+| `GET /api/loans` | List loans (for the remittance loan picker) | LOAN-1 | M2b |
 | `POST /api/loans` · `PATCH /:id` | Create / edit loans | LOAN-1 | M3 |
 | `GET /api/loans/:id/schedule` | Planned vs actual schedule, payoff, interest | LOAN-2..4 | M3 |
 | `PUT /api/loans/:id/planned-prepayments` | Replace planned extras | LOAN-3 | M3 |
@@ -197,8 +197,8 @@ Pure functions, no I/O, 100% branch coverage target. Ported from v1 `js/calc.js`
 | `summarizeCycle(records, cycle, profile)` | Income, spent, kept, savings rate, sent by purpose. Remittance fees are reported separately, not as spending (PRD open question 1). |
 | `emergencyFund(snapshots, spendHistory)` | Balance, months covered (3-cycle average spend). |
 | `amortize(loan, actuals, planned)` | Monthly rows; closing clamped at 0; stops at payoff; actual payments override plan for past months. |
-| `payoff(schedule)` | Payoff month index, cycle and total interest. |
-| `sipProjection(plan, payoffYear, emiInr)` | Yearly rows; redirect starts in the real payoff year. |
+| `loanTotals(rows)` / `loanOutcome(loan, actuals, planned)` | Payoff cycle, months and total interest; outcome also reports the plan vs actual-to-date schedule and interest saved. |
+| `sipMonthlyFor(plan, year)` / `sipProjection(plan, redirect)` | Planned monthly SIP for a year; yearly rows with an optional EMI redirect starting the cycle after the real payoff. |
 | `budgetFor(budgets, categoryId, cycle)` | Latest row with `effective_from_cycle <= cycle`. |
 
 ## 7. Web app

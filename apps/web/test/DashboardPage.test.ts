@@ -37,6 +37,8 @@ const dashboardBody = {
   byCategory: [{ categoryId: CATEGORY_ID, name: 'Food', color: '#4caf50', spentJpy: 10000 }],
   byCycle: [{ cycle: '2026-10', spentJpy: 10000 }],
   sentByPurpose: [] as { purpose: string; jpySent: number; inrPaise: number; count: number }[],
+  loan: null as { name: string; outstandingPaise: number; payoffCycle: string | null } | null,
+  sip: null as { paidPaise: number; plannedPaise: number; projectedCorpusPaise: number } | null,
 }
 
 const NETWORTH = {
