@@ -5,7 +5,9 @@ import { cycleBounds, cycleOf, lastCycles, paiseFromDecimal, spendByCategory, sp
 import { categories, cycleIncomes, remittances, transactions } from '@nri/db'
 import { ApiError } from '../errors'
 import type { AppVars } from '../middleware/db'
+import { dashboardLoanSummary } from '../services/loans'
 import { requireProfile } from '../services/profile'
+import { dashboardSipSummary } from '../services/sip'
 
 export const dashboardRoutes = new Hono<{ Variables: AppVars }>().get('/', async (c) => {
   const { db, userId } = c.var
@@ -38,13 +40,21 @@ export const dashboardRoutes = new Hono<{ Variables: AppVars }>().get('/', async
   const [incomeRow] = await db.select({ incomeJpy: cycleIncomes.incomeJpy }).from(cycleIncomes)
     .where(and(eq(cycleIncomes.userId, userId), eq(cycleIncomes.cycle, cycle)))
   const incomeJpy = incomeRow?.incomeJpy ?? profile.salaryJpy
+  const summary = summarizeCycle({ transactions: spend, remittances: sent, incomeJpy, cycle, startDay })
+
+  const sipPaidPaise = summary.sentByPurpose.find((p) => p.purpose === 'sip')?.inrPaise ?? 0
+  const [loan, sip] = await Promise.all([
+    dashboardLoanSummary(db, userId, startDay, profile.timezone),
+    dashboardSipSummary(db, userId, startDay, profile.timezone, sipPaidPaise),
+  ])
 
   return c.json(Dashboard.parse({
     cycle, start, end,
     salaryJpy: profile.salaryJpy,
     incomeOverridden: incomeRow !== undefined,
-    ...summarizeCycle({ transactions: spend, remittances: sent, incomeJpy, cycle, startDay }),
+    ...summary,
     byCategory: spendByCategory(spend, cycle, startDay).map((s) => ({ ...s, name: cats.get(s.categoryId)!.name, color: cats.get(s.categoryId)!.color })),
     byCycle: spendByCycle(spend, cycles, startDay),
+    loan, sip,
   }))
 })

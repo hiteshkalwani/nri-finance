@@ -102,9 +102,6 @@ export const RemittanceRatesQuery = z.object({
 })
 export type RemittanceRatesQuery = z.infer<typeof RemittanceRatesQuery>
 
-export const Loan = z.object({ id: z.uuid(), name: z.string(), closedAt: z.string().nullable() })
-export type Loan = z.infer<typeof Loan>
-
 export const CycleIncomeInput = z.strictObject({ incomeJpy: z.number().int().min(0).max(PG_INT_MAX).nullable() })
 export type CycleIncomeInput = z.infer<typeof CycleIncomeInput>
 

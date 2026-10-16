@@ -19,6 +19,7 @@ const d = {
   byCategory: [{ categoryId: 'a', name: 'Food', color: '#4caf50', spentJpy: 2000 }, { categoryId: 'b', name: 'Rent', color: '#2196f3', spentJpy: 500 }],
   byCycle: [{ cycle: '2026-09', spentJpy: 1000 }, { cycle: '2026-10', spentJpy: 2500 }],
   sentByPurpose: [],
+  loan: null, sip: null,
 }
 
 const rows = [

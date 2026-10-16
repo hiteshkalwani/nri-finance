@@ -14,6 +14,7 @@ import { loanRoutes } from './routes/loans'
 import { meRoutes } from './routes/me'
 import { networthRoutes } from './routes/networth'
 import { remittanceRoutes } from './routes/remittances'
+import { sipRoutes } from './routes/sip'
 import { transactionRoutes } from './routes/transactions'
 
 export type AppDeps = { config: Config; getDb: () => Db }
@@ -49,6 +50,7 @@ export function createApp(deps: AppDeps) {
   app.route('/api/networth', networthRoutes)
   app.route('/api/remittances', remittanceRoutes)
   app.route('/api/loans', loanRoutes)
+  app.route('/api/sip', sipRoutes)
   app.route('/api/cycles', cycleRoutes)
 
   return app
