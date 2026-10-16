@@ -19,7 +19,7 @@ export function rateFromNumber(n: number): string {
 }
 
 /** Half-up division for non-negative BigInts. */
-function divRound(num: bigint, den: bigint): bigint {
+export function divRound(num: bigint, den: bigint): bigint {
   return (num * 2n + den) / (den * 2n)
 }
 

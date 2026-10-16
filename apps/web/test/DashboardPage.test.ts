@@ -37,6 +37,8 @@ const dashboardBody = {
   byCategory: [{ categoryId: CATEGORY_ID, name: 'Food', color: '#4caf50', spentJpy: 10000 }],
   byCycle: [{ cycle: '2026-10', spentJpy: 10000 }],
   sentByPurpose: [] as { purpose: string; jpySent: number; inrPaise: number; count: number }[],
+  loan: null as { name: string; outstandingPaise: number; payoffCycle: string | null } | null,
+  sip: null as { paidPaise: number; plannedPaise: number; projectedCorpusPaise: number } | null,
 }
 
 const NETWORTH = {
@@ -221,6 +223,38 @@ describe('DashboardPage M2b remittances additions', () => {
     const putCall = calls.find((c) => c.url === '/api/cycles/2026-10/income' && c.init?.method === 'PUT')
     expect(putCall).toBeTruthy()
     expect(JSON.parse(String(putCall!.init!.body))).toEqual({ incomeJpy: 600000 })
+
+    wrapper.unmount()
+  })
+})
+
+describe('DashboardPage home loan and SIP cards (M3 task 3, DASH-7/8)', () => {
+  it('shows both cards with their figures when loan and sip are set', async () => {
+    const { wrapper } = await mountDashboard([], 0, NETWORTH, {
+      loan: { name: 'SBI home loan', outstandingPaise: 318929723, payoffCycle: '2034-03' },
+      sip: { paidPaise: 1180000, plannedPaise: 1200000, projectedCorpusPaise: 600000000 },
+    })
+
+    const loanCard = wrapper.get('[data-testid="loan-card"]')
+    expect(loanCard.text()).toContain('₹31,89,297.23')
+    expect(loanCard.text()).toContain('SBI home loan')
+    expect(loanCard.text()).toContain('Mar 2034')
+    expect(loanCard.find('a').attributes('href')).toBe('/loans')
+
+    const sipCard = wrapper.get('[data-testid="sip-card"]')
+    expect(sipCard.text()).toContain('₹11,800.00')
+    expect(sipCard.text()).toContain('₹12,000.00')
+    expect(sipCard.text()).toContain('₹60,00,000.00')
+    expect(sipCard.find('a').attributes('href')).toBe('/sip')
+
+    wrapper.unmount()
+  })
+
+  it('hides both cards when there is no loan and no SIP plan', async () => {
+    const { wrapper } = await mountDashboard([], 0, NETWORTH, { loan: null, sip: null })
+
+    expect(wrapper.find('[data-testid="loan-card"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="sip-card"]').exists()).toBe(false)
 
     wrapper.unmount()
   })

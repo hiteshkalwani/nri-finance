@@ -15,6 +15,9 @@ export const router = createRouter({
     { path: '/remit/new', component: () => import('./pages/RemitFormPage.vue') },
     { path: '/remit', component: () => import('./pages/RemitPage.vue') },
     { path: '/remit/:id', component: () => import('./pages/RemitFormPage.vue') },
+    { path: '/loans', component: () => import('./pages/LoanPage.vue') },
+    { path: '/loans/:id', component: () => import('./pages/LoanPage.vue') },
+    { path: '/sip', component: () => import('./pages/SipPage.vue') },
     { path: '/:pathMatch(.*)*', component: () => import('./pages/NotFoundPage.vue'), meta: { public: true } },
   ],
 })
