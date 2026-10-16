@@ -1,6 +1,8 @@
 import { z } from 'zod'
+import { BudgetRow } from './budgets'
 import { CycleString } from './common'
 import { RemittancePurposeTotal } from './remittances'
+import { TargetRow } from './targets'
 
 export const Dashboard = z.object({
   cycle: z.string(),
@@ -25,5 +27,9 @@ export const Dashboard = z.object({
   // DASH-7/8: first open loan by name, and the SIP plan's standing this cycle; null when none is set up.
   loan: z.object({ name: z.string(), outstandingPaise: z.number().int(), payoffCycle: CycleString.nullable() }).nullable(),
   sip: z.object({ paidPaise: z.number().int(), plannedPaise: z.number().int(), projectedCorpusPaise: z.number().int() }).nullable(),
+  // DASH-9: near/over categories, over first; rows capped at 5 for the card, counts are of the full list.
+  budgets: z.object({ overCount: z.number().int(), nearCount: z.number().int(), rows: z.array(BudgetRow) }),
+  // TGT-2: one row per target that was set for this cycle.
+  targets: z.array(TargetRow),
 })
 export type Dashboard = z.infer<typeof Dashboard>

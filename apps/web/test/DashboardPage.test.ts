@@ -39,6 +39,8 @@ const dashboardBody = {
   sentByPurpose: [] as { purpose: string; jpySent: number; inrPaise: number; count: number }[],
   loan: null as { name: string; outstandingPaise: number; payoffCycle: string | null } | null,
   sip: null as { paidPaise: number; plannedPaise: number; projectedCorpusPaise: number } | null,
+  budgets: { overCount: 0, nearCount: 0, rows: [] as unknown[] },
+  targets: [] as unknown[],
 }
 
 const NETWORTH = {

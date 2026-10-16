@@ -1,13 +1,18 @@
 import { Hono } from 'hono'
 import { and, between, eq } from 'drizzle-orm'
 import { CycleString, Dashboard } from '@nri/contracts'
-import { cycleBounds, cycleOf, lastCycles, paiseFromDecimal, spendByCategory, spendByCycle, summarizeCycle, todayIn } from '@nri/core'
+import {
+  cycleBounds, cycleOf, lastCycles, paiseFromDecimal, spendByCategory, spendByCycle, summarizeCycle, targetVsActual, todayIn,
+} from '@nri/core'
 import { categories, cycleIncomes, remittances, transactions } from '@nri/db'
 import { ApiError } from '../errors'
 import type { AppVars } from '../middleware/db'
+import { budgetAlerts } from '../services/budgets'
 import { dashboardLoanSummary } from '../services/loans'
-import { requireProfile } from '../services/profile'
+import { rateOut, requireProfile } from '../services/profile'
+import { emergencyFundChange } from '../services/review'
 import { dashboardSipSummary } from '../services/sip'
+import { getTargets } from '../services/targets'
 
 export const dashboardRoutes = new Hono<{ Variables: AppVars }>().get('/', async (c) => {
   const { db, userId } = c.var
@@ -43,10 +48,22 @@ export const dashboardRoutes = new Hono<{ Variables: AppVars }>().get('/', async
   const summary = summarizeCycle({ transactions: spend, remittances: sent, incomeJpy, cycle, startDay })
 
   const sipPaidPaise = summary.sentByPurpose.find((p) => p.purpose === 'sip')?.inrPaise ?? 0
-  const [loan, sip] = await Promise.all([
+  const prepaymentPaise = sent.filter((r) => r.purpose === 'loan_prepayment').reduce((a, r) => a + r.inrPaise, 0)
+  const [loan, sip, alerts, efChangeJpy, targetsRow] = await Promise.all([
     dashboardLoanSummary(db, userId, startDay, profile.timezone),
     dashboardSipSummary(db, userId, startDay, profile.timezone, sipPaidPaise),
+    budgetAlerts(db, userId, cycle, startDay),
+    emergencyFundChange(db, userId, cycle, startDay, profile.timezone, rateOut(profile.planningRateJpyPerInr)),
+    getTargets(db, userId, cycle),
   ])
+  const budgets = {
+    overCount: alerts.filter((a) => a.state === 'over').length,
+    nearCount: alerts.filter((a) => a.state === 'near').length,
+    rows: alerts.slice(0, 5),
+  }
+  const targets = targetVsActual(targetsRow, {
+    keptJpy: summary.keptJpy, emergencyFundChangeJpy: efChangeJpy, sentJpy: summary.sentJpy, prepaymentPaise,
+  })
 
   return c.json(Dashboard.parse({
     cycle, start, end,
@@ -55,6 +72,6 @@ export const dashboardRoutes = new Hono<{ Variables: AppVars }>().get('/', async
     ...summary,
     byCategory: spendByCategory(spend, cycle, startDay).map((s) => ({ ...s, name: cats.get(s.categoryId)!.name, color: cats.get(s.categoryId)!.color })),
     byCycle: spendByCycle(spend, cycles, startDay),
-    loan, sip,
+    loan, sip, budgets, targets,
   }))
 })
