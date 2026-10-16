@@ -53,7 +53,12 @@ const SCREENS = [
   { path: '/accounts/balances', slug: 'balances', ready: (page) => page.getByTestId('cycle-label').waitFor() },
   { path: '/remit', slug: 'remit', ready: (page) => page.getByText('Sent this cycle').waitFor() },
   { path: '/remit/new', slug: 'remit-new', ready: (page) => page.locator('#jpySent').waitFor() },
+  { path: '/sip', slug: 'sip', ready: (page) => page.getByText('Paid this cycle').waitFor() },
 ]
+// '/loans' bare redirects client-side to '/loans/<id>' (the first open loan) — that redirect
+// would never satisfy shoot()'s own waitForURL(routePath) below, so this screen's own path is
+// filled in once seedLoanAndSip() below knows the seeded loan's real id.
+const LOAN_SCREEN = { slug: 'loans', ready: (page) => page.getByText('Outstanding').waitFor() }
 const VIEWPORTS = [{ width: 1280, height: 900 }, { width: 390, height: 844 }]
 const SCHEMES = ['light', 'dark']
 
@@ -97,7 +102,7 @@ function todayIsoTokyo() {
 async function apiCall(token, path, init = {}) {
   const res = await fetch(baseURL + path, { ...init, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...(init.headers ?? {}) } })
   if (!res.ok) throw new Error(`${init.method ?? 'GET'} ${path} failed: ${res.status} ${await res.text()}`)
-  return res.json()
+  return res.status === 204 ? null : res.json() // PUT .../planned-prepayments (loans.ts) replies 204 with no body
 }
 
 // The v1 import (seed()) only creates the 3 "starter" accounts (Japan bank, Japan emergency fund,
@@ -147,6 +152,55 @@ async function seedRemittance(user) {
       purpose: 'family', loanId: null, notes: '',
     }),
   })
+}
+
+// M3 task 3: a loan (with one actual EMI + prepayment, via a Loan EMI / Loan prepayment
+// remittance, plus one planned prepayment) and a SIP plan, so /loans and /sip both have real
+// KPIs, a schedule with an "actual" row, and a projection to show instead of their empty states.
+async function seedLoanAndSip(user) {
+  const { items } = await apiCall(user.accessToken, '/api/accounts?include=archived')
+  const byName = new Map(items.map((a) => [a.name, a]))
+  const thisCycle = cycleOfTokyo(todayIsoTokyo(), 25)
+  const [startY, startM] = thisCycle.split('-').map(Number)
+  const startCycle = startM <= 6 ? `${startY - 3}-${String(startM + 6).padStart(2, '0')}` : `${startY - 2}-${String(startM - 6).padStart(2, '0')}`
+
+  const loan = await apiCall(user.accessToken, '/api/loans', {
+    method: 'POST',
+    body: JSON.stringify({ name: 'SBI home loan', principalPaise: 320000000, annualRatePct: '8.5', emiPaise: 2800000, tenureMonths: 180, startCycle }),
+  })
+  await apiCall(user.accessToken, '/api/remittances', {
+    method: 'POST',
+    body: JSON.stringify({
+      sentOn: todayIsoTokyo(), jpySent: 48000, inrPaise: 2800000, feeJpy: 300, service: 'wise',
+      fromAccountId: byName.get('Japan bank').id, toAccountId: byName.get('India bank').id,
+      purpose: 'loan_emi', loanId: loan.id, notes: '',
+    }),
+  })
+  await apiCall(user.accessToken, `/api/loans/${loan.id}/planned-prepayments`, {
+    method: 'PUT',
+    body: JSON.stringify({ items: [{ monthIndex: 24, amountPaise: 20000000 }] }),
+  })
+
+  await apiCall(user.accessToken, '/api/sip', {
+    method: 'PUT',
+    body: JSON.stringify({
+      startingMonthlyPaise: 1200000, stepUpPct: '10', expectedReturnPct: '12', startYear: startY, endYear: startY + 10,
+      redirectEmiAfterPayoff: true,
+      allocations: [
+        { fundName: 'Nifty 50 index fund', pct: '40' }, { fundName: 'Flexi cap fund', pct: '30' },
+        { fundName: 'Mid cap fund', pct: '20' }, { fundName: 'Short-term debt fund', pct: '10' },
+      ],
+    }),
+  })
+  await apiCall(user.accessToken, '/api/remittances', {
+    method: 'POST',
+    body: JSON.stringify({
+      sentOn: todayIsoTokyo(), jpySent: 20000, inrPaise: 1180000, feeJpy: 0, service: 'wise',
+      fromAccountId: byName.get('Japan bank').id, toAccountId: byName.get('India bank').id,
+      purpose: 'sip', loanId: null, notes: '',
+    }),
+  })
+  return loan.id
 }
 
 // Move the mouse away and drop focus before capturing an at-rest page, and wait past any ripple's
@@ -225,6 +279,8 @@ try {
   await seed(browser, user)
   await seedAccountsAndBalances(user)
   await seedRemittance(user)
+  const loanId = await seedLoanAndSip(user)
+  SCREENS.push({ ...LOAN_SCREEN, path: `/loans/${loanId}` })
   for (const screen of SCREENS) {
     for (const viewport of VIEWPORTS) {
       for (const colorScheme of SCHEMES) {
