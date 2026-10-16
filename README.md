@@ -62,6 +62,14 @@ When you are done: `pnpm stack:down` (keeps your data) or `pnpm stack:reset` (wi
 - **SIP** (`/sip`) — this cycle's SIP paid vs plan, the yearly step-up, a projection to the plan's end year (including
   any EMI redirected into the SIP after loan payoff), actual vs plan for the last 12 cycles, and the fund allocation.
   Edit the plan from here; saving is gated on the allocation adding up to 100%.
+- **Budgets** (`/budgets`) — a monthly budget per category (carried forward until changed) against this cycle's
+  spend, with a near/over state and progress bar; a "remaining" hint also shows while quick-adding an expense in a
+  budgeted category. The same screen sets this cycle's targets (savings, emergency fund, remittance, loan
+  prepayment), with "Copy last cycle" to reuse the previous ones.
+- **Review** (`/review`, `/review/:cycle`) — the guided 25th-of-the-month review: a summary step (income, spent,
+  sent, kept, target vs actual, and highlights for anything over budget, missed or met), a balances step linking to
+  **Update balances**, and a next-cycle-targets step (with its own "Copy this cycle") that shows a done state once
+  saved.
 - **Accounts** (`/accounts`) — every bank, cash, fixed-deposit, investment and card account, grouped by type, with
   net worth (Japan + India, combined at the planning rate) and its trend over 6/12/all cycles; add, edit or archive
   an account from here. The emergency fund card shows its balance against your goal and months of spending covered

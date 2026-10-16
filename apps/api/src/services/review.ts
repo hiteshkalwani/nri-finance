@@ -47,8 +47,7 @@ export async function getReview(
 
   const targets = targetVsActual(targetsRow, { keptJpy: summary.keptJpy, emergencyFundChangeJpy: efChangeJpy, sentJpy: summary.sentJpy, prepaymentPaise })
   const highlights = reviewHighlights(
-    // shortcut: a zero-budget category that's over shows as 0% (core needs a number, not null); fine until that combination matters.
-    alerts.filter((r) => r.state === 'over').map((r) => ({ categoryName: r.name, overByJpy: -r.remainingJpy, pct: r.pct ?? 0 })),
+    alerts.filter((r) => r.state === 'over').map((r) => ({ categoryName: r.name, overByJpy: -r.remainingJpy, pct: r.pct })),
     targets,
   )
 

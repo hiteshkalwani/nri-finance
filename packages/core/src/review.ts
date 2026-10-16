@@ -37,10 +37,10 @@ const yen = (n: number) => `￥${Math.round(Math.abs(n)).toLocaleString('en-US')
  * REV-1: short list of what's worth a look — over-budget categories, then targets missed, then targets met;
  * bad -> warn -> good, capped at 5.
  */
-export function reviewHighlights(overBudget: { categoryName: string; overByJpy: number; pct: number }[], targets: TargetRow[]): Highlight[] {
+export function reviewHighlights(overBudget: { categoryName: string; overByJpy: number; pct: number | null }[], targets: TargetRow[]): Highlight[] {
   const bad: Highlight[] = overBudget.map((c) => ({
     tone: 'bad',
-    text: `${c.categoryName} went over budget by ${yen(c.overByJpy)} (${Math.round(c.pct)}%).`,
+    text: `${c.categoryName} went over budget by ${yen(c.overByJpy)}${c.pct === null ? '' : ` (${Math.round(c.pct)}%)`}.`,
   }))
   const warn: Highlight[] = []
   const good: Highlight[] = []

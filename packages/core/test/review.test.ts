@@ -38,6 +38,10 @@ describe('reviewHighlights', () => {
     const targets = targetVsActual({ savingsJpy: null, emergencyFundJpy: null, remittanceJpy: 50_000, prepaymentPaise: null }, { keptJpy: 0, emergencyFundChangeJpy: 0, sentJpy: 50_000, prepaymentPaise: 0 })
     expect(reviewHighlights([], targets)).toEqual([{ tone: 'good', text: 'Remittance on target.' }])
   })
+  it('drops the percent when a zero-budget category has no pct', () => {
+    const overBudget = [{ categoryName: 'Dining out', overByJpy: 3_900, pct: null }]
+    expect(reviewHighlights(overBudget, [])).toEqual([{ tone: 'bad', text: 'Dining out went over budget by ￥3,900.' }])
+  })
   it('caps the combined list at 5 entries', () => {
     const overBudget = Array.from({ length: 7 }, (_, i) => ({ categoryName: `Cat ${i}`, overByJpy: 100, pct: 110 }))
     expect(reviewHighlights(overBudget, [])).toHaveLength(5)
