@@ -18,6 +18,9 @@ export const router = createRouter({
     { path: '/loans', component: () => import('./pages/LoanPage.vue') },
     { path: '/loans/:id', component: () => import('./pages/LoanPage.vue') },
     { path: '/sip', component: () => import('./pages/SipPage.vue') },
+    { path: '/budgets', component: () => import('./pages/BudgetsPage.vue') },
+    { path: '/review', component: () => import('./pages/ReviewPage.vue') },
+    { path: '/review/:cycle', component: () => import('./pages/ReviewPage.vue') },
     { path: '/:pathMatch(.*)*', component: () => import('./pages/NotFoundPage.vue'), meta: { public: true } },
   ],
 })

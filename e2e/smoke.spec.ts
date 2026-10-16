@@ -19,7 +19,7 @@ test('sign in, import v1 data, see the profile', async ({ page }) => {
   await expect(page).toHaveURL(/\/login\?next=(%2F|\/)settings/)
   await signIn(page, page.url())
   await expect(page).toHaveURL(/\/settings$/) // returned to where the guard stopped us (AUTH-2)
-  await page.locator('#import-file').setInputFiles('legacy/seed-data.json')
+  await page.locator('#import-file').setInputFiles('fixtures/v1-sample.json')
   await expect(page.getByText(/Imported \d+ transactions/)).toBeVisible()
   // The Categories card must refetch after import, not just show whatever it had cached (I3).
   await expect(page.getByText('Groceries')).toBeVisible()
@@ -113,6 +113,48 @@ test('record a loan EMI and see the actual row, payoff/interest-saved KPIs, and 
   await page.getByRole('link', { name: 'Dashboard' }).click()
   await expect(page.getByTestId('loan-card')).toContainText('Home loan') // DASH-7
   await expect(page.getByTestId('sip-card')).toContainText('of') // DASH-8
+})
+
+test('set a budget and cycle targets, see them over on the Dashboard, and review the cycle (BUD-1, BUD-2, TGT-1, TGT-2, REV-1, DASH-9)', async ({ page }) => {
+  await signIn(page, '/review')
+  expect(page.viewportSize()?.width).toBe(412)
+  await expect(page).toHaveURL(/\/review\/\d{4}-\d{2}$/) // bare /review redirects to the closed cycle under review
+  const cycle = page.url().match(/\/review\/(\d{4}-\d{2})/)![1]!
+
+  // A fresh expense dated the 5th of that same cycle (always < the 25th cycle-start cutoff, so
+  // cycleOf keeps it in `cycle` regardless of what today actually is) gives the budget below real
+  // spending to be over, however long after this was written the suite actually runs.
+  await page.getByRole('link', { name: 'Add expense' }).click()
+  await page.locator('#amount').fill('5000')
+  await page.locator('.v-chip-group[aria-label="Category"] .v-chip', { hasText: 'Eating Out' }).click()
+  await page.locator('#date').fill(`${cycle}-05`)
+  await page.locator('#description').fill('e2e over-budget')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByTestId('saved')).toBeVisible()
+
+  await page.goto(`/budgets?cycle=${cycle}`)
+  await page.getByLabel('Budget for Eating Out').fill('3000')
+  await page.getByLabel("Savings (kept) (¥)").fill('50000')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled() // saved: no longer dirty (BUD-1)
+  await expect(page.locator('.brow', { hasText: 'Eating Out' })).toContainText(/Over by/) // BUD-2
+
+  await page.goto(`/?cycle=${cycle}`)
+  const budgetsCard = page.getByTestId('budgets-card')
+  await expect(budgetsCard).toContainText('Eating Out') // DASH-9
+  await expect(budgetsCard).toContainText(/Over by/)
+  // Read back the exact over-by amount the API computed (not hardcoded: whatever other spending
+  // already exists in `cycle`, e.g. from the imported fixture, adds to our own ¥5,000).
+  // Properly grouped digits only (no separator before the adjoining pct text, e.g. "￥6,000300%").
+  const overByAmt = (await budgetsCard.locator('.kv', { hasText: 'Eating Out' }).innerText()).match(/Over by (￥\d{1,3}(?:,\d{3})*)/)![1]!
+  await expect(page.getByTestId('targets-card')).toContainText('Savings (kept)') // TGT-2
+
+  await page.goto(`/review/${cycle}`)
+  await expect(page.getByText(`Eating Out went over budget by ${overByAmt}`)).toBeVisible() // REV-1 step 1 highlight
+  await page.getByRole('tab', { name: /Next cycle's targets/ }).click()
+  await page.getByLabel("Savings (kept) (¥)").fill('60000')
+  await page.getByRole('button', { name: 'Save targets' }).click()
+  await expect(page.getByText('Review done')).toBeVisible() // next cycle's targets saved (TGT-1)
 })
 
 test.describe('on a laptop', () => {
@@ -228,6 +270,18 @@ test.describe('on a laptop', () => {
     await page.getByRole('link', { name: 'Dashboard' }).click()
     await expect(page.getByTestId('loan-card')).toContainText('Home loan')
     await expect(page.getByTestId('sip-card')).toContainText('of')
+  })
+
+  test('see the over-budget category and savings target at full width (BUD-1, TGT-2, DASH-9)', async ({ page }) => {
+    await signIn(page, '/review')
+    expect(page.viewportSize()?.width).toBe(1280) // still the Desktop Chrome viewport
+    await expect(page).toHaveURL(/\/review\/\d{4}-\d{2}$/)
+    const cycle = page.url().match(/\/review\/(\d{4}-\d{2})/)![1]!
+    await page.goto(`/budgets?cycle=${cycle}`)
+    await expect(page.locator('.brow', { hasText: 'Eating Out' })).toContainText(/Over by/)
+    await page.goto(`/?cycle=${cycle}`)
+    await expect(page.getByTestId('budgets-card')).toContainText('Eating Out')
+    await expect(page.getByTestId('targets-card')).toContainText('Savings (kept)')
   })
 })
 

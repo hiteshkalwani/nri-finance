@@ -41,22 +41,24 @@ import { createVuetify } from 'vuetify'
 import QuickAddPage from '../src/pages/QuickAddPage.vue'
 
 const vuetify = createVuetify()
+const CATEGORY_ID = '11111111-1111-4111-8111-111111111111'
 
 function jsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })
 }
 
-async function mountQuickAdd() {
+async function mountQuickAdd(budgets: unknown = { cycle: '2026-10', rows: [] }) {
   const fetchMock = vi.fn(async (input: unknown) => {
     const url = String(input)
     if (url === '/api/me') return jsonResponse({ profile: { salaryJpy: 500000, planningRateJpyPerInr: '1.7', cycleStartDay: 25, timezone: 'Asia/Tokyo', emergencyFundGoalJpy: null } })
     if (url === '/api/categories') {
       return jsonResponse({
         items: [
-          { id: 'c1', name: 'Groceries', color: '#4caf50', icon: null, sortOrder: 0, archived: false, inUse: true, lastPaymentMethod: null, lastNeedWant: null },
+          { id: CATEGORY_ID, name: 'Groceries', color: '#4caf50', icon: null, sortOrder: 0, archived: false, inUse: true, lastPaymentMethod: null, lastNeedWant: null },
         ],
       })
     }
+    if (url.startsWith('/api/budgets')) return jsonResponse(budgets)
     throw new Error(`unexpected fetch(${url})`)
   })
   vi.stubGlobal('fetch', fetchMock)
@@ -131,5 +133,44 @@ describe('QuickAddPage autofocus', () => {
 
     wrapper.unmount()
     navLink.remove()
+  })
+})
+
+describe('QuickAddPage remaining-budget hint (BUD-2)', () => {
+  async function selectGroceries(wrapper: Awaited<ReturnType<typeof mountQuickAdd>>) {
+    const chip = wrapper.findAll('[role="radio"]').find((el) => el.text().includes('Groceries'))!
+    await chip.trigger('click')
+    await flushPromises()
+  }
+
+  it('shows "¥x left this cycle" once a budgeted category is picked', async () => {
+    const wrapper = await mountQuickAdd({
+      cycle: '2026-10',
+      rows: [{ categoryId: CATEGORY_ID, name: 'Groceries', color: '#4caf50', budgetJpy: 35000, effectiveFromCycle: '2026-09', spentJpy: 32400, remainingJpy: 2600, pct: 92.6, state: 'near' }],
+    })
+    await selectGroceries(wrapper)
+    expect(wrapper.text()).toContain('￥2,600 left this cycle')
+    wrapper.unmount()
+  })
+
+  it('shows "Over by ¥x" once an over-budget category is picked', async () => {
+    const wrapper = await mountQuickAdd({
+      cycle: '2026-10',
+      rows: [{ categoryId: CATEGORY_ID, name: 'Groceries', color: '#4caf50', budgetJpy: 30000, effectiveFromCycle: '2026-09', spentJpy: 32400, remainingJpy: -2400, pct: 108, state: 'over' }],
+    })
+    await selectGroceries(wrapper)
+    expect(wrapper.text()).toContain('Over by ￥2,400')
+    wrapper.unmount()
+  })
+
+  it('shows nothing when the category has no budget set', async () => {
+    const wrapper = await mountQuickAdd({
+      cycle: '2026-10',
+      rows: [{ categoryId: CATEGORY_ID, name: 'Groceries', color: '#4caf50', budgetJpy: null, effectiveFromCycle: null, spentJpy: 32400, remainingJpy: null, pct: null, state: null }],
+    })
+    await selectGroceries(wrapper)
+    expect(wrapper.text()).not.toContain('left this cycle')
+    expect(wrapper.text()).not.toContain('Over by')
+    wrapper.unmount()
   })
 })

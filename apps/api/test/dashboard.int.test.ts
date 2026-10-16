@@ -110,6 +110,30 @@ describe('PUT /api/cycles/:cycle/income + dashboard override', () => {
   })
 })
 
+describe('DASH-9/TGT-2: budgets and targets', () => {
+  it('summarises near/over budgets and target vs actual for the cycle', async () => {
+    // Cycle 2026-10 spend (from the beforeAll fixtures above): food ¥2,000, rent ¥500.
+    await call(a, 'PUT', '/api/budgets', { cycle: '2026-10', items: [{ categoryId: foodId, amountJpy: 1_000 }, { categoryId: rentId, amountJpy: 1_000 }] })
+    await call(a, 'PUT', '/api/targets/2026-10', { savingsJpy: 100_000, emergencyFundJpy: null, remittanceJpy: null, prepaymentPaise: null })
+
+    const d = await (await call(a, 'GET', '/api/dashboard?cycle=2026-10')).json()
+    expect(d.budgets.overCount).toBe(1)
+    expect(d.budgets.nearCount).toBe(0)
+    expect(d.budgets.rows).toEqual([
+      expect.objectContaining({ categoryId: foodId, budgetJpy: 1_000, spentJpy: 2_000, state: 'over' }),
+    ])
+    expect(d.targets).toEqual([
+      { key: 'savings', targetValue: 100_000, actualValue: d.keptJpy, diff: d.keptJpy - 100_000, met: d.keptJpy >= 100_000 },
+    ])
+  })
+
+  it('is empty with no budgets or targets set', async () => {
+    const d = await (await call(b, 'GET', '/api/dashboard?cycle=2026-10')).json()
+    expect(d.budgets).toEqual({ overCount: 0, nearCount: 0, rows: [] })
+    expect(d.targets).toEqual([])
+  })
+})
+
 describe('DASH-7/8: loan and sip', () => {
   it('is null with no open loan or SIP plan, then shows both once set up', async () => {
     const before = await (await call(b, 'GET', '/api/dashboard?cycle=2026-10')).json()

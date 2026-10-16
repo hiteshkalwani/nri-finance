@@ -5,7 +5,7 @@ Requirement IDs come from [prd.md](prd.md); milestones from PRD §7. Updated at 
 
 Legend: ✅ done · 🟡 partly done (see note) · 🔨 in progress · ⬜ pending
 
-Last updated: 2026-10-16 (M3 loan & SIP)
+Last updated: 2026-10-17 (M4 budgets & review)
 
 ## Progress by milestone
 
@@ -15,7 +15,7 @@ Last updated: 2026-10-16 (M3 loan & SIP)
 | M1 Spending | Ledger, categories, quick-add, basic dashboard | 🟡 built locally; cut-over (re-import, stop using v1) ⬜ | I stop using the v1 app for daily logging |
 | M2 Remittances & balances | Remittances, accounts, snapshots, emergency fund | ✅ M2 done (M2a accounts/balances/EF, M2b remittances) | First real cycle review done in v2 |
 | M3 Loan & SIP | Loan schedule with actuals, SIP plan / actuals / projection | ✅ code done | Payoff month reflects real payments |
-| M4 Budgets & review | Budgets, targets, review flow | ⬜ | A full 25th review takes under 5 minutes |
+| M4 Budgets & review | Budgets, targets, review flow | ✅ code done | A full 25th review takes under 5 minutes |
 | M5 Reports & polish | Reports, exports, PWA | ⬜ | v1 retired to `legacy/` |
 
 ---
@@ -28,7 +28,7 @@ Last updated: 2026-10-16 (M3 loan & SIP)
 |---|---|---|
 | pnpm monorepo (`apps/web`, `apps/api`, `packages/core`, `contracts`, `db`, `test-utils`) | ✅ | |
 | TypeScript, ESLint (`v-html` and `toISOString` banned), Prettier | ✅ | |
-| Unit tests (Vitest), integration tests (real Postgres + Auth), e2e (Playwright, phone viewport) | ✅ | 387 unit, 23 script, 136 integration, 10 e2e |
+| Unit tests (Vitest), integration tests (real Postgres + Auth), e2e (Playwright, phone viewport) | ✅ | 456 unit, 23 script, 159 integration, 12 e2e |
 | Private GitHub repo `hiteshkalwani/nri-finance` | ✅ | |
 | GitHub Actions CI: typecheck, lint, unit, scripts, production build, `pnpm stack:check` | ✅ | `stack:check` adds e2e; first run on GitHub with the local-stack PR |
 
@@ -132,7 +132,7 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 | DASH-6 | Emergency fund balance, goal, months covered | ✅ | M2 |
 | DASH-7 | Home loan balance and projected payoff month | ✅ | M3 — "Home loan" card (outstanding + payoff), hidden with no open loan |
 | DASH-8 | SIP paid vs plan; projected corpus 2036 | ✅ | M3 (P1) — "SIP" card (this cycle paid vs plan + projected corpus), hidden with no plan |
-| DASH-9 | Budget status: categories over or near budget | ⬜ | M4 (P1) |
+| DASH-9 | Budget status: categories over or near budget | ✅ | M4 (P1) — "Budgets" and "Targets" cards, hidden with nothing to show |
 
 ### 5. Remittances — M2
 
@@ -176,16 +176,16 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 
 | ID | Requirement | Status | Notes |
 |---|---|---|---|
-| BUD-1 | Monthly budget per category, carried forward | ⬜ | |
-| BUD-2 | Remaining budget in the ledger and quick-add | ⬜ | P1 |
-| TGT-1 | Per-cycle targets (savings, EF, remittance, prepayment); copy last cycle | ⬜ | v1 targets already imported |
-| TGT-2 | Target vs actual on dashboard and review | ⬜ | |
+| BUD-1 | Monthly budget per category, carried forward | ✅ | `/budgets`; effective from the cycle it's set, forward until changed |
+| BUD-2 | Remaining budget in the ledger and quick-add | ✅ | P1 — hint on quick-add's category step; state word on the ledger's budget rows |
+| TGT-1 | Per-cycle targets (savings, EF, remittance, prepayment); copy last cycle | ✅ | v1 targets already imported; "Copy last cycle" on `/budgets`, "Copy this cycle" on review step 3 |
+| TGT-2 | Target vs actual on dashboard and review | ✅ | Dashboard "Targets" card; review step 1's target rows and highlights |
 
 ### 10. Cycle review — M4
 
 | ID | Requirement | Status | Notes |
 |---|---|---|---|
-| REV-1 | Guided 25th review: summary → balances → next targets | ⬜ | P1 |
+| REV-1 | Guided 25th review: summary → balances → next targets | ✅ | P1 — `/review/:cycle`'s 3-step flow; step 3 saves next cycle's targets and shows a done state |
 
 ### 11. Reports, export, PWA — M5
 

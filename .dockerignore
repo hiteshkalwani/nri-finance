@@ -9,5 +9,3 @@
 playwright-report
 test-results
 .e2e-user.json
-legacy/finance-data.json
-legacy/finance-backup-*.json

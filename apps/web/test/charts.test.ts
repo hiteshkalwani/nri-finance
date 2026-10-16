@@ -20,6 +20,8 @@ const d = {
   byCycle: [{ cycle: '2026-09', spentJpy: 1000 }, { cycle: '2026-10', spentJpy: 2500 }],
   sentByPurpose: [],
   loan: null, sip: null,
+  budgets: { overCount: 0, nearCount: 0, rows: [] },
+  targets: [],
 }
 
 const rows = [

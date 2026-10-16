@@ -5,7 +5,7 @@ import { createTestUser, deleteTestUser, type TestUser } from '@nri/test-utils'
 import { accounts, createDb, cycleTargets, loanPlannedPrepayments, remittances, transactions, withUser } from '@nri/db'
 import { json, testApp } from './helpers'
 
-const seed = JSON.parse(readFileSync(new URL('../../../legacy/seed-data.json', import.meta.url), 'utf8'))
+const seed = JSON.parse(readFileSync(new URL('../../../fixtures/v1-sample.json', import.meta.url), 'utf8'))
 const familyRows = seed.transactions.filter((t: { categoryId: string }) => t.categoryId === 'family-india')
 const { app, close } = testApp()
 const { db, close: closeDb } = createDb(process.env.DATABASE_URL!)
@@ -21,7 +21,7 @@ describe('POST /api/import/v1', () => {
     const body = await res.json()
     expect(body.inserted.remittances).toBe(familyRows.length)
     expect(body.skippedRows).toEqual([])
-    expect(body.inserted.transactions).toBe(57 - familyRows.length)
+    expect(body.inserted.transactions).toBe(seed.transactions.length - familyRows.length)
     expect(body.inserted.accounts).toBe(3)
     expect(body.inserted.loans).toBe(1)
     expect(body.inserted.sipPlans).toBe(1)
@@ -59,17 +59,17 @@ describe('POST /api/import/v1', () => {
       acc: await tx.select().from(accounts).where(eq(accounts.userId, u.id)),
     }))
     const byLegacy = <T extends { legacyId: string | null }>(xs: T[], id: string) => xs.find((x) => x.legacyId === id)!
-    // migrated-2 was entered in ₹ only: ₹ received is the stored INR amount, ¥ sent is converted at the planning rate.
-    expect(byLegacy(rows.rem, 'migrated-2')).toMatchObject({ jpySent: 13569, inrReceived: '8006.00', purpose: 'family' })
-    // migrated-10 had both amounts: both are kept as stored, nothing recomputed.
-    expect(byLegacy(rows.rem, 'migrated-10')).toMatchObject({ jpySent: 250000, inrReceived: '147500.00' })
+    // sample-2 was entered in ₹ only: ₹ received is the stored INR amount, ¥ sent is converted at the planning rate.
+    expect(byLegacy(rows.rem, 'sample-2')).toMatchObject({ jpySent: 33898, inrReceived: '20000.00', purpose: 'family' })
+    // sample-8 had both amounts: both are kept as stored, nothing recomputed.
+    expect(byLegacy(rows.rem, 'sample-8')).toMatchObject({ jpySent: 34000, inrReceived: '20000.00' })
     const jpBank = byLegacy(rows.acc, 'starter-jp-bank')
     const inBank = byLegacy(rows.acc, 'starter-in-bank')
-    expect(byLegacy(rows.rem, 'migrated-2')).toMatchObject({ fromAccountId: jpBank.id, toAccountId: inBank.id })
+    expect(byLegacy(rows.rem, 'sample-2')).toMatchObject({ fromAccountId: jpBank.id, toAccountId: inBank.id })
     expect(byLegacy(rows.acc, 'starter-jp-emergency')).toMatchObject({ isEmergencyFund: true, currency: 'JPY' })
     expect(inBank).toMatchObject({ country: 'IN', currency: 'INR', isEmergencyFund: false })
-    expect(byLegacy(rows.txn, 'migrated-9')).toMatchObject({ paymentMethod: 'credit_card', needWant: 'want', enteredCurrency: 'JPY' })
-    expect(byLegacy(rows.txn, 'migrated-36')).toMatchObject({ paymentMethod: 'ic_card', amountJpy: 278 })
+    expect(byLegacy(rows.txn, 'sample-9')).toMatchObject({ paymentMethod: 'credit_card', needWant: 'want', enteredCurrency: 'JPY' })
+    expect(byLegacy(rows.txn, 'sample-3')).toMatchObject({ paymentMethod: 'ic_card', amountJpy: 1200 })
   })
 
   it('imports non-empty cycle targets and loan extras, rounding fractional yen', async () => {

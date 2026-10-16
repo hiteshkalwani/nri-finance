@@ -6,6 +6,7 @@ import { authMiddleware } from './middleware/auth'
 import { dbMiddleware, type AppVars } from './middleware/db'
 import { accountRoutes } from './routes/accounts'
 import { balanceRoutes } from './routes/balances'
+import { budgetRoutes } from './routes/budgets'
 import { categoryRoutes } from './routes/categories'
 import { cycleRoutes } from './routes/cycles'
 import { dashboardRoutes } from './routes/dashboard'
@@ -14,7 +15,9 @@ import { loanRoutes } from './routes/loans'
 import { meRoutes } from './routes/me'
 import { networthRoutes } from './routes/networth'
 import { remittanceRoutes } from './routes/remittances'
+import { reviewRoutes } from './routes/review'
 import { sipRoutes } from './routes/sip'
+import { targetRoutes } from './routes/targets'
 import { transactionRoutes } from './routes/transactions'
 
 export type AppDeps = { config: Config; getDb: () => Db }
@@ -52,6 +55,9 @@ export function createApp(deps: AppDeps) {
   app.route('/api/loans', loanRoutes)
   app.route('/api/sip', sipRoutes)
   app.route('/api/cycles', cycleRoutes)
+  app.route('/api/budgets', budgetRoutes)
+  app.route('/api/targets', targetRoutes)
+  app.route('/api/review', reviewRoutes)
 
   return app
 }

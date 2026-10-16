@@ -39,6 +39,8 @@ const dashboardBody = {
   sentByPurpose: [] as { purpose: string; jpySent: number; inrPaise: number; count: number }[],
   loan: null as { name: string; outstandingPaise: number; payoffCycle: string | null } | null,
   sip: null as { paidPaise: number; plannedPaise: number; projectedCorpusPaise: number } | null,
+  budgets: { overCount: 0, nearCount: 0, rows: [] as unknown[] },
+  targets: [] as unknown[],
 }
 
 const NETWORTH = {
@@ -256,6 +258,60 @@ describe('DashboardPage home loan and SIP cards (M3 task 3, DASH-7/8)', () => {
     expect(wrapper.find('[data-testid="loan-card"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="sip-card"]').exists()).toBe(false)
 
+    wrapper.unmount()
+  })
+})
+
+describe('DashboardPage budgets and targets cards (M4 task 3, DASH-9/TGT-2)', () => {
+  it('shows the budgets card with counts, rows and a link to /budgets', async () => {
+    const { wrapper } = await mountDashboard([], 0, NETWORTH, {
+      budgets: {
+        overCount: 1, nearCount: 1,
+        rows: [
+          { categoryId: CATEGORY_ID, name: 'Dining out', color: '#f2c24b', budgetJpy: 15000, effectiveFromCycle: '2026-09', spentJpy: 18900, remainingJpy: -3900, pct: 126, state: 'over' },
+          { categoryId: 'aaaaaaaa-0000-4000-8000-000000000002', name: 'Groceries', color: '#4caf50', budgetJpy: 35000, effectiveFromCycle: '2026-09', spentJpy: 32400, remainingJpy: 2600, pct: 92.6, state: 'near' },
+        ],
+      },
+    })
+
+    const card = wrapper.get('[data-testid="budgets-card"]')
+    expect(card.text()).toContain('1 over · 1 near')
+    expect(card.text()).toContain('Dining out')
+    expect(card.text()).toContain('Over by ￥3,900')
+    expect(card.text()).toContain('Groceries')
+    expect(card.text()).toContain('Near')
+    expect(card.find('a').attributes('href')).toBe('/budgets')
+
+    wrapper.unmount()
+  })
+
+  it('hides the budgets card when there are no over/near categories', async () => {
+    const { wrapper } = await mountDashboard([], 0, NETWORTH, { budgets: { overCount: 0, nearCount: 0, rows: [] } })
+    expect(wrapper.find('[data-testid="budgets-card"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('shows the targets card with actual vs target and met/short words', async () => {
+    const { wrapper } = await mountDashboard([], 0, NETWORTH, {
+      targets: [
+        { key: 'savings', targetValue: 300000, actualValue: 337660, diff: 37660, met: true },
+        { key: 'emergencyFund', targetValue: 50000, actualValue: 40000, diff: -10000, met: false },
+      ],
+    })
+
+    const card = wrapper.get('[data-testid="targets-card"]')
+    expect(card.text()).toContain('Savings (kept)')
+    expect(card.text()).toContain('￥337,660')
+    expect(card.text()).toContain('✓ Met')
+    expect(card.text()).toContain('Emergency fund contribution')
+    expect(card.text()).toContain('✗ ￥10,000 short')
+
+    wrapper.unmount()
+  })
+
+  it('hides the targets card when no targets are set', async () => {
+    const { wrapper } = await mountDashboard([], 0, NETWORTH, { targets: [] })
+    expect(wrapper.find('[data-testid="targets-card"]').exists()).toBe(false)
     wrapper.unmount()
   })
 })

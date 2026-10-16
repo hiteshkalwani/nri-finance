@@ -58,7 +58,6 @@ Supabase Postgres via transaction pooler (port 6543)
 ├── packages/db/          Drizzle schema, migrations, RLS policies, request-scoped db helper
 ├── docker/               Local stack support: db init SQL, nginx gateway, app image
 ├── docker-compose.yml    Local stack: Supabase Postgres + Auth, gateway, app (profile)
-├── legacy/               v1 single-file app (moved here in M5)
 └── docs/                 prd.md, trd.md, plans/
 ```
 
@@ -177,8 +176,11 @@ No policies for `anon`, so Supabase's auto-generated REST API exposes nothing to
 | `PUT /api/loans/:id/planned-prepayments` | Replace planned extras | LOAN-3 | M3 |
 | `GET /api/sip` · `PUT /api/sip` | Plan + allocations | SIP-1,2 | M3 |
 | `GET /api/sip/projection` | Yearly projection + actuals | SIP-3,4 | M3 |
-| `GET /api/budgets?cycle` · `PUT /api/budgets` | Budgets in effect / set from a cycle | BUD-1,2 | M4 |
-| `GET /api/targets/:cycle` · `PUT /api/targets/:cycle` · `POST /api/targets/:cycle/copy-previous` | Targets | TGT-1,2 | M4 |
+| `GET /api/budgets?cycle` | One row per active category, budgeted or not, with spend and near/over state | BUD-1,2, DASH-9 | M4 |
+| `PUT /api/budgets` | Upsert the budget at `{cycle, items[]}`; `amountJpy: null` removes that cycle's row | BUD-1 | M4 |
+| `GET /api/targets/:cycle` · `PUT /api/targets/:cycle` (full replace) | Per-cycle targets | TGT-1 | M4 |
+| `POST /api/targets/:cycle/copy-previous?overwrite` | Copy the previous cycle's targets; 409 without `overwrite` if targets already exist, 400 if the previous cycle has none | TGT-1 | M4 |
+| `GET /api/review/:cycle` | Closed-cycle summary, target vs actual, budget alerts, highlights, `balancesDone`/`nextTargetsSet` | REV-1, TGT-2 | M4 |
 | `GET /api/reports/cycles?from&to` · `/categories?from&to` · `/fx?from&to` | Report series | REP-1,2, REM-5 | M5 |
 | `GET /api/export?format=json\|csv\|xlsx&entity` | Export | EXP-1 | M5 |
 
