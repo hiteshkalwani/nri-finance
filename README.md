@@ -56,6 +56,12 @@ When you are done: `pnpm stack:down` (keeps your data) or `pnpm stack:reset` (wi
   a purpose breakdown and a rate-history chart; filter by purpose. **Record transfer** (`/remit/new`, `/remit/:id`)
   shows the effective rate and how it compares to plan while you type, and auto-links EMI / prepayment transfers to
   your loan.
+- **Loan** (`/loans`, `/loans/:id`) — a loan's outstanding balance, EMI, projected payoff and interest saved so far,
+  a plan-vs-actual balance chart, and its monthly schedule (Upcoming/Past/All) with EMI / prepayment transfers filled
+  in as "actual" rows. Add or edit a loan, or plan future prepayments to see their what-if effect on the schedule.
+- **SIP** (`/sip`) — this cycle's SIP paid vs plan, the yearly step-up, a projection to the plan's end year (including
+  any EMI redirected into the SIP after loan payoff), actual vs plan for the last 12 cycles, and the fund allocation.
+  Edit the plan from here; saving is gated on the allocation adding up to 100%.
 - **Accounts** (`/accounts`) — every bank, cash, fixed-deposit, investment and card account, grouped by type, with
   net worth (Japan + India, combined at the planning rate) and its trend over 6/12/all cycles; add, edit or archive
   an account from here. The emergency fund card shows its balance against your goal and months of spending covered
