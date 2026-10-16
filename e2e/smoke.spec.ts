@@ -75,6 +75,46 @@ test('record a transfer and see it on Remit and the Dashboard (REM-1..5, DASH-4)
   await expect.poll(async () => yen(await page.getByTestId('sent').textContent())).toBe(before + 85000)
 })
 
+test('record a loan EMI and see the actual row, payoff/interest-saved KPIs, and the SIP projection (LOAN-1..4, SIP-1..4)', async ({ page }) => {
+  await signIn(page, '/')
+  expect(page.viewportSize()?.width).toBe(412) // still the config's Pixel 7 phone viewport
+  await page.getByRole('link', { name: 'Remit' }).click()
+  await page.getByRole('link', { name: 'Record transfer' }).click()
+  // Dated into the loan's first month (its startCycle), a past cycle — so it doesn't add to the
+  // "Sent this cycle"/"sent" totals the earlier transfer test already asserts an exact figure for.
+  await page.locator('#sentOn').fill('2026-09-01')
+  await page.locator('#jpySent').fill('62000')
+  await page.locator('#inrPaise').fill('36557')
+  // From/To accounts left unset here (optional) — the earlier transfer test already covers them, and setting
+  // the same Japan bank/India bank pair would make the two transfer rows ambiguous to a `getByText` lookup.
+  await page.getByRole('radio', { name: 'Loan EMI' }).click()
+  // The Home loan imported from v1 is the only open loan, so it auto-links (REM-2) — no picker to deal with.
+  await expect(page.getByText('Loan: Home loan')).toBeVisible()
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page).toHaveURL(/\/remit$/)
+  await expect(page.getByText('Transfer recorded')).toBeVisible()
+
+  await page.getByRole('button', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'Loan', exact: true }).click()
+  await expect(page).toHaveURL(/\/loans\//)
+  await page.getByRole('button', { name: 'All' }).click() // the actual row is now in the past cycle, hidden by the default "Upcoming" filter
+  await expect(page.locator('.sr.actual').first()).toBeVisible() // the EMI transfer fills the "actual" row (LOAN-3)
+  await expect(page.locator('.kpi', { hasText: 'Payoff' })).toContainText(/[A-Za-z]{3} \d{4}/) // LOAN-4
+  await expect(page.locator('.kpi', { hasText: 'Interest saved' })).toContainText('₹') // LOAN-4
+
+  await page.getByRole('button', { name: 'More' }).click()
+  await page.getByRole('link', { name: 'SIP', exact: true }).click()
+  await expect(page).toHaveURL(/\/sip$/)
+  // The SIP plan and its 100%-total fund allocation were already imported from v1 (SIP-1, SIP-2).
+  await expect(page.getByText('Total 100%')).toBeVisible()
+  await expect(page.getByText('Projection to 2036')).toBeVisible() // SIP-4
+  await expect(page.getByText('Actual vs plan, last 12 cycles')).toBeVisible() // SIP-3
+
+  await page.getByRole('link', { name: 'Dashboard' }).click()
+  await expect(page.getByTestId('loan-card')).toContainText('Home loan') // DASH-7
+  await expect(page.getByTestId('sip-card')).toContainText('of') // DASH-8
+})
+
 test.describe('on a laptop', () => {
   // Playwright 1.63 forbids test.use() of worker-scoped fixtures (e.g. defaultBrowserType, which
   // `devices['Desktop Chrome']` sets) inside a describe group — "forces a new worker" — so that
@@ -171,6 +211,23 @@ test.describe('on a laptop', () => {
     await expect(page.locator('.kpi', { hasText: 'Sent this cycle' })).toContainText('85,000')
     await page.getByRole('link', { name: 'Dashboard' }).click()
     await expect(page.getByTestId('sent')).toContainText('85,000')
+  })
+
+  test('see the loan schedule and SIP projection at full width (LOAN-2..4, SIP-3, SIP-4, DASH-7, DASH-8)', async ({ page }) => {
+    await signIn(page, '/loans')
+    expect(page.viewportSize()?.width).toBe(1280) // still the Desktop Chrome viewport
+    await page.getByRole('button', { name: 'All' }).click() // the actual row is in a past cycle, hidden by the default "Upcoming" filter
+    await expect(page.locator('.sr.actual').first()).toBeVisible()
+    await expect(page.locator('.kpi', { hasText: 'Interest saved' })).toContainText('₹')
+
+    await page.getByRole('link', { name: 'SIP', exact: true }).click()
+    await expect(page).toHaveURL(/\/sip$/)
+    await expect(page.getByText('Total 100%')).toBeVisible()
+    await expect(page.getByText('Projection to 2036')).toBeVisible()
+
+    await page.getByRole('link', { name: 'Dashboard' }).click()
+    await expect(page.getByTestId('loan-card')).toContainText('Home loan')
+    await expect(page.getByTestId('sip-card')).toContainText('of')
   })
 })
 

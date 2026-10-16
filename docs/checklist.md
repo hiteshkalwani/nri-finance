@@ -5,7 +5,7 @@ Requirement IDs come from [prd.md](prd.md); milestones from PRD §7. Updated at 
 
 Legend: ✅ done · 🟡 partly done (see note) · 🔨 in progress · ⬜ pending
 
-Last updated: 2026-10-16 (M2b remittances)
+Last updated: 2026-10-16 (M3 loan & SIP)
 
 ## Progress by milestone
 
@@ -14,7 +14,7 @@ Last updated: 2026-10-16 (M2b remittances)
 | M0 Foundation | Repo, CI, schema + RLS, sign-in, profile, v1 import, deploy | 🟡 code + local stack done; cloud deploy ⬜ | I can sign in on phone and laptop and see my imported data |
 | M1 Spending | Ledger, categories, quick-add, basic dashboard | 🟡 built locally; cut-over (re-import, stop using v1) ⬜ | I stop using the v1 app for daily logging |
 | M2 Remittances & balances | Remittances, accounts, snapshots, emergency fund | ✅ M2 done (M2a accounts/balances/EF, M2b remittances) | First real cycle review done in v2 |
-| M3 Loan & SIP | Loan schedule with actuals, SIP plan / actuals / projection | ⬜ | Payoff month reflects real payments |
+| M3 Loan & SIP | Loan schedule with actuals, SIP plan / actuals / projection | ✅ code done | Payoff month reflects real payments |
 | M4 Budgets & review | Budgets, targets, review flow | ⬜ | A full 25th review takes under 5 minutes |
 | M5 Reports & polish | Reports, exports, PWA | ⬜ | v1 retired to `legacy/` |
 
@@ -28,7 +28,7 @@ Last updated: 2026-10-16 (M2b remittances)
 |---|---|---|
 | pnpm monorepo (`apps/web`, `apps/api`, `packages/core`, `contracts`, `db`, `test-utils`) | ✅ | |
 | TypeScript, ESLint (`v-html` and `toISOString` banned), Prettier | ✅ | |
-| Unit tests (Vitest), integration tests (real Postgres + Auth), e2e (Playwright, phone viewport) | ✅ | 59 unit, 4 script, 25 integration, 1 e2e |
+| Unit tests (Vitest), integration tests (real Postgres + Auth), e2e (Playwright, phone viewport) | ✅ | 387 unit, 23 script, 136 integration, 10 e2e |
 | Private GitHub repo `hiteshkalwani/nri-finance` | ✅ | |
 | GitHub Actions CI: typecheck, lint, unit, scripts, production build, `pnpm stack:check` | ✅ | `stack:check` adds e2e; first run on GitHub with the local-stack PR |
 
@@ -130,8 +130,8 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 | DASH-4 | Sent home this cycle: ¥ sent, ₹ received, by purpose | ✅ | M2 — "Sent home" card plus a "Sent home by purpose" breakdown |
 | DASH-5 | Net worth: Japan ¥, India ₹, combined, change since last cycle | ✅ | M2 (P1) — the Dashboard shows the combined total and its change; the Japan/India split is on Accounts |
 | DASH-6 | Emergency fund balance, goal, months covered | ✅ | M2 |
-| DASH-7 | Home loan balance and projected payoff month | ⬜ | M3 |
-| DASH-8 | SIP paid vs plan; projected corpus 2036 | ⬜ | M3 (P1) |
+| DASH-7 | Home loan balance and projected payoff month | ✅ | M3 — "Home loan" card (outstanding + payoff), hidden with no open loan |
+| DASH-8 | SIP paid vs plan; projected corpus 2036 | ✅ | M3 (P1) — "SIP" card (this cycle paid vs plan + projected corpus), hidden with no plan |
 | DASH-9 | Budget status: categories over or near budget | ⬜ | M4 (P1) |
 
 ### 5. Remittances — M2
@@ -158,19 +158,19 @@ Spec: [superpowers/specs/2026-10-05-local-stack-design.md](superpowers/specs/202
 
 | ID | Requirement | Status | Notes |
 |---|---|---|---|
-| LOAN-1 | Loan: principal ₹, rate, EMI, tenure, start cycle; several loans | ⬜ | v1 loan already imported |
-| LOAN-2 | Monthly schedule; closing never below 0 | ⬜ | |
-| LOAN-3 | EMI / prepayment remittances fill "actual"; planned extras for what-if | ⬜ | |
-| LOAN-4 | Payoff month, total interest, interest saved | ⬜ | P1 |
+| LOAN-1 | Loan: principal ₹, rate, EMI, tenure, start cycle; several loans | ✅ | v1 loan already imported ("Home loan"); `/loans` add/edit dialog for more |
+| LOAN-2 | Monthly schedule; closing never below 0 | ✅ | `amortize()` caps each payment at what's owed |
+| LOAN-3 | EMI / prepayment remittances fill "actual"; planned extras for what-if | 🟡 | Works; shortcut — a month with any actual payment ignores that month's planned extra (rare: planning an extra for a month you also paid actuals in) |
+| LOAN-4 | Payoff month, total interest, interest saved | ✅ | P1 — payoff vs plan text, interest saved KPI |
 
 ### 8. SIP — M3
 
 | ID | Requirement | Status | Notes |
 |---|---|---|---|
-| SIP-1 | Plan: monthly ₹, step-up %, return %, redirect EMI after payoff | ⬜ | v1 plan already imported |
-| SIP-2 | Fund allocation totalling 100% | ⬜ | v1 allocations already imported |
-| SIP-3 | Actual SIP per cycle vs plan | ⬜ | |
-| SIP-4 | Yearly projection to 2036 using the real loan payoff year | ⬜ | |
+| SIP-1 | Plan: monthly ₹, step-up %, return %, redirect EMI after payoff | ✅ | v1 plan already imported; `/sip` edit-plan dialog |
+| SIP-2 | Fund allocation totalling 100% | ✅ | v1 allocations already imported; dialog gates saving on a 100% total |
+| SIP-3 | Actual SIP per cycle vs plan | ✅ | "Actual vs plan, last 12 cycles" list on `/sip` |
+| SIP-4 | Yearly projection to 2036 using the real loan payoff year | 🟡 | Works; shortcut — the EMI redirect uses the open loan with the latest projected payoff rather than combining several loans' EMIs (fine while there's usually one loan) |
 
 ### 9. Budgets and targets — M4
 
